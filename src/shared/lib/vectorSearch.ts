@@ -32,7 +32,7 @@ interface SyllabusPayload {
   timestamp: number;
 }
 
-interface TopicPayload {
+export interface TopicPayload {
   topicId: string;
   topicName: string;
   description: string;

@@ -12,6 +12,7 @@ import type {
     ArchiveSyllabusInput,
     ChangeSyllabusStageInput
 } from './syllabus.types';
+import { searchSimilarSyllabi, searchSimilarTopics, getCacheStats, TopicPayload } from '../../shared/lib/vectorSearch';
 
 const checkDuplicateSyllabus = async (
     data: CreateSyllabusInput,
@@ -937,6 +938,109 @@ export const setLatestVersionService = async (syllabusId: string, teacherId: str
 
   return updated;
 };
+
+
+export const topicResourcesService = async (id: string) => {
+    // Placeholder for future implementation
+        if (!id) {
+        throw new ValidationError('Topic ID is required');
+    }
+
+    const resources = await prisma.topicResource.findMany({
+        where: { topicId: id },
+        orderBy: [
+            { relevance: 'desc' },
+            { createdAt: 'desc' }
+        ],
+    });
+    return resources;
+};
+
+
+// export const getSimilarTopicsHandler = asyncHandler(async (req: Request, res: Response) => {
+//     const { id } = req.params;
+//     const { limit } = req.query;
+
+//     if (!id) {
+//         throw new ValidationError('Topic ID is required');
+//     }
+
+//     // Get the topic details first
+//     const topic = await prisma.topic.findUnique({
+//         where: { id },
+//         select: { topicName: true, description: true, keywords: true },
+//     });
+
+//     if (!topic) {
+//         throw new ValidationError('Topic not found');
+//     }
+
+//     // Search for similar topics
+//     const searchText = `${topic.topicName} ${topic.description || ''} ${topic.keywords || ''}`;
+//     const results = await searchSimilarTopics(
+//         searchText,
+//         limit ? parseInt(limit as string) : 10
+//     );
+
+//     res.status(200).json({
+//         success: true,
+//         message: `Found ${results.length} similar topics`,
+//         data: results,
+//         count: results.length,
+//     });
+// });
+
+
+
+
+
+//service function
+
+export async function getSimilarTopicsService(
+  topicId: string,
+  limit = 10
+): Promise<TopicPayload[]> {
+  if (!topicId) {
+    throw new ValidationError('Topic ID is required');
+  }
+
+  // 1️⃣ Fetch topic
+  const topic = await prisma.topic.findUnique({
+    where: { id: topicId },
+    select: {
+      topicName: true,
+      description: true,
+      keywords: true,
+    },
+  });
+
+  if (!topic) {
+    throw new ValidationError('Topic not found');
+  }
+
+  // 2️⃣ Build search text
+  const searchText = `${topic.topicName} ${topic.description ?? ''} ${topic.keywords ?? ''}`;
+
+  // 3️⃣ Vector / semantic search
+  const results = await searchSimilarTopics(searchText, limit);
+  return results;
+}
+
+/**
+ * Get cache statistics from vector DB and database
+ */
+export const getCacheStatsService = async () => {
+  const vectorStats = await getCacheStats();
+  const webSearchCount = await prisma.webSearchCache.count();
+  const topicResourcesCount = await prisma.topicResource.count();
+
+  return {
+    vectorDB: vectorStats,
+    webSearchCache: webSearchCount,
+    topicResources: topicResourcesCount,
+  };
+}
+
 
 
 // model Syllabus {

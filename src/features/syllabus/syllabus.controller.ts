@@ -6,8 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../../shared/middleware/errorHandler';
 import { ValidationError } from '../../shared/lib/errors';
-import { prisma } from '../../shared/lib/prisma';
-import { searchSimilarSyllabi, searchSimilarTopics, getCacheStats } from '../../shared/lib/vectorSearch';
+import { searchSimilarSyllabi } from '../../shared/lib/vectorSearch';
 import { 
     createSyllabusService,
     updateSyllabusService,
@@ -35,7 +34,10 @@ import {
     getSyllabusVersionsService,
     getSyllabusVersionService,
     compareSyllabusVersionsService,
-    setLatestVersionService
+    setLatestVersionService,
+    topicResourcesService,
+    getSimilarTopicsService,
+    getCacheStatsService
 } from './syllabus.service';
 
 
@@ -499,13 +501,7 @@ export const getTopicResourcesHandler = asyncHandler(async (req: Request, res: R
         throw new ValidationError('Topic ID is required');
     }
 
-    const resources = await prisma.topicResource.findMany({
-        where: { topicId: id },
-        orderBy: [
-            { relevance: 'desc' },
-            { createdAt: 'desc' }
-        ],
-    });
+    const resources = await topicResourcesService(id);
 
     res.status(200).json({
         success: true,
@@ -547,20 +543,8 @@ export const getSimilarTopicsHandler = asyncHandler(async (req: Request, res: Re
         throw new ValidationError('Topic ID is required');
     }
 
-    // Get the topic details first
-    const topic = await prisma.topic.findUnique({
-        where: { id },
-        select: { topicName: true, description: true, keywords: true },
-    });
-
-    if (!topic) {
-        throw new ValidationError('Topic not found');
-    }
-
-    // Search for similar topics
-    const searchText = `${topic.topicName} ${topic.description || ''} ${topic.keywords || ''}`;
-    const results = await searchSimilarTopics(
-        searchText,
+    const results = await getSimilarTopicsService(
+        id,
         limit ? parseInt(limit as string) : 10
     );
 
@@ -574,16 +558,12 @@ export const getSimilarTopicsHandler = asyncHandler(async (req: Request, res: Re
 
 
 export const getCacheStatsHandler = asyncHandler(async (req: Request, res: Response) => {
-    const stats = await getCacheStats();
+    const stats = await getCacheStatsService();
 
     res.status(200).json({
         success: true,
         message: 'Cache statistics retrieved',
-        data: {
-            vectorDB: stats,
-            webSearchCache: await prisma.webSearchCache.count(),
-            topicResources: await prisma.topicResource.count(),
-        },
+        data: stats,
     });
 });
 
@@ -680,3 +660,19 @@ export const setLatestVersionHandler = asyncHandler(async (req: Request, res: Re
         data: updated
     });
 });
+
+
+
+
+
+
+// Input validation (Zod schemas) - CRITICAL
+// Authorization checks (resource ownership) - CRITICAL
+// Rate limiting per endpoint - HIGH
+// Proper error handling (don't leak internals) - HIGH
+// Logging system (replace console.log) - MEDIUM
+// Dead letter queue (failed job handling) - MEDIUM
+// Caching layer (Redis for hot data) - MEDIUM
+// Transaction improvements (partial saves) - LOW
+// AI fallback providers - LOW
+// Prompt sanitization - LOW
