@@ -5,6 +5,7 @@ import syllabusRoutes from './features/syllabus/routes/index';
 import aiRoutes from './features/ai/ai.routes';
 import questionRoutes from './features/questions/questions.routes';
 import notificationRoutes from './features/notifications/notifications.routes';
+import assessmentRoutes from './features/assessment/assessment.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
@@ -28,6 +29,7 @@ app.use('/api', syllabusRoutes);                                            // S
 app.use('/api/ai', aiRoutes);                                               // AI-powered features
 app.use('/api/questions', questionRoutes);                                  // Question bank
 app.use('/api/notifications', notificationRoutes);                          // Notifications
+app.use('/api/assessment', assessmentRoutes);                               // Answer grading (mathematical)
 
 
 

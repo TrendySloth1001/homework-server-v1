@@ -113,7 +113,6 @@ model Question {
   id            String   @id @default(cuid())
   topicId       String
   teacherId     String
-
   // Question content
   questionText  String
   questionType  String   // 'mcq', 'short-answer', 'essay', 'true-false'
@@ -139,6 +138,7 @@ model Question {
 
   // Relations
   topic         Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  studentAnswers  StudentAnswer[]
 
   // Indexes for better query performance
   @@index([topicId])
@@ -276,4 +276,38 @@ model TopicResource {
   @@index([topicId])
   @@index([relevance])
   @@index([source])
+}
+
+
+// Assessment - Student Answer Submissions
+model StudentAnswer {
+  id                  String   @id @default(cuid())
+  questionId          String
+  studentId           String   // Who submitted
+  teacherId           String   // For filtering by teacher
+  
+  // Answer data
+  studentAnswer       String   @db.Text
+  selectedOption      String?  // For MCQ: "A", "B", "C", "D"
+  
+  // Grading results
+  score               Float    @default(0.0)
+  maxScore            Float
+  isCorrect           Boolean  @default(false)
+  correctnessLevel    String?  // excellent, good, partial, incorrect
+  
+  // Grading metadata
+  gradingMethod       String   // exact-match, semantic-multi-metric, essay-statistical
+  confidence          Float?
+  feedback            String?  @db.Text
+  
+  submittedAt         DateTime @default(now())
+  
+  // Relations
+  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@index([questionId])
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([gradingMethod])
 }

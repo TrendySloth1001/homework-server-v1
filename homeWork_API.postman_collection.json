@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "homework-server-complete-api",
 		"name": "homeWork Server - Complete API Collection",
-		"description": "# homeWork Server API\n\nComprehensive REST API for educational syllabus management with AI-powered features and RAG infrastructure.\n\n## Features\n- **Syllabus Management**: Full CRUD for syllabuses, units, and topics\n- **AI Syllabus Generation**: AI-powered complete syllabus generation with multiple versions\n- **Workflow Management**: Archive, stage transitions (draft/published/archived)\n- **Notifications**: Teacher notification system for AI generation and events\n- **Completion Tracking**: Auto-calculate syllabus and unit completion percentages\n- **AI Integration**: Ollama (qwen2.5:14b) for content generation and enhancement\n- **Question Bank**: Create and generate questions with multiple types (MCQ, essay, short-answer, true-false)\n- **Background Jobs**: BullMQ for async AI generation tasks\n- **Caching**: Redis-based caching for performance\n- **Vector Search**: Qdrant vector database for semantic search and embeddings\n- **Web Search**: Tavily API integration for real-time curriculum resources\n- **Health Monitoring**: Database and service health endpoints\n\n## Quick Start\n1. Ensure Docker services are running: `./start.sh`\n2. Run the collection setup workflow to create sample data\n3. Variables are auto-saved after each request\n4. Check global tests for validation\n5. Monitor system health via Health & Monitoring endpoints\n\n## Tech Stack\n- Express.js + TypeScript\n- PostgreSQL 16 with pgvector extension\n- Prisma ORM with PostgreSQL adapter\n- Ollama (qwen2.5:14b model)\n- Redis + BullMQ\n- Qdrant Vector Database\n- Tavily Web Search API\n\n## Base URL\nDefault: `http://localhost:3001/api`\n\n## Infrastructure\n- PostgreSQL: `localhost:5432`\n- Redis: `localhost:6379`\n- Qdrant: `http://localhost:6333`\n- Ollama: `http://localhost:11434`",
+		"description": "# homeWork Server API\n\nComprehensive REST API for educational syllabus management with AI-powered features and RAG infrastructure.\n\n## Features\n- **Syllabus Management**: Full CRUD for syllabuses, units, and topics\n- **AI Syllabus Generation**: AI-powered complete syllabus generation with multiple versions\n- **Assessment & Grading**: Mathematical grading algorithms with student analytics and teacher dashboard\n- **Workflow Management**: Archive, stage transitions (draft/published/archived)\n- **Notifications**: Teacher notification system for AI generation and events\n- **Completion Tracking**: Auto-calculate syllabus and unit completion percentages\n- **AI Integration**: Ollama (qwen2.5:14b) for content generation and enhancement\n- **Question Bank**: Create and generate questions with multiple types (MCQ, essay, short-answer, true-false)\n- **Background Jobs**: BullMQ for async AI generation tasks\n- **Caching**: Redis-based caching for performance\n- **Vector Search**: Qdrant vector database for semantic search and embeddings\n- **Web Search**: Tavily API integration for real-time curriculum resources\n- **Health Monitoring**: Database and service health endpoints\n\n## Quick Start\n1. Ensure Docker services are running: `./start.sh`\n2. Run the collection setup workflow to create sample data\n3. Variables are auto-saved after each request\n4. Check global tests for validation\n5. Monitor system health via Health & Monitoring endpoints\n\n## Tech Stack\n- Express.js + TypeScript\n- PostgreSQL 16 with pgvector extension\n- Prisma ORM with PostgreSQL adapter\n- Ollama (qwen2.5:14b model)\n- Redis + BullMQ\n- Qdrant Vector Database\n- Tavily Web Search API\n\n## Base URL\nDefault: `http://localhost:3001/api`\n\n## Infrastructure\n- PostgreSQL: `localhost:5432`\n- Redis: `localhost:6379`\n- Qdrant: `http://localhost:6333`\n- Ollama: `http://localhost:11434`",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"version": "6.0.0"
 	},
@@ -3083,6 +3083,331 @@
 					"description": "Complete CRUD workflow: Create → Read → Update → Delete with detailed data"
 				}
 			]
+		},
+		{
+			"name": "7. Assessment & Grading",
+			"description": "Assessment system with mathematical grading algorithms, student performance analytics, and teacher dashboard statistics. Frontend-optimized with enriched responses, filtering, sorting, pagination, and chart-ready data.",
+			"item": [
+				{
+					"name": "Grade Student Answer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data && response.data.id) {",
+									"        pm.collectionVariables.set('answerId', response.data.id);",
+									"        console.log('✅ Saved answerId:', response.data.id);",
+									"        console.log('📊 Score:', response.data.score, '/', response.data.question.points);",
+									"        console.log('📈 Percentage:', response.data.percentage + '%');",
+									"        console.log('🎯 Correctness:', response.data.correctnessLevel);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"questionId\": \"{{questionId}}\",\n  \"studentId\": \"{{studentId}}\",\n  \"teacherId\": \"{{teacherId}}\",\n  \"studentAnswer\": \"Photosynthesis is the process by which plants convert sunlight into energy\",\n  \"selectedOption\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/grade",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "grade"]
+						},
+						"description": "**Grade Student Answer**\n\nUses mathematical algorithms (no AI) to grade student answers:\n- **Exact Match**: MCQ, True/False (binary scoring)\n- **Semantic Multi-Metric**: Short answer (5 algorithms: cosine, jaccard, keyword, n-gram, levenshtein)\n- **Essay Statistical**: Essays (5 metrics: keyword coverage, length, similarity, readability, diversity)\n\n**Returns:**\n- Score (0-100)\n- Percentage\n- Correctness level (excellent/good/partial/incorrect)\n- Feedback (auto-generated)\n- Confidence (0.0-1.0)\n- Breakdown (individual metric scores)\n- **Full question details** (no extra API call needed)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Answer History (Filtered)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        console.log('📚 Total Answers:', response.pagination.totalCount);",
+									"        console.log('📄 Page:', response.pagination.currentPage, '/', response.pagination.totalPages);",
+									"        console.log('📊 Answers on page:', response.data.length);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/answers?studentId={{studentId}}&page=1&limit=10&sortBy=score&sortOrder=desc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "answers"],
+							"query": [
+								{
+									"key": "studentId",
+									"value": "{{studentId}}",
+									"description": "Filter by student ID"
+								},
+								{
+									"key": "teacherId",
+									"value": "{{teacherId}}",
+									"description": "Filter by teacher ID",
+									"disabled": true
+								},
+								{
+									"key": "questionId",
+									"value": "{{questionId}}",
+									"description": "Filter by question ID",
+									"disabled": true
+								},
+								{
+									"key": "minScore",
+									"value": "50",
+									"description": "Minimum score (0-100)",
+									"disabled": true
+								},
+								{
+									"key": "maxScore",
+									"value": "100",
+									"description": "Maximum score (0-100)",
+									"disabled": true
+								},
+								{
+									"key": "correctnessLevel",
+									"value": "excellent,good",
+									"description": "Comma-separated: excellent, good, partial, incorrect",
+									"disabled": true
+								},
+								{
+									"key": "questionType",
+									"value": "mcq,short-answer",
+									"description": "Comma-separated: mcq, short-answer, essay, true-false",
+									"disabled": true
+								},
+								{
+									"key": "sortBy",
+									"value": "score",
+									"description": "Sort by: submittedAt, score, confidence"
+								},
+								{
+									"key": "sortOrder",
+									"value": "desc",
+									"description": "asc or desc"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (starts at 1)"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								}
+							]
+						},
+						"description": "**Get Answer History with Advanced Filters**\n\n**Query Parameters:**\n- `studentId` - Filter by student\n- `teacherId` - Filter by teacher\n- `questionId` - Filter by question\n- `minScore` / `maxScore` - Score range\n- `correctnessLevel` - excellent, good, partial, incorrect\n- `questionType` - mcq, short-answer, essay, true-false\n- `sortBy` - submittedAt, score, confidence\n- `sortOrder` - asc, desc\n- `page` / `limit` - Pagination\n\n**Returns:**\n- Array of answers with question details\n- Pagination metadata (hasNext, hasPrev, totalPages)\n- Pre-calculated percentages"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Answer (Full Context)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/question/:questionId/student/:studentId/answer",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "question", ":questionId", "student", ":studentId", "answer"],
+							"variable": [
+								{
+									"key": "questionId",
+									"value": "{{questionId}}"
+								},
+								{
+									"key": "studentId",
+									"value": "{{studentId}}"
+								}
+							]
+						},
+						"description": "**Get Single Answer with Full Context**\n\nReturns complete hierarchy:\n- Answer details (score, feedback, confidence)\n- Question (text, type, correct answer, explanation)\n- Topic (name, description)\n- Unit (title)\n- Syllabus (subject, class)\n\nPerfect for breadcrumb navigation!\n\n**Note:** Uses composite key (questionId + studentId) to identify answer."
+					},
+					"response": []
+				},
+				{
+					"name": "Student Performance Analytics",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        console.log('📊 Overall Average:', response.data.overallAverage.toFixed(2) + '%');",
+									"        console.log('📝 Total Attempts:', response.data.totalAttempts);",
+									"        console.log('✅ Correct Answers:', response.data.correctCount);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/student/:studentId/performance",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "student", ":studentId", "performance"],
+							"variable": [
+								{
+									"key": "studentId",
+									"value": "{{studentId}}"
+								}
+							]
+						},
+						"description": "**Student Performance Analytics**\n\n**Chart-Ready Data:**\n- **Bar Charts**: `byQuestionType`, `byDifficulty`\n- **Line Charts**: `improvementTrend` (weekly time series)\n- **Pie Charts**: `byCorrectness` distribution\n- **Heatmaps**: `byTopic` (strengths/weaknesses)\n\n**Includes:**\n- Total attempts, averages, correct count\n- Breakdown by question type, difficulty, topic\n- Improvement trend (last 30 days)\n- Recent answers (last 10)\n- Pre-calculated percentages"
+					},
+					"response": []
+				},
+				{
+					"name": "Regrade Answer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        console.log('🔄 Previous Score:', response.data.previousScore);",
+									"        console.log('🔄 New Score:', response.data.score);",
+									"        console.log('📈 Difference:', response.data.scoreDifference);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/question/:questionId/student/:studentId/regrade",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "question", ":questionId", "student", ":studentId", "regrade"],
+							"variable": [
+								{
+									"key": "questionId",
+									"value": "{{questionId}}"
+								},
+								{
+									"key": "studentId",
+									"value": "{{studentId}}"
+								}
+							]
+						},
+						"description": "**Regrade Answer**\n\nUseful when:\n- Question correctAnswer updated\n- Grading algorithm improved\n- Manual review requested\n\n**Returns:**\n- Previous vs new score\n- Score difference\n- Improvement indicator\n- Updated correctness level\n\n**Note:** Uses composite key (questionId + studentId) to identify answer."
+					},
+					"response": []
+				},
+				{
+					"name": "Question Answers (Teacher Review)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        console.log('📊 Total Answers:', response.data.totalAnswers);",
+									"        console.log('✅ Correct %:', response.data.correctPercentage.toFixed(2) + '%');",
+									"        console.log('📈 Average Score:', response.data.averageScore.toFixed(2));",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/question/:questionId/answers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "question", ":questionId", "answers"],
+							"variable": [
+								{
+									"key": "questionId",
+									"value": "{{questionId}}"
+								}
+							]
+						},
+						"description": "**Question Answers & Statistics (Teacher View)**\n\n**Perfect for:**\n- Reviewing class performance on specific questions\n- Identifying struggling students\n- Analyzing answer patterns\n- Quality checking AI-generated questions\n\n**Returns:**\n- Question details\n- Aggregate statistics (total, correct %, average)\n- Distribution by correctness level\n- All student answers with scores"
+					},
+					"response": []
+				},
+				{
+					"name": "Teacher Dashboard Statistics",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        console.log('📊 Total Attempts:', response.data.totalAttempts);",
+									"        console.log('👥 Unique Students:', response.data.uniqueStudents);",
+									"        console.log('📚 Questions Used:', response.data.questionsUsed);",
+									"        console.log('📈 Class Average:', response.data.classAverage.toFixed(2) + '%');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/assessment/stats/:teacherId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "assessment", "stats", ":teacherId"],
+							"variable": [
+								{
+									"key": "teacherId",
+									"value": "{{teacherId}}"
+								}
+							]
+						},
+						"description": "**Teacher Dashboard Statistics**\n\n**Overview metrics:**\n- Total assessment attempts\n- Unique students engaged\n- Questions used\n- Average class performance\n\n**Analytics:**\n- Breakdown by question type (MCQ, short-answer, essay)\n- Breakdown by difficulty (easy, medium, hard)\n- Recent activity feed (last 10 submissions)\n\n**Perfect for:**\n- Teacher dashboard homepage\n- Class performance overview\n- Engagement tracking"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [
@@ -3231,6 +3556,18 @@
 			"value": "",
 			"type": "string",
 			"description": "Auto-saved notification ID from creation requests."
+		},
+		{
+			"key": "answerId",
+			"value": "",
+			"type": "string",
+			"description": "Auto-saved answer ID from grading requests."
+		},
+		{
+			"key": "studentId",
+			"value": "student123",
+			"type": "string",
+			"description": "Default student ID. Change to your student identifier or use dynamic value."
 		}
 	],
 	"auth": null
