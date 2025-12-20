@@ -20,7 +20,7 @@ echo ""
 # Step 1: Check Docker
 echo -e "${YELLOW}[1/9]${NC} Checking Docker..."
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}❌ Docker is not installed${NC}"
+    echo -e "${RED}Docker is not installed${NC}"
     echo "Please install Docker Desktop from https://www.docker.com/products/docker-desktop"
     exit 1
 fi
@@ -144,7 +144,7 @@ echo -e "${YELLOW}[7/8]${NC} Running database migrations..."
 # Check if migrations need to be reset (switching from SQLite to PostgreSQL)
 if [ -f "prisma/migrations/migration_lock.toml" ]; then
     if grep -q "sqlite" prisma/migrations/migration_lock.toml; then
-        echo "⚠️  Detected SQLite migrations, backing up and resetting for PostgreSQL..."
+        echo "Detected SQLite migrations, backing up and resetting for PostgreSQL..."
         mv prisma/migrations prisma/migrations_sqlite_backup_$(date +%Y%m%d_%H%M%S)
         echo -e "${YELLOW}:: Creating new migrations for PostgreSQL...${NC}"
     fi
@@ -175,7 +175,7 @@ PORT=$(grep "^PORT=" .env | cut -d '=' -f2 | tr -d '"' || echo "3001")
 
 # Kill any existing process on the port
 if lsof -ti:$PORT > /dev/null 2>&1; then
-    echo "⚠️  Killing existing process on port $PORT..."
+    echo "Killing existing process on port $PORT..."
     kill $(lsof -ti:$PORT) > /dev/null 2>&1 || true
     sleep 2
 fi
@@ -201,7 +201,7 @@ echo ""
 if curl -s http://localhost:$PORT/health > /dev/null 2>&1; then
     echo ""
     echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  🚀 All services are running!${NC}"
+    echo -e "${GREEN}   All services are running!${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
     echo -e "${BLUE}Service Status:${NC}"
