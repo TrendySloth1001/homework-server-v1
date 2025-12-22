@@ -26,6 +26,7 @@ model Syllabus {
   isArchived  Boolean   @default(false)
   archivedAt DateTime?
   resources    String?
+  otherFields  Json?    // Dynamic custom fields as JSON object
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   completionStage   Int  @default(0) // percentage of completion based on units/topics added

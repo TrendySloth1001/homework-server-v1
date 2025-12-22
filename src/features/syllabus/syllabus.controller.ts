@@ -42,7 +42,7 @@ import {
 
 
 export const createSyllabusHandler = asyncHandler(async (req: Request, res: Response) => {
-    const { teacherId, subjectName, className, board, term, academicYear, overview, objectives, prerequisites, assessmentMethods, resources } = req.body;
+    const { teacherId, subjectName, className, board, term, academicYear, overview, objectives, prerequisites, assessmentMethods, resources, otherFields } = req.body;
 
     // Validation
     if (!teacherId || !subjectName || !className || !board || !term || !academicYear) {
@@ -61,6 +61,7 @@ export const createSyllabusHandler = asyncHandler(async (req: Request, res: Resp
         prerequisites,
         assessmentMethods,
         resources,
+        ...(otherFields ? { otherFields } : {}),
     });
 
     res.status(201).json({

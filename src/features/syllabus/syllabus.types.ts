@@ -14,6 +14,7 @@ export interface CreateSyllabusInput {
     prerequisites?: string;
     assessmentMethods?: string;
     resources?: string;
+    otherFields?: Record<string, any>; // Dynamic custom fields
 }
 
 export interface UpdateSyllabusInput {
@@ -28,6 +29,7 @@ export interface UpdateSyllabusInput {
     assessmentMethods?: string;
     resources?: string;
     isCompleted?: boolean;
+    otherFields?: Record<string, any>; // Dynamic custom fields
 }
 
 export interface ArchiveSyllabusInput {
