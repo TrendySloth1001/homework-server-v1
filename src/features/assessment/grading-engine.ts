@@ -5,9 +5,6 @@
 
 import type { GradingResult, MetricBreakdown } from './assessment.types';
 
-// ============================================================================
-// TEXT PROCESSING UTILITIES
-// ============================================================================
 
 const STOP_WORDS = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
@@ -34,9 +31,6 @@ function removeStopWords(tokens: string[]): string[] {
     return tokens.filter(t => !STOP_WORDS.has(t) && t.length > 2);
 }
 
-// ============================================================================
-// MATHEMATICAL ALGORITHMS
-// ============================================================================
 
 /**
  * TF-IDF Calculation
@@ -160,9 +154,6 @@ function nGramSimilarity(text1: string, text2: string, n: number = 2): number {
     return union === 0 ? 0 : intersection / union;
 }
 
-// ============================================================================
-// GRADERS
-// ============================================================================
 
 /**
  * Exact Match Grader (MCQ, True-False)
