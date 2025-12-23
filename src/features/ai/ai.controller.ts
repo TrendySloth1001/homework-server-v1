@@ -16,21 +16,44 @@ import {
 } from './ai.service';
 
 export const generateTextHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { prompt, temperature, maxTokens, teacherId } = req.body;
+  const {
+    prompt,
+    temperature,
+    maxTokens,
+    conversationId,
+    userId,
+    teacherId,
+    studentId,
+    useRAG,
+    ragTopK,
+    contextFilters,
+    sessionType,
+    topic,
+  } = req.body;
 
-  if (!prompt && !teacherId) {
-    throw new ValidationError('Prompt and TeacherId are required');
+  if (!(prompt && teacherId)) {
+  throw new ValidationError('Prompt is required');
   }
 
-  const response = await generateTextService({ prompt, temperature, maxTokens });
+  const result = await generateTextService({
+    prompt,
+    temperature,
+    maxTokens,
+    conversationId,
+    userId,
+    teacherId,
+    studentId,
+    useRAG,
+    ragTopK,
+    contextFilters,
+    sessionType,
+    topic,
+  });
 
   res.status(200).json({
     success: true,
-    message: 'Text generated successfully',
-    data: {
-      prompt,
-      response,
-    },
+    message: 'Text generated successfully with RAG',
+    data: result,
   });
 });
 
@@ -138,5 +161,194 @@ export const getUnifiedJobStatusHandler = asyncHandler(async (req: Request, res:
     success: true,
     message: 'Job status retrieved successfully',
     data: jobStatus,
+  });
+});
+
+/**
+ * RAG & Conversation Management Handlers
+ */
+
+import { conversationService } from './conversation.service';
+import { ragService } from '../../shared/lib/rag';
+
+/**
+ * Get conversation history
+ * GET /api/v1/ai/conversations/:id
+ */
+export const getConversationHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId } = req.query;
+
+  if (!id) {
+    throw new ValidationError('Conversation ID is required');
+  }
+
+  const conversation = await conversationService.getConversation(
+    id,
+    userId ? (userId as string) : undefined
+  );
+  const messages = await conversationService.getConversationHistory(id, 100);
+
+  res.status(200).json({
+    success: true,
+    message: 'Conversation retrieved successfully',
+    data: {
+      conversation,
+      messages,
+    },
+  });
+});
+
+/**
+ * Get user's conversations
+ * GET /api/v1/ai/conversations
+ */
+export const getUserConversationsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { userId, sessionType, limit, offset } = req.query;
+
+  if (!userId) {
+    throw new ValidationError('userId is required');
+  }
+
+  const options: any = {};
+  if (sessionType) options.sessionType = sessionType as string;
+  if (limit) options.limit = parseInt(limit as string, 10);
+  if (offset) options.offset = parseInt(offset as string, 10);
+
+  const conversations = await conversationService.getUserConversations(
+    userId as string,
+    options
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Conversations retrieved successfully',
+    data: conversations,
+    count: conversations.length,
+  });
+});
+
+/**
+ * Get teacher's conversations
+ * GET /api/v1/ai/conversations/teacher/:teacherId
+ */
+export const getTeacherConversationsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { teacherId } = req.params;
+  const { sessionType, limit, offset } = req.query;
+
+  if (!teacherId) {
+    throw new ValidationError('teacherId is required');
+  }
+
+  const options: any = {};
+  if (sessionType) options.sessionType = sessionType as string;
+  if (limit) options.limit = parseInt(limit as string, 10);
+  if (offset) options.offset = parseInt(offset as string, 10);
+
+  const conversations = await conversationService.getTeacherConversations(
+    teacherId,
+    options
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Teacher conversations retrieved successfully',
+    data: conversations,
+    count: conversations.length,
+  });
+});
+
+/**
+ * Delete conversation
+ * DELETE /api/v1/ai/conversations/:id
+ */
+export const deleteConversationHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId } = req.query;
+
+  if (!id) {
+    throw new ValidationError('Conversation ID is required');
+  }
+
+  await conversationService.deleteConversation(
+    id,
+    userId ? (userId as string) : undefined
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Conversation deleted successfully',
+  });
+});
+
+/**
+ * Get conversation statistics
+ * GET /api/v1/ai/conversations/:id/stats
+ */
+export const getConversationStatsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw new ValidationError('Conversation ID is required');
+  }
+
+  const stats = await conversationService.getConversationStats(id);
+
+  res.status(200).json({
+    success: true,
+    message: 'Conversation statistics retrieved',
+    data: stats,
+  });
+});
+
+/**
+ * Index content for RAG
+ * POST /api/v1/ai/index
+ */
+export const indexContentHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { type, id } = req.body;
+
+  if (!type) {
+    throw new ValidationError('Type is required (syllabus, question, all)');
+  }
+
+  if (type === 'syllabus' && id) {
+    await ragService.indexSyllabus(id);
+  } else if (type === 'question') {
+    await ragService.indexQuestions(id);
+  } else if (type === 'all') {
+    await ragService.reindexAll();
+  } else {
+    throw new ValidationError('Invalid type or missing id');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Content indexed successfully for ${type}`,
+  });
+});
+
+/**
+ * Search conversations
+ * GET /api/v1/ai/conversations/search
+ */
+export const searchConversationsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { userId, query, limit } = req.query;
+
+  if (!userId || !query) {
+    throw new ValidationError('userId and query are required');
+  }
+
+  const conversations = await conversationService.searchConversations(
+    userId as string,
+    query as string,
+    limit ? parseInt(limit as string, 10) : 20 // Default to 20 if not provided
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Search results retrieved',
+    data: conversations,
+    count: conversations.length,
   });
 });

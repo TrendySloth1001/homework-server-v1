@@ -6,25 +6,130 @@
 import { ollamaService } from '../../shared/lib/ollama';
 import { prisma } from '../../shared/lib/prisma';
 import { NotFoundError, ValidationError } from '../../shared/lib/errors';
-import type { GenerateTextRequest, ChatRequest, EnhanceSyllabusRequest } from './ai.types';
+import type { GenerateTextRequest, GenerateTextResponse, ChatRequest, EnhanceSyllabusRequest } from './ai.types';
 import { config } from '../../shared/config';
+import { ragService } from '../../shared/lib/rag';
+import { conversationService } from './conversation.service';
 
 /**
- * Simple text generation
+ * Enhanced text generation with RAG and conversation history
+ * Now supports context retrieval and sliding window conversation management
  */
-export async function generateTextService(input: GenerateTextRequest): Promise<string> {
-  const { prompt, temperature = 0.7, maxTokens = 500 } = input;
+export async function generateTextService(input: GenerateTextRequest): Promise<GenerateTextResponse> {
+  const {
+    prompt,
+    temperature = 0.7,
+    maxTokens = 5000,
+    conversationId,
+    userId,
+    teacherId,
+    studentId,
+    useRAG = true,
+    ragTopK = 5,
+    contextFilters,
+    sessionType = 'chat',
+    topic,
+  } = input;
 
   if (!prompt || prompt.trim().length === 0) {
     throw new ValidationError('Prompt cannot be empty');
   }
 
-  const response = await ollamaService.generate(prompt, {
-    temperature,
-    num_predict: maxTokens,
+  // Step 1: Get or create conversation
+  let conversation;
+  if (conversationId) {
+    // Load existing conversation
+    const userIdForAuth = userId || teacherId || studentId;
+    conversation = await conversationService.getConversation(conversationId, userIdForAuth);
+  } else {
+    // Create new conversation
+    conversation = await conversationService.createConversation({
+      ...(userId ? { userId } : {}),
+      ...(teacherId ? { teacherId } : {}),
+      ...(studentId ? { studentId } : {}),
+      ...(topic ? { topic } : {}),
+      title: prompt.substring(0, 100), // First 100 chars as title
+      sessionType,
+    });
+  }
+
+  // Step 2: Load conversation history (sliding window - last 100)
+  const history = await conversationService.getConversationHistory(conversation.id, 100);
+
+  // Step 3: Use RAG service if enabled
+  let response: string;
+  let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
+
+  if (useRAG) {
+    // Query with RAG - includes context retrieval + generation
+    const ragResponse = await ragService.query({
+      query: prompt,
+      topK: ragTopK,
+      conversationHistory: history.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      ...(contextFilters ? { filters: contextFilters } : {}),
+      temperature,
+      maxTokens,
+    });
+
+    response = ragResponse.answer;
+    sourceDocuments = ragResponse.sourceNodes;
+  } else {
+    // Simple generation without RAG
+    response = await ollamaService.generate(prompt, {
+      temperature,
+      num_predict: maxTokens,
+    });
+  }
+
+  // Step 4: Store user message
+  const userMessage = await conversationService.addMessage(conversation.id, {
+    role: 'user',
+    content: prompt,
   });
 
-  return response;
+  // Step 5: Store assistant message
+  const assistantMessage = await conversationService.addMessage(conversation.id, {
+    role: 'assistant',
+    content: response,
+    ...(sourceDocuments ? {
+      retrievedDocs: sourceDocuments.map((d) => ({ id: d.metadata.id, score: d.score }))
+    } : {}),
+    model: process.env.OLLAMA_MODEL || 'qwen2.5:14b',
+    temperature,
+    // Note: tokensUsed would need to be calculated from response
+  });
+
+  const result: GenerateTextResponse = {
+    response,
+    conversationId: conversation.id,
+    messageId: assistantMessage.id,
+  };
+  
+  if (useRAG && sourceDocuments) {
+    result.sourceDocuments = sourceDocuments;
+  }
+  
+  return result;
+}
+
+/**
+ * Legacy simple text generation (backward compatibility)
+ * Use generateTextService with useRAG: false for same behavior
+ */
+export async function generateTextSimple(prompt: string, options?: {
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<string> {
+  const result = await generateTextService({
+    prompt,
+    ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options?.maxTokens !== undefined ? { maxTokens: options.maxTokens } : {}),
+    useRAG: false,
+  });
+  return result.response;
 }
 
 /**
