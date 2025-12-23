@@ -2,6 +2,8 @@
  * AI Feature Types
  */
 
+import { FormattedResponse } from '../../shared/lib/responseFormatter';
+
 export interface GenerateTextRequest {
   prompt: string;
   temperature?: number;
@@ -22,10 +24,12 @@ export interface GenerateTextRequest {
   };
   sessionType?: 'chat' | 'tutoring' | 'question-gen' | 'syllabus';
   topic?: string; // Conversation topic
+  formatResponse?: boolean; // Enable response formatting (default: true)
 }
 
 export interface GenerateTextResponse {
-  response: string;
+  response: string; // Raw response text
+  formatted?: FormattedResponse; // Structured formatted content
   conversationId: string;
   messageId: string;
   sourceDocuments?: Array<{

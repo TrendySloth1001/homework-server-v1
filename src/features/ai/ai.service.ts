@@ -10,6 +10,7 @@ import type { GenerateTextRequest, GenerateTextResponse, ChatRequest, EnhanceSyl
 import { config } from '../../shared/config';
 import { ragService } from '../../shared/lib/rag';
 import { conversationService } from './conversation.service';
+import { responseFormatter } from '../../shared/lib/responseFormatter';
 
 /**
  * Enhanced text generation with RAG and conversation history
@@ -29,6 +30,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     contextFilters,
     sessionType = 'chat',
     topic,
+    formatResponse = true,
   } = input;
 
   if (!prompt || prompt.trim().length === 0) {
@@ -60,28 +62,64 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   let response: string;
   let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
 
-  if (useRAG) {
-    // Query with RAG - includes context retrieval + generation
-    const ragResponse = await ragService.query({
-      query: prompt,
-      topK: ragTopK,
-      conversationHistory: history.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      ...(contextFilters ? { filters: contextFilters } : {}),
-      temperature,
-      maxTokens,
-    });
+  try {
+    if (useRAG) {
+      // Query with RAG - includes context retrieval + generation
+      const ragResponse = await ragService.query({
+        query: prompt,
+        topK: ragTopK,
+        conversationHistory: history.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        ...(contextFilters ? { filters: contextFilters } : {}),
+        temperature,
+        maxTokens,
+      });
 
-    response = ragResponse.answer;
-    sourceDocuments = ragResponse.sourceNodes;
-  } else {
-    // Simple generation without RAG
-    response = await ollamaService.generate(prompt, {
-      temperature,
-      num_predict: maxTokens,
-    });
+      response = ragResponse.answer;
+      sourceDocuments = ragResponse.sourceNodes;
+    } else {
+      // Simple generation without RAG
+      response = await ollamaService.generate(prompt, {
+        temperature,
+        num_predict: maxTokens,
+      });
+    }
+
+    // Validate response quality
+    if (!response || typeof response !== 'string') {
+      throw new Error('Invalid response from AI service: response is empty or not a string');
+    }
+
+    const trimmedResponse = response.trim();
+    if (trimmedResponse.length === 0) {
+      throw new Error('Invalid response from AI service: response is empty after trimming');
+    }
+
+    // Check for corruption patterns
+    const lineCount = trimmedResponse.split('\n').length;
+    const nonEmptyLines = trimmedResponse.split('\n').filter(line => line.trim().length > 0).length;
+    const emptyLineRatio = lineCount > 0 ? (lineCount - nonEmptyLines) / lineCount : 0;
+
+    if (emptyLineRatio > 0.7 && lineCount > 10) {
+      console.warn('[AIService] Response has excessive empty lines, cleaning up...');
+      response = trimmedResponse.split('\n').filter(line => line.trim().length > 0).join('\n');
+    }
+
+    // Clean up any JSON wrapper if present
+    try {
+      const jsonMatch = response.match(/^\{\s*"response"\s*:\s*"(.*)"\s*\}$/s);
+      if (jsonMatch && jsonMatch[1]) {
+        response = jsonMatch[1];
+      }
+    } catch {
+      // Not a JSON wrapper, continue with original response
+    }
+
+  } catch (error) {
+    console.error('[AIService] Error generating response:', error);
+    throw new Error(`Failed to generate AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   // Step 4: Store user message
@@ -102,8 +140,12 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     // Note: tokensUsed would need to be calculated from response
   });
 
+  // Step 6: Format response if requested
+  const formatted = formatResponse ? responseFormatter.formatResponse(response) : undefined;
+
   const result: GenerateTextResponse = {
     response,
+    ...(formatted ? { formatted } : {}),
     conversationId: conversation.id,
     messageId: assistantMessage.id,
   };

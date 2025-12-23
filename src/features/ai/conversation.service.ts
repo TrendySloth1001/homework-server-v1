@@ -197,8 +197,26 @@ class ConversationService {
             temperature,
         } = params;
 
-        if (!content || content.trim().length === 0) {
+        if (!content || typeof content !== 'string' || content.trim().length === 0) {
             throw new ValidationError('Message content cannot be empty');
+        }
+
+        // Validate content quality - detect corrupted responses
+        const trimmedContent = content.trim();
+        const lineCount = trimmedContent.split('\n').length;
+        const nonEmptyLines = trimmedContent.split('\n').filter(line => line.trim().length > 0).length;
+        const emptyLineRatio = lineCount > 0 ? (lineCount - nonEmptyLines) / lineCount : 0;
+
+        // If more than 70% empty lines, likely corrupted
+        if (emptyLineRatio > 0.7 && lineCount > 10) {
+            console.error('[ConversationService] Detected corrupted message with excessive empty lines');
+            throw new ValidationError('Message content appears corrupted (excessive empty lines)');
+        }
+
+        // Check for incomplete JSON pattern
+        if (/^\{[\s\n]+"response":[\s\n]+"[^"]*"[\s\n]+$/.test(trimmedContent)) {
+            console.error('[ConversationService] Detected incomplete JSON response pattern');
+            throw new ValidationError('Message content appears to be incomplete JSON');
         }
 
         // Get current message count for sequence number
