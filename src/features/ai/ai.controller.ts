@@ -29,12 +29,78 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
     contextFilters,
     sessionType,
     topic,
+    webSearch,
+    webSearchDepth,
+    stream,
   } = req.body;
 
   if (!(prompt && teacherId)) {
   throw new ValidationError('Prompt is required');
   }
 
+  // Handle streaming response
+  if (stream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    try {
+      // Send initial metadata
+      res.write(`data: ${JSON.stringify({ type: 'start', webSearch })}\n\n`);
+
+      const result = await generateTextService({
+        prompt,
+        temperature,
+        maxTokens,
+        conversationId,
+        userId,
+        teacherId,
+        studentId,
+        useRAG,
+        ragTopK,
+        contextFilters,
+        sessionType,
+        topic,
+        webSearch,
+        webSearchDepth,
+        stream: true,
+      });
+
+      // Send response in chunks
+      const chunkSize = 10; // Characters per chunk
+      for (let i = 0; i < result.response.length; i += chunkSize) {
+        const chunk = result.response.slice(i, Math.min(i + chunkSize, result.response.length));
+        res.write(`data: ${JSON.stringify({ 
+          type: 'chunk', 
+          content: chunk,
+          progress: ((i + chunkSize) / result.response.length * 100).toFixed(1)
+        })}\n\n`);
+        // Small delay for smooth streaming
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Send completion with metadata
+      res.write(`data: ${JSON.stringify({ 
+        type: 'done',
+        conversationId: result.conversationId,
+        messageId: result.messageId,
+        ...(result.formatted ? { formatted: result.formatted } : {}),
+        ...(result.webSearchResults ? { webSearchResults: result.webSearchResults } : {}),
+        ...(result.sourceDocuments ? { sourceDocuments: result.sourceDocuments } : {}),
+      })}\n\n`);
+      res.end();
+    } catch (error) {
+      res.write(`data: ${JSON.stringify({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })}\n\n`);
+      res.end();
+    }
+    return;
+  }
+
+  // Regular non-streaming response
   const result = await generateTextService({
     prompt,
     temperature,
@@ -48,6 +114,8 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
     contextFilters,
     sessionType,
     topic,
+    webSearch,
+    webSearchDepth,
   });
 
   res.status(200).json({

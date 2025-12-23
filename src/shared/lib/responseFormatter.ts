@@ -218,7 +218,7 @@ class ResponseFormatter {
   }
 
   /**
-   * Parse table
+   * Parse table with improved structure
    */
   private parseTable(lines: string[], startIndex: number): { block: FormattedContent; nextIndex: number } | null {
     const tableLines: string[] = [];
@@ -239,22 +239,44 @@ class ResponseFormatter {
     const firstLine = tableLines[0];
     if (!firstLine) return null;
 
-    // Parse table structure
+    // Parse table structure with better cleaning
     const headers = firstLine
       .split('|')
       .map(h => h.trim())
-      .filter(h => h);
+      .filter(h => h && h !== '' && !h.match(/^-+$/)); // Remove empty and separator cells
 
-    const rows = tableLines.slice(2).map(row =>
-      row.split('|').map(cell => cell.trim()).filter(cell => cell)
-    );
+    // Skip separator line (second line with dashes)
+    const dataLines = tableLines.slice(2);
+    
+    const rows = dataLines
+      .map(row => {
+        const cells = row.split('|')
+          .map(cell => cell.trim())
+          .filter(cell => cell && cell !== '');
+        return cells;
+      })
+      .filter(row => row.length > 0); // Remove empty rows
+
+    // Ensure all rows have the same number of columns as headers
+    const normalizedRows = rows.map(row => {
+      if (row.length < headers.length) {
+        return [...row, ...Array(headers.length - row.length).fill('')];
+      } else if (row.length > headers.length) {
+        return row.slice(0, headers.length);
+      }
+      return row;
+    });
 
     return {
       block: {
         type: 'table',
         content: {
           headers,
-          rows,
+          rows: normalizedRows,
+          // Add metadata for frontend rendering
+          columnCount: headers.length,
+          rowCount: normalizedRows.length,
+          responsive: true,
         },
       },
       nextIndex: i,

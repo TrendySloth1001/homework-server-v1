@@ -25,6 +25,9 @@ export interface GenerateTextRequest {
   sessionType?: 'chat' | 'tutoring' | 'question-gen' | 'syllabus';
   topic?: string; // Conversation topic
   formatResponse?: boolean; // Enable response formatting (default: true)
+  webSearch?: boolean; // Enable web search for real-time information (default: false)
+  webSearchDepth?: 'basic' | 'advanced'; // Web search depth (default: 'advanced')
+  stream?: boolean; // Enable streaming response (default: false)
 }
 
 export interface GenerateTextResponse {
@@ -37,6 +40,13 @@ export interface GenerateTextResponse {
     score: number;
     metadata: Record<string, any>;
   }>;
+  webSearchResults?: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+    score?: number;
+  }>;
+  isStreaming?: boolean; // Indicates if response is being streamed
 }
 
 export interface ChatRequest {
