@@ -18,7 +18,8 @@ export async function generateTextService(input: GenerateTextRequest): Promise<s
   if (!prompt || prompt.trim().length === 0) {
     throw new ValidationError('Prompt cannot be empty');
   }
-
+  console.log(prompt);
+  
   const response = await ollamaService.generate(prompt, {
     temperature,
     num_predict: maxTokens,

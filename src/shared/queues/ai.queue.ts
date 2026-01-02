@@ -26,10 +26,14 @@ import {
 } from '../lib/advancedOptimizations';
 
 const connection = config.redis?.enabled && config.redis?.url
-  ? {
-      host: new URL(config.redis.url).hostname,
-      port: parseInt(new URL(config.redis.url).port) || 6379,
-    }
+  ? (() => {
+      const redisUrl = new URL(config.redis.url);
+      return {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        ...(redisUrl.password ? { password: redisUrl.password } : {}),
+      };
+    })()
   : undefined;
 
 /**
