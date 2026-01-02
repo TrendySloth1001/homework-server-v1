@@ -174,7 +174,8 @@ class ContextBuilderService {
     queryText: string,
     topicId: string,
     threshold = 0.75,
-    limit = 5
+    limit = 5,
+    excludeIds: string[] = []
   ): Promise<Array<{ id: string; questionText: string; similarity: number }>> {
     try {
       // Generate embedding for query
@@ -191,11 +192,13 @@ class ContextBuilderService {
         );
 
         if (qdrantResults.length > 0) {
-          return qdrantResults.map(r => ({
-            id: String(r.id),
-            questionText: (r.payload?.questionText as string) || '',
-            similarity: r.score,
-          }));
+          return qdrantResults
+            .filter(r => !excludeIds.includes(String(r.id)))
+            .map(r => ({
+              id: String(r.id),
+              questionText: (r.payload?.questionText as string) || '',
+              similarity: r.score,
+            }));
         }
       } catch (error) {
         console.warn('Qdrant search failed, falling back to PostgreSQL:', error);
@@ -206,6 +209,7 @@ class ContextBuilderService {
         where: {
           topicId,
           embedding: { not: null },
+          ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
         },
         select: {
           id: true,
@@ -414,13 +418,15 @@ class ContextBuilderService {
   async isDuplicate(
     questionText: string,
     topicId: string,
-    threshold = 0.85
+    threshold = 0.85,
+    excludeIds: string[] = []
   ): Promise<{ isDuplicate: boolean; similarQuestion?: { id: string; questionText: string; similarity: number } }> {
     const similarQuestions = await this.findSimilarQuestions(
       questionText,
       topicId,
       threshold,
-      1
+      1,
+      excludeIds
     );
 
     if (similarQuestions.length > 0) {

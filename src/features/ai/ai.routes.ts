@@ -11,13 +11,21 @@ import {
   generateSummaryHandler,
   aiHealthHandler,
   getUnifiedJobStatusHandler,
+  // RAG & Conversation handlers
+  getConversationHandler,
+  getUserConversationsHandler,
+  getTeacherConversationsHandler,
+  deleteConversationHandler,
+  getConversationStatsHandler,
+  indexContentHandler,
+  searchConversationsHandler,
 } from './ai.controller';
 
 const router = Router();
 
 /**
  * AI Routes - /api/v1/ai
- * AI-powered features including text generation, chat, and enhancements
+ * AI-powered features including text generation, chat, RAG, and conversations
  */
 
 // Health check for AI service
@@ -27,7 +35,7 @@ router.get('/health', aiHealthHandler);                                     // G
 router.get('/jobs/:jobId/status', getUnifiedJobStatusHandler);              // GET /api/v1/ai/jobs/:jobId/status
 
 // General AI endpoints
-router.post('/generate', generateTextHandler);                              // POST /api/v1/ai/generate
+router.post('/generate', generateTextHandler);                              // POST /api/v1/ai/generate (RAG-enabled)
 router.post('/chat', chatHandler);                                          // POST /api/v1/ai/chat
 
 // Syllabus enhancement
@@ -37,5 +45,20 @@ router.post('/enhance/:syllabusId', enhanceSyllabusHandler);                // P
 // Generate summary
 router.post('/summary', generateSummaryHandler);                            // POST /api/v1/ai/summary
 router.get('/summary/units/:unitId', generateSummaryHandler);               // GET /api/v1/ai/summary/units/:unitId
+
+/**
+ * RAG & Conversation Management Routes
+ */
+
+// Conversation CRUD
+router.get('/conversations', getUserConversationsHandler);                  // GET /api/v1/ai/conversations?userId=xxx
+router.get('/conversations/teacher/:teacherId', getTeacherConversationsHandler); // GET /api/v1/ai/conversations/teacher/:teacherId
+router.get('/conversations/search', searchConversationsHandler);            // GET /api/v1/ai/conversations/search?userId=xxx&query=yyy
+router.get('/conversations/:id', getConversationHandler);                   // GET /api/v1/ai/conversations/:id
+router.get('/conversations/:id/stats', getConversationStatsHandler);        // GET /api/v1/ai/conversations/:id/stats
+router.delete('/conversations/:id', deleteConversationHandler);             // DELETE /api/v1/ai/conversations/:id
+
+// RAG indexing
+router.post('/index', indexContentHandler);                                 // POST /api/v1/ai/index
 
 export default router;

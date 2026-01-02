@@ -47,7 +47,8 @@ export const createSyllabusService = async (input: CreateSyllabusInput) => {
         data: {
             ...input,
             overview: input.overview ?? null,
-            objectives: input.objectives ?? null
+            objectives: input.objectives ?? null,
+            ...(input.otherFields ? { otherFields: input.otherFields } : {})
         }
     });
 
@@ -97,7 +98,10 @@ export const updateSyllabusService = async (
 
     const syllabus = await prisma.syllabus.update({
         where: { id: syllabusId },
-        data: updateData
+        data: {
+            ...updateData,
+            ...(updateData.otherFields !== undefined ? { otherFields: updateData.otherFields } : {})
+        }
     });
 
     return syllabus;

@@ -26,6 +26,7 @@ model Syllabus {
   isArchived  Boolean   @default(false)
   archivedAt DateTime?
   resources    String?
+  otherFields  Json?    // Dynamic custom fields as JSON object
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   completionStage   Int  @default(0) // percentage of completion based on units/topics added
@@ -310,4 +311,62 @@ model StudentAnswer {
   @@index([studentId])
   @@index([teacherId])
   @@index([gradingMethod])
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  userId      String?  // Optional: link to user/teacher
+  teacherId   String?  // If tied to teacher
+  studentId   String?  // If tied to student
+  
+  // Metadata
+  title       String?  // Auto-generated from first message
+  topic       String?  // Subject matter (e.g., "Math tutoring")
+  sessionType String   @default("chat") // chat | tutoring | question-gen | syllabus
+  
+  // Context tracking
+  contextIds  Json?    // Array of document IDs for RAG context
+  metadata    Json?    // Additional metadata (tags, settings)
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastActiveAt DateTime @default(now())
+  
+  // Relations
+  messages    ConversationMessage[]
+  
+  @@index([userId])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([lastActiveAt])
+}
+
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  
+  // Message content
+  role           String   // 'system' | 'user' | 'assistant'
+  content        String   @db.Text
+  
+  // RAG context used for this message
+  retrievedDocs  Json?    // Array of doc IDs/snippets used for context
+  embedding      String?  @db.Text // Vector embedding (384d)
+  
+  // Metadata
+  tokensUsed     Int?     // Track token consumption
+  model          String?  // Model used (qwen2.5:14b)
+  temperature    Float?   // Generation parameters
+  
+  // Order tracking
+  sequenceNumber Int      // Message order in conversation
+  
+  createdAt      DateTime @default(now())
+  
+  // Relations
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId, sequenceNumber])
+  @@index([conversationId])
 }
