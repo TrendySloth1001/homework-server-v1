@@ -180,65 +180,106 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
   // For small batches, generate synchronously
   const questions = [];
   const errors = [];
+  const sessionQuestions: Array<{ text: string; embedding: number[] }> = []; // Track questions in current session
+  
+  let successCount = 0;
+  let attemptCount = 0;
+  const maxAttempts = count * 5; // Allow up to 5x attempts to handle duplicates
 
-  for (let i = 0; i < count; i++) {
+  while (successCount < count && attemptCount < maxAttempts) {
+    attemptCount++;
+    
     try {
-      const prompt = await buildQuestionPrompt(topic, questionType, difficulty);
+      // Add attempt number to prompt for variation (prevents cache hits)
+      const prompt = await buildQuestionPrompt(topic, questionType, difficulty, attemptCount);
       
-      // Check cache first
-      const cacheKey = CacheKeys.aiGeneration(prompt, config.ai.ollama.model);
-      const cached = await cacheService.get<any>(cacheKey);
-
-      let response;
-      if (cached) {
-        response = cached;
-      } else {
-        response = await ollamaService.generate(prompt, {
-          temperature: 0.7,
-          num_predict: 500,
-        });
-        // Cache for 7 days
-        await cacheService.set(cacheKey, response, 7 * 24 * 3600);
-      }
+      // IMPORTANT: Don't cache question generation to ensure unique questions
+      // Each generation should be fresh to avoid duplicates
+      const response = await ollamaService.generate(prompt, {
+        temperature: 0.9, // Higher temperature for maximum variation
+        num_predict: 500,
+      });
 
       // Parse and save question
       const parsed = parseQuestionResponse(response, questionType);
       
-      // Check for duplicate before creating
-      console.log(`🔍 Checking for duplicates: "${parsed.question.substring(0, 60)}..."`);
-      let isDuplicate = false;
+      // Check for duplicate ONLY against current session (not historical questions)
+      console.log(`[Attempt ${attemptCount}/${maxAttempts}, Success ${successCount}/${count}] Checking: "${parsed.question.substring(0, 60)}..."`);
+      // Generate embedding for this question
+      let questionEmbedding: number[] | null = null;
       try {
-        const duplicateCheck = await contextBuilderService.isDuplicate(
-          parsed.question,
-          topicId,
-          0.85
-        );
-        
-        console.log(`✓ Duplicate check result: ${duplicateCheck.isDuplicate ? 'DUPLICATE FOUND' : 'Unique'}`);
-        
-        if (duplicateCheck.isDuplicate) {
-          console.warn(`⚠️  Skipping duplicate question (${(duplicateCheck.similarQuestion!.similarity * 100).toFixed(1)}% similar)`);
-          console.warn(`   Similar to: "${duplicateCheck.similarQuestion!.questionText.substring(0, 60)}..."`);
-          isDuplicate = true;
-        }
+        questionEmbedding = await embeddingService.generateEmbedding(parsed.question);
       } catch (error) {
-        console.error('❌ Error checking duplicate:', error);
+        console.error('Error generating embedding:', error);
+      }
+      
+      // DUPLICATE CHECK 1: Within current session (85% threshold)
+      let isDuplicate = false;
+      if (questionEmbedding) {
+        for (const sessionQ of sessionQuestions) {
+          const similarity = embeddingService.cosineSimilarity(questionEmbedding, sessionQ.embedding);
+          if (similarity >= 0.85) {
+            console.warn(`Duplicate in current session (${(similarity * 100).toFixed(1)}% similar) - regenerating...`);
+            console.warn(`   Similar to: "${sessionQ.text.substring(0, 60)}..."`);
+            isDuplicate = true;
+            break;
+          }
+        }
+        
+        if (!isDuplicate) {
+          console.log(`Unique within current session!`);
+          
+          // DUPLICATE CHECK 2: Against database (65% threshold)
+          console.log(`Checking against existing questions in database...`);
+          try {
+            const dbDuplicateCheck = await contextBuilderService.isDuplicate(
+              parsed.question,
+              topicId,
+              0.65 // 65% threshold for database check
+            );
+            
+            if (dbDuplicateCheck.isDuplicate) {
+              console.warn(`Similar to existing question in database (${(dbDuplicateCheck.similarQuestion!.similarity * 100).toFixed(1)}% similar) - regenerating...`);
+              console.warn(`   Similar to: "${dbDuplicateCheck.similarQuestion!.questionText.substring(0, 60)}..."`);
+              isDuplicate = true;
+            } else {
+              console.log(`Unique in database too!`);
+            }
+          } catch (error) {
+            console.error('Error checking database duplicates:', error);
+          }
+        }
+      } else {
+        console.warn(` No embedding generated, skipping duplicate check`);
       }
 
       if (isDuplicate) {
-        console.log(`⏭️  Regenerating due to duplicate (attempt ${i + 1}/${count})`);
-        continue; // Skip this question and try next iteration
+        continue; // Retry without incrementing successCount
       }
 
-      // Generate embedding
-      console.log(`🧮 Generating embedding for question...`);
+      // Use the embedding we already generated (or generate if missing)
       let embedding: string | null = null;
-      try {
-        const embeddingVector = await embeddingService.generateEmbedding(parsed.question);
-        embedding = JSON.stringify(embeddingVector);
-        console.log(`✅ Embedding generated (${embeddingVector.length}D vector)`);
-      } catch (error) {
-        console.error('❌ Error generating embedding:', error);
+      if (questionEmbedding) {
+        embedding = JSON.stringify(questionEmbedding);
+        console.log(`Using generated embedding (${questionEmbedding.length}D vector)`);
+        // Add to session tracking
+        sessionQuestions.push({
+          text: parsed.question,
+          embedding: questionEmbedding
+        });
+      } else {
+        console.log(`Generating embedding for question...`);
+        try {
+          const embeddingVector = await embeddingService.generateEmbedding(parsed.question);
+          embedding = JSON.stringify(embeddingVector);
+          console.log(`Embedding generated (${embeddingVector.length}D vector)`);
+          sessionQuestions.push({
+            text: parsed.question,
+            embedding: embeddingVector
+          });
+        } catch (error) {
+          console.error('Error generating embedding:', error);
+        }
       }
       
       const question = await prisma.question.create({
@@ -274,16 +315,17 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
               questionType: question.questionType,
             }
           );
-          console.log(`✅ Stored in Qdrant collection`);
+          console.log(`Stored in Qdrant collection`);
         } catch (error) {
-          console.error('❌ Error storing in Qdrant:', error);
+          console.error('Error storing in Qdrant:', error);
         }
       } else {
-        console.warn(`⚠️  No embedding to store in Qdrant`);
+        console.warn(`No embedding to store in Qdrant`);
       }
 
-      console.log(`✅ Question ${i + 1}/${count} saved successfully\n`);
+      console.log(`Question ${successCount + 1}/${count} saved successfully (attempt ${attemptCount})\n`);
       questions.push(question);
+      successCount++;
 
       // Log generation
       await prisma.aIGeneration.create({
@@ -300,8 +342,16 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
         },
       });
     } catch (error) {
-      errors.push({ index: i + 1, error: error instanceof Error ? error.message : 'Unknown error' });
+      errors.push({ attempt: attemptCount, error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error(`Error in attempt ${attemptCount}:`, error);
     }
+  }
+  
+  // Log summary
+  if (successCount < count) {
+    console.warn(` Only generated ${successCount}/${count} questions after ${attemptCount} attempts`);
+  } else {
+    console.log(` Successfully generated ${successCount} questions in ${attemptCount} attempts`);
   }
 
   // Invalidate cache
@@ -534,13 +584,18 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
 }
 
 // Helper functions
-async function buildQuestionPrompt(topic: any, questionType: string, difficulty: string): Promise<string> {
+async function buildQuestionPrompt(topic: any, questionType: string, difficulty: string, attemptNumber: number = 1): Promise<string> {
   try {
     // Build enhanced context using RAG
     const context = await contextBuilderService.buildEnhancedContext(topic.id);
     
+    // Add variation instruction based on attempt number to ensure unique questions
+    const variationHint = attemptNumber > 1 
+      ? `\n\nIMPORTANT: This is attempt #${attemptNumber}. Generate a DIFFERENT question than previous attempts. Use different concepts, wording, and approach.` 
+      : '';
+    
     // Build enhanced prompt with context
-    const basePrompt = `Generate ONE unique ${difficulty} difficulty ${questionType} question.
+    const basePrompt = `Generate ONE unique ${difficulty} difficulty ${questionType} question.${variationHint}
 
 ${questionType === 'mcq' ? 'Requirements:\n- Provide exactly 4 options (A, B, C, D)\n- Only ONE option should be correct\n- Options should be plausible and educationally valuable\n- Avoid obvious trick answers' : ''}
 ${questionType === 'short-answer' ? 'Requirements:\n- Question should be answerable in 2-3 sentences\n- Should test understanding, not just memorization\n- Provide model answer' : ''}
@@ -564,7 +619,11 @@ Format your response as valid JSON (no markdown, no code blocks):
     console.error('Error building enhanced prompt, falling back to simple prompt:', error);
     
     // Fallback to simple prompt if context building fails
-    return `Generate a ${difficulty} difficulty ${questionType} question for the following topic:
+    const variationHint = attemptNumber > 1 
+      ? `\n\nIMPORTANT: Attempt #${attemptNumber} - Generate a DIFFERENT question than before.` 
+      : '';
+    
+    return `Generate a ${difficulty} difficulty ${questionType} question for the following topic:${variationHint}
 
 Subject: ${topic.unit.syllabus.subjectName}
 Class: ${topic.unit.syllabus.className}

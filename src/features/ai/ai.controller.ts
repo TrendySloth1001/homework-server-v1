@@ -16,10 +16,10 @@ import {
 } from './ai.service';
 
 export const generateTextHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { prompt, temperature, maxTokens } = req.body;
+  const { prompt, temperature, maxTokens, teacherId } = req.body;
 
-  if (!prompt) {
-    throw new ValidationError('Prompt is required');
+  if (!prompt && !teacherId) {
+    throw new ValidationError('Prompt and TeacherId are required');
   }
 
   const response = await generateTextService({ prompt, temperature, maxTokens });
