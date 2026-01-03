@@ -333,7 +333,7 @@ export const getTeacherConversationsHandler = asyncHandler(async (req: Request, 
  */
 export const deleteConversationHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { userId } = req.query;
+  const { teacherId } = req.query;
 
   if (!id) {
     throw new ValidationError('Conversation ID is required');
@@ -341,7 +341,7 @@ export const deleteConversationHandler = asyncHandler(async (req: Request, res: 
 
   await conversationService.deleteConversation(
     id,
-    userId ? (userId as string) : undefined
+    teacherId ? (teacherId as string) : undefined
   );
 
   res.status(200).json({

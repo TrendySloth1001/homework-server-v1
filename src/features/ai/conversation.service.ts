@@ -431,11 +431,11 @@ class ConversationService {
      */
     async deleteConversation(
         conversationId: string,
-        userId?: string
+        teacherId?: string
     ): Promise<void> {
-        // Verify ownership if userId provided
-        if (userId) {
-            await this.getConversation(conversationId, userId);
+        // Verify ownership if teacherId provided
+        if (teacherId) {
+            await this.getConversation(conversationId, teacherId);
         }
 
         await prisma.conversation.delete({
