@@ -107,7 +107,8 @@ class OllamaService {
       model: this.model,
       prompt,
       stream: false,
-      format: 'json', // Enforce JSON output for structured data (qwen2.5, llama3.2+ support)
+      // NOTE: format: 'json' removed - causes incomplete/corrupted responses
+      // Models will return natural text which is more reliable
       ...(mergedOptions ? { options: mergedOptions } : {}),
     };
 
