@@ -99,7 +99,7 @@ class OllamaService {
   async generate(
     prompt: string,
     options?: OllamaGenerateRequest['options']
-  ): Promise<string> {
+  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number }> {
     const url = `${this.baseUrl}/api/generate`;
     
     const mergedOptions = this.getOptions(options);
@@ -132,7 +132,18 @@ class OllamaService {
       }
 
       const data: OllamaGenerateResponse = await response.json();
-      return data.response;
+      
+      // Extract token counts from response
+      const promptTokens = data.prompt_eval_count || 0;
+      const completionTokens = data.eval_count || 0;
+      const totalTokens = promptTokens + completionTokens;
+      
+      return {
+        response: data.response,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      };
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -160,7 +171,7 @@ class OllamaService {
   async chat(
     messages: OllamaChatMessage[],
     options?: OllamaChatRequest['options']
-  ): Promise<string> {
+  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number }> {
     const url = `${this.baseUrl}/api/chat`;
     
     const mergedOptions = this.getOptions(options);
@@ -191,7 +202,18 @@ class OllamaService {
       }
 
       const data: OllamaChatResponse = await response.json();
-      return data.message.content;
+      
+      // Extract token counts from response
+      const promptTokens = data.prompt_eval_count || 0;
+      const completionTokens = data.eval_count || 0;
+      const totalTokens = promptTokens + completionTokens;
+      
+      return {
+        response: data.message.content,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      };
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {

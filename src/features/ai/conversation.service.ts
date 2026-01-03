@@ -336,7 +336,7 @@ class ConversationService {
      * Get all conversations for a user
      */
     async getUserConversations(
-        userId: string,
+        teacherId: string,
         options?: {
             sessionType?: string;
             limit?: number;
@@ -347,9 +347,9 @@ class ConversationService {
 
         const where: any = {
             OR: [
-                { userId },
-                { teacherId: userId },
-                { studentId: userId },
+                { teacherId },
+                { teacherId },
+                { studentId: teacherId },
             ],
         };
 
@@ -445,7 +445,7 @@ class ConversationService {
         // Clear cache
         await cacheService.deletePattern(`conversation:${conversationId}:*`);
 
-        console.log(`✅ Deleted conversation ${conversationId}`);
+        console.log(`Deleted conversation ${conversationId}`);
     }
 
     /**
@@ -514,16 +514,16 @@ class ConversationService {
      * Search conversations by content
      */
     async searchConversations(
-        userId: string,
+        teacherId: string,
         searchQuery: string,
         limit: number = 20
     ): Promise<Conversation[]> {
         const conversations = await prisma.conversation.findMany({
             where: {
                 OR: [
-                    { userId },
-                    { teacherId: userId },
-                    { studentId: userId },
+                    { userId: teacherId },
+                    { teacherId },
+                    { studentId: teacherId },
                 ],
                 AND: {
                     OR: [
@@ -544,6 +544,53 @@ class ConversationService {
 
         return conversations as Conversation[];
     }
+
+
+    /**
+     * Get ALL messages from a conversation (no limit)
+     * Optionally verify teacher access
+     */
+    async allMessages(conversationId: string, teacherId?: string): Promise<Message[]> {
+        // If teacherId provided, verify access to this conversation
+        if (teacherId) {
+            const conversation = await prisma.conversation.findFirst({
+                where: {
+                    id: conversationId,
+                    OR: [
+                        { userId: teacherId },
+                        { teacherId: teacherId },
+                        { studentId: teacherId },
+                    ],
+                },
+            });
+
+            if (!conversation) {
+                throw new NotFoundError('Conversation not found or access denied');
+            }
+        }
+
+        // Fetch all messages for this conversation
+        const messages = await prisma.conversationMessage.findMany({
+            where: { conversationId },
+            orderBy: { sequenceNumber: 'asc' },
+            select: {
+                id: true,
+                conversationId: true,
+                role: true,
+                content: true,
+                tokensUsed: true,
+                model: true,
+                temperature: true,
+                sequenceNumber: true,
+                createdAt: true,
+                retrievedDocs: true,
+                embedding: true,
+                // embedding intentionally excluded
+            },
+        });
+
+        return messages as Message[];
+    }   
 }
 
 // Export singleton instance

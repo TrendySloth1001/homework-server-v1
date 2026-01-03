@@ -94,6 +94,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
   // Step 3: Use RAG service if enabled
   let response: string;
+  let tokensUsed = 0;
   let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
 
   try {
@@ -113,13 +114,16 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
       response = ragResponse.answer;
       sourceDocuments = ragResponse.sourceNodes;
+      tokensUsed = ragResponse.tokensUsed || 0;
     } else {
       // Simple generation without RAG (include web search context)
       const enhancedPrompt = webSearchContext ? webSearchContext + prompt : prompt;
-      response = await ollamaService.generate(enhancedPrompt, {
+      const ollamaResponse = await ollamaService.generate(enhancedPrompt, {
         temperature,
         num_predict: maxTokens,
       });
+      response = ollamaResponse.response;
+      tokensUsed = ollamaResponse.totalTokens;
     }
 
     // Validate response quality
@@ -170,9 +174,9 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     ...(sourceDocuments ? {
       retrievedDocs: sourceDocuments.map((d) => ({ id: d.metadata.id, score: d.score }))
     } : {}),
+    tokensUsed,
     model: process.env.OLLAMA_MODEL || 'qwen2.5:14b',
     temperature,
-    // Note: tokensUsed would need to be calculated from response
   });
 
   // Step 6: Format response if requested
@@ -183,6 +187,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     ...(formatted ? { formatted } : {}),
     conversationId: conversation.id,
     messageId: assistantMessage.id,
+    tokensUsed,
     ...(stream ? { isStreaming: true } : {}),
   };
   
@@ -224,11 +229,11 @@ export async function chatService(input: ChatRequest): Promise<string> {
     throw new ValidationError('Messages array cannot be empty');
   }
 
-  const response = await ollamaService.chat(messages, {
+  const ollamaResponse = await ollamaService.chat(messages, {
     temperature,
   });
 
-  return response;
+  return ollamaResponse.response;
 }
 
 /**
@@ -302,7 +307,7 @@ ${syllabus.units.map((u, i) => `${i + 1}. ${u.title}`).join('\n')}
 Provide 4-5 practical teaching strategies that would work well for this course.`;
       
       // For teaching strategies, we'll return the text without updating the database
-      const strategies = await ollamaService.generate(prompt, {
+      const strategiesResponse = await ollamaService.generate(prompt, {
         temperature: 0.7,
         num_predict: 600,
       });
@@ -310,7 +315,7 @@ Provide 4-5 practical teaching strategies that would work well for this course.`
       return {
         syllabusId,
         enhancementType,
-        content: strategies,
+        content: strategiesResponse.response,
         message: 'Teaching strategies generated successfully',
       };
 
@@ -329,7 +334,7 @@ ${syllabus.units.map((u, i) => `${i + 1}. ${u.title}${u.description ? ': ' + u.d
 
 Provide enhanced, detailed content that would help students better understand these topics.`;
       
-      const enhancedContent = await ollamaService.generate(prompt, {
+      const enhancedContentResponse = await ollamaService.generate(prompt, {
         temperature: 0.7,
         num_predict: 700,
       });
@@ -337,7 +342,7 @@ Provide enhanced, detailed content that would help students better understand th
       return {
         syllabusId,
         enhancementType,
-        content: enhancedContent,
+        content: enhancedContentResponse.response,
         message: 'Content enhanced successfully',
       };
 
@@ -346,7 +351,7 @@ Provide enhanced, detailed content that would help students better understand th
   }
 
   // Generate the content
-  const generatedContent = await ollamaService.generate(prompt, {
+  const generatedContentResponse = await ollamaService.generate(prompt, {
     temperature: 0.7,
     num_predict: 500,
   });
@@ -355,14 +360,14 @@ Provide enhanced, detailed content that would help students better understand th
   const updated = await prisma.syllabus.update({
     where: { id: syllabusId },
     data: {
-      [updateField]: generatedContent,
+      [updateField]: generatedContentResponse.response,
     },
   });
 
   return {
     syllabusId: updated.id,
     enhancementType,
-    content: generatedContent,
+    content: generatedContentResponse.response,
     message: `${enhancementType} generated and saved successfully`,
   };
 }
@@ -397,12 +402,12 @@ ${unit.topics.map((t, i) => `${i + 1}. ${t.topicName}`).join('\n')}
 
 Provide a clear, student-friendly summary in 2-3 paragraphs that helps students understand what they'll learn in this unit.`;
 
-  const summary = await ollamaService.generate(prompt, {
+  const summaryResponse = await ollamaService.generate(prompt, {
     temperature: 0.7,
     num_predict: 400,
   });
 
-  return summary;
+  return summaryResponse.response;
 }
 
 /**
@@ -447,7 +452,7 @@ Provide detailed, student-friendly content that includes:
 
 Write in a clear, engaging style suitable for ${topic.unit.syllabus.className} students.`;
 
-  const enhancedContent = await ollamaService.generate(prompt, {
+  const enhancedContentResponse = await ollamaService.generate(prompt, {
     temperature: 0.7,
     num_predict: 700,
   });
@@ -455,7 +460,7 @@ Write in a clear, engaging style suitable for ${topic.unit.syllabus.className} s
   return {
     topicId,
     enhancementType: input.enhancementType || 'content',
-    content: enhancedContent,
+    content: enhancedContentResponse.response,
     message: 'Topic content enhanced successfully',
   };
 }
