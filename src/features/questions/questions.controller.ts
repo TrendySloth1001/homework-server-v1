@@ -178,16 +178,17 @@ export const deleteQuestionHandler = asyncHandler(async (req: Request, res: Resp
 
 export const getJobStatusHandler = asyncHandler(async (req: Request, res: Response) => {
   const { jobId } = req.params;
-  const teacherId = req.query.teacherId as string | undefined;
-
+  const Id = req.body.teacherId as string | undefined;
+  console.log(jobId,Id);
+  
   if (!jobId) {
     throw new ValidationError('Job ID is required');
   }
 
-  if (!teacherId) {
+  if (!Id) {
     throw new ValidationError('Teacher ID is required');
   }
-  const status = await getGenerationJobStatusService(jobId, teacherId);
+  const status = await getGenerationJobStatusService(jobId, Id);
 
   res.status(200).json({
     success: true,

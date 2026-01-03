@@ -6,25 +6,212 @@
 import { ollamaService } from '../../shared/lib/ollama';
 import { prisma } from '../../shared/lib/prisma';
 import { NotFoundError, ValidationError } from '../../shared/lib/errors';
-import type { GenerateTextRequest, ChatRequest, EnhanceSyllabusRequest } from './ai.types';
+import type { GenerateTextRequest, GenerateTextResponse, ChatRequest, EnhanceSyllabusRequest } from './ai.types';
 import { config } from '../../shared/config';
+import { ragService } from '../../shared/lib/rag';
+import { conversationService } from './conversation.service';
+import { responseFormatter } from '../../shared/lib/responseFormatter';
+import { searchWeb, type SearchResult } from '../../shared/lib/webSearch';
 
 /**
- * Simple text generation
+ * Enhanced text generation with RAG and conversation history
+ * Now supports context retrieval and sliding window conversation management
  */
-export async function generateTextService(input: GenerateTextRequest): Promise<string> {
-  const { prompt, temperature = 0.7, maxTokens = 500 } = input;
+export async function generateTextService(input: GenerateTextRequest): Promise<GenerateTextResponse> {
+  const {
+    prompt,
+    temperature = 0.7,
+    maxTokens = 5000,
+    conversationId,
+    userId,
+    teacherId,
+    studentId,
+    useRAG = true,
+    ragTopK = 5,
+    contextFilters,
+    sessionType = 'chat',
+    topic,
+    formatResponse = true,
+    webSearch = false,
+    webSearchDepth = 'advanced',
+    stream = false,
+  } = input;
 
   if (!prompt || prompt.trim().length === 0) {
     throw new ValidationError('Prompt cannot be empty');
   }
 
-  const response = await ollamaService.generate(prompt, {
-    temperature,
-    num_predict: maxTokens,
+  // Step 1: Get or create conversation
+  let conversation;
+  if (conversationId) {
+    // Load existing conversation
+    const userIdForAuth = userId || teacherId || studentId;
+    conversation = await conversationService.getConversation(conversationId, userIdForAuth);
+  } else {
+    // Create new conversation
+    conversation = await conversationService.createConversation({
+      ...(userId ? { userId } : {}),
+      ...(teacherId ? { teacherId } : {}),
+      ...(studentId ? { studentId } : {}),
+      ...(topic ? { topic } : {}),
+      title: prompt.substring(0, 100), // First 100 chars as title
+      sessionType,
+    });
+  }
+
+  // Step 2: Load conversation history (sliding window - last 100)
+  const history = await conversationService.getConversationHistory(conversation.id, 100);
+
+  // Step 2.5: Perform web search if enabled
+  let webSearchResults: SearchResult[] | undefined;
+  let webSearchContext = '';
+  
+  if (webSearch) {
+    try {
+      console.log('[AIService] Web search enabled - searching for:', prompt);
+      webSearchResults = await searchWeb(prompt, {
+        maxResults: 5,
+        searchDepth: webSearchDepth,
+        useCache: true,
+        cacheDays: 7,
+      });
+      
+      if (webSearchResults && webSearchResults.length > 0) {
+        console.log(`[AIService] Found ${webSearchResults.length} web search results`);
+        // Format search results as context
+        webSearchContext = '\n\n=== RECENT WEB SEARCH RESULTS ===\n' +
+          webSearchResults.map((result, idx) => 
+            `${idx + 1}. ${result.title}\n   ${result.snippet || ''}\n   Source: ${result.url}`
+          ).join('\n\n') +
+          '\n\n=== END WEB SEARCH RESULTS ===\n\n' +
+          'Based on the above web search results, please provide an accurate and up-to-date response.\n\n';
+      }
+    } catch (error) {
+      console.warn('[AIService] Web search failed:', error);
+      // Continue without web search results
+    }
+  }
+
+  // Step 3: Use RAG service if enabled
+  let response: string;
+  let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
+
+  try {
+    if (useRAG) {
+      // Query with RAG - includes context retrieval + generation
+      const ragResponse = await ragService.query({
+        query: webSearchContext + prompt, // Include web search context in query
+        topK: ragTopK,
+        conversationHistory: history.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        ...(contextFilters ? { filters: contextFilters } : {}),
+        temperature,
+        maxTokens,
+      });
+
+      response = ragResponse.answer;
+      sourceDocuments = ragResponse.sourceNodes;
+    } else {
+      // Simple generation without RAG (include web search context)
+      const enhancedPrompt = webSearchContext ? webSearchContext + prompt : prompt;
+      response = await ollamaService.generate(enhancedPrompt, {
+        temperature,
+        num_predict: maxTokens,
+      });
+    }
+
+    // Validate response quality
+    if (!response || typeof response !== 'string') {
+      throw new Error('Invalid response from AI service: response is empty or not a string');
+    }
+
+    const trimmedResponse = response.trim();
+    if (trimmedResponse.length === 0) {
+      throw new Error('Invalid response from AI service: response is empty after trimming');
+    }
+
+    // Check for corruption patterns
+    const lineCount = trimmedResponse.split('\n').length;
+    const nonEmptyLines = trimmedResponse.split('\n').filter(line => line.trim().length > 0).length;
+    const emptyLineRatio = lineCount > 0 ? (lineCount - nonEmptyLines) / lineCount : 0;
+
+    if (emptyLineRatio > 0.7 && lineCount > 10) {
+      console.warn('[AIService] Response has excessive empty lines, cleaning up...');
+      response = trimmedResponse.split('\n').filter(line => line.trim().length > 0).join('\n');
+    }
+
+    // Clean up any JSON wrapper if present
+    try {
+      const jsonMatch = response.match(/^\{\s*"response"\s*:\s*"(.*)"\s*\}$/s);
+      if (jsonMatch && jsonMatch[1]) {
+        response = jsonMatch[1];
+      }
+    } catch {
+      // Not a JSON wrapper, continue with original response
+    }
+
+  } catch (error) {
+    console.error('[AIService] Error generating response:', error);
+    throw new Error(`Failed to generate AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  // Step 4: Store user message
+  const userMessage = await conversationService.addMessage(conversation.id, {
+    role: 'user',
+    content: prompt,
   });
 
-  return response;
+  // Step 5: Store assistant message
+  const assistantMessage = await conversationService.addMessage(conversation.id, {
+    role: 'assistant',
+    content: response,
+    ...(sourceDocuments ? {
+      retrievedDocs: sourceDocuments.map((d) => ({ id: d.metadata.id, score: d.score }))
+    } : {}),
+    model: process.env.OLLAMA_MODEL || 'qwen2.5:14b',
+    temperature,
+    // Note: tokensUsed would need to be calculated from response
+  });
+
+  // Step 6: Format response if requested
+  const formatted = formatResponse ? responseFormatter.formatResponse(response) : undefined;
+
+  const result: GenerateTextResponse = {
+    response,
+    ...(formatted ? { formatted } : {}),
+    conversationId: conversation.id,
+    messageId: assistantMessage.id,
+    ...(stream ? { isStreaming: true } : {}),
+  };
+  
+  if (useRAG && sourceDocuments) {
+    result.sourceDocuments = sourceDocuments;
+  }
+
+  if (webSearch && webSearchResults) {
+    result.webSearchResults = webSearchResults;
+  }
+  
+  return result;
+}
+
+/**
+ * Legacy simple text generation (backward compatibility)
+ * Use generateTextService with useRAG: false for same behavior
+ */
+export async function generateTextSimple(prompt: string, options?: {
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<string> {
+  const result = await generateTextService({
+    prompt,
+    ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options?.maxTokens !== undefined ? { maxTokens: options.maxTokens } : {}),
+    useRAG: false,
+  });
+  return result.response;
 }
 
 /**
