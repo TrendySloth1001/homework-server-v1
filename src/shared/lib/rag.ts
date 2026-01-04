@@ -150,18 +150,19 @@ class RAGService {
       });
 
       // Step 4: Generate response with Ollama
-      const answer = await ollamaService.generate(enhancedPrompt, {
+      const ollamaResponse = await ollamaService.generate(enhancedPrompt, {
         temperature,
         num_predict: maxTokens,
       });
 
       const response: RAGResponse = {
-        answer,
+        answer: ollamaResponse.response,
         sourceNodes: retrievedDocs.map((doc) => ({
           text: doc.text,
           score: doc.score || 0,
           metadata: doc.metadata,
         })),
+        tokensUsed: ollamaResponse.totalTokens,
       };
 
       // Cache the response for 1 hour

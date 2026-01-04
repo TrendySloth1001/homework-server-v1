@@ -35,6 +35,7 @@ export interface GenerateTextResponse {
   formatted?: FormattedResponse; // Structured formatted content
   conversationId: string;
   messageId: string;
+  tokensUsed?: number; // Total tokens consumed (prompt + completion)
   sourceDocuments?: Array<{
     text: string;
     score: number;

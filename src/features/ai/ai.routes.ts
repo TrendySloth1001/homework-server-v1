@@ -19,6 +19,7 @@ import {
   getConversationStatsHandler,
   indexContentHandler,
   searchConversationsHandler,
+  getConversationMessagesHandler,
 } from './ai.controller';
 
 const router = Router();
@@ -55,9 +56,9 @@ router.get('/conversations', getUserConversationsHandler);                  // G
 router.get('/conversations/teacher/:teacherId', getTeacherConversationsHandler); // GET /api/v1/ai/conversations/teacher/:teacherId
 router.get('/conversations/search', searchConversationsHandler);            // GET /api/v1/ai/conversations/search?userId=xxx&query=yyy
 router.get('/conversations/:id', getConversationHandler);                   // GET /api/v1/ai/conversations/:id
+router.get('/conversations/:conversationId/messages', getConversationMessagesHandler); // GET /api/v1/ai/conversations/:conversationId/messages
 router.get('/conversations/:id/stats', getConversationStatsHandler);        // GET /api/v1/ai/conversations/:id/stats
 router.delete('/conversations/:id', deleteConversationHandler);             // DELETE /api/v1/ai/conversations/:id
-
 // RAG indexing
 router.post('/index', indexContentHandler);                                 // POST /api/v1/ai/index
 

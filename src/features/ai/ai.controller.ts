@@ -33,7 +33,8 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
     webSearchDepth,
     stream,
   } = req.body;
-
+  console.log(webSearch);
+  
   if (!(prompt && teacherId)) {
   throw new ValidationError('Prompt is required');
   }
@@ -272,10 +273,10 @@ export const getConversationHandler = asyncHandler(async (req: Request, res: Res
  * GET /api/v1/ai/conversations
  */
 export const getUserConversationsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { userId, sessionType, limit, offset } = req.query;
+  const { teacherId, sessionType, limit, offset } = req.query;
 
-  if (!userId) {
-    throw new ValidationError('userId is required');
+  if (!teacherId) {
+    throw new ValidationError('teacherId is required');
   }
 
   const options: any = {};
@@ -284,7 +285,7 @@ export const getUserConversationsHandler = asyncHandler(async (req: Request, res
   if (offset) options.offset = parseInt(offset as string, 10);
 
   const conversations = await conversationService.getUserConversations(
-    userId as string,
+    teacherId as string,
     options
   );
 
@@ -332,7 +333,7 @@ export const getTeacherConversationsHandler = asyncHandler(async (req: Request, 
  */
 export const deleteConversationHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { userId } = req.query;
+  const { teacherId } = req.query;
 
   if (!id) {
     throw new ValidationError('Conversation ID is required');
@@ -340,7 +341,7 @@ export const deleteConversationHandler = asyncHandler(async (req: Request, res: 
 
   await conversationService.deleteConversation(
     id,
-    userId ? (userId as string) : undefined
+    teacherId ? (teacherId as string) : undefined
   );
 
   res.status(200).json({
@@ -418,5 +419,31 @@ export const searchConversationsHandler = asyncHandler(async (req: Request, res:
     message: 'Search results retrieved',
     data: conversations,
     count: conversations.length,
+  });
+});
+
+
+/**
+ * Get all messages from a conversation by ID
+ * GET /api/v1/ai/conversations/:conversationId/messages
+ */
+export const getConversationMessagesHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { conversationId } = req.params;
+  const { teacherId } = req.query;
+  
+  if (!conversationId) {
+    throw new ValidationError('Conversation ID is required');
+  }
+
+  const messages = await conversationService.allMessages(
+    conversationId,
+    teacherId as string | undefined
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'All messages retrieved successfully',
+    data: messages,
+    count: messages.length,
   });
 });
