@@ -273,10 +273,13 @@ export const getConversationHandler = asyncHandler(async (req: Request, res: Res
  * GET /api/v1/ai/conversations
  */
 export const getUserConversationsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { teacherId, sessionType, limit, offset } = req.query;
+  const { userId, teacherId, sessionType, limit, offset } = req.query;
 
-  if (!teacherId) {
-    throw new ValidationError('teacherId is required');
+  // Support both userId and teacherId for backward compatibility
+  const targetUserId = userId || teacherId;
+
+  if (!targetUserId) {
+    throw new ValidationError('userId or teacherId is required');
   }
 
   const options: any = {};
@@ -285,7 +288,7 @@ export const getUserConversationsHandler = asyncHandler(async (req: Request, res
   if (offset) options.offset = parseInt(offset as string, 10);
 
   const conversations = await conversationService.getUserConversations(
-    teacherId as string,
+    targetUserId as string,
     options
   );
 

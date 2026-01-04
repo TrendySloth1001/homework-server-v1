@@ -1,0 +1,627 @@
+{
+	"info": {
+		"_postman_id": "auth-collection-2026",
+		"name": "homeWork Auth API",
+		"description": "Authentication and user management endpoints for homeWork platform.\n\n## Authentication Flow\n\n1. **Google OAuth Login** - Use browser to initiate OAuth flow\n2. **Complete Signup** - Create teacher or student profile after OAuth\n3. **Access Protected Routes** - Use JWT token for authenticated requests\n\n## Environment Variables\n\nCreate a Postman environment with:\n- `base_url`: http://localhost:3000\n- `jwt_token`: (auto-set after login/signup)\n- `temp_token`: (auto-set during OAuth flow)\n- `user_id`: (auto-set after login)\n\n## Setup Instructions\n\n1. Configure Google OAuth credentials in `.env`\n2. Start server: `npm run dev`\n3. Use browser for OAuth flow (steps in folder description)\n4. Use Postman for subsequent API calls",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "auth-api"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Google OAuth Login (Browser)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/google",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"google"
+							]
+						},
+						"description": "**⚠️ Use Browser for This Step**\n\n1. Open this URL in browser: `http://localhost:3000/api/auth/google`\n2. Sign in with Google account\n3. After callback, you'll be redirected with either:\n   - **Full JWT token** (if profile exists) → Copy and save as `jwt_token`\n   - **Temp token** (if new user) → Copy and save as `temp_token`\n\n**Redirect URLs:**\n- New user: `http://localhost:3000/signup?token=TEMP_TOKEN&email=...`\n- Existing user: `http://localhost:3000/auth/success?token=JWT_TOKEN`\n\n**Next Steps:**\n- If new user → Use temp token to complete signup (teacher or student)\n- If existing user → Use JWT token for protected routes"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save user data",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.user) {",
+									"        pm.environment.set('user_id', response.data.user.id);",
+									"        console.log('User ID saved:', response.data.user.id);",
+									"        console.log('User role:', response.data.user.role);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get the authenticated user's profile including:\n- User details (email, displayName, role, etc.)\n- Profile details (Teacher or Student profile)\n\n**Requires:** Valid JWT token in Authorization header\n\n**Response includes:**\n- For Teachers: firstName, lastName, bio, specialization, followers count, etc.\n- For Students: firstName, lastName, grade, institution, following count, etc."
+					},
+					"response": [
+						{
+							"name": "Success - Teacher Profile",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/auth/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"me"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"success\": true,\n  \"message\": \"User profile retrieved\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"user_123\",\n      \"email\": \"teacher@example.com\",\n      \"displayName\": \"John Doe\",\n      \"role\": \"TEACHER\",\n      \"avatarUrl\": \"https://lh3.googleusercontent.com/...\",\n      \"isActive\": true,\n      \"lastLoginAt\": \"2026-01-04T10:30:00Z\",\n      \"createdAt\": \"2026-01-01T00:00:00Z\"\n    },\n    \"profile\": {\n      \"id\": \"teacher_123\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"bio\": \"Mathematics teacher with 10 years experience\",\n      \"specialization\": \"Mathematics, Physics\",\n      \"qualification\": \"M.Sc. Mathematics\",\n      \"experience\": 10,\n      \"profileVisibility\": \"PUBLIC\",\n      \"defaultContentMode\": \"PUBLIC\",\n      \"allowFollowers\": true,\n      \"followersCount\": 42,\n      \"contentCount\": 15\n    }\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Logout endpoint (client-side token deletion).\n\nWith JWT authentication, logout is handled client-side by deleting the token. This endpoint exists for consistency and can be extended for server-side token blacklisting in the future.\n\n**Action:** Delete `jwt_token` from local storage/cookies after calling this endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Account",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/deactivate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"deactivate"
+							]
+						},
+						"description": "Soft delete user account (sets `isActive` to false).\n\n**Effects:**\n- User cannot login\n- Profile hidden from public\n- All content preserved\n- Can be reactivated by admin\n\n**Note:** This is a soft delete - data is not permanently removed."
+					},
+					"response": []
+				}
+			],
+			"description": "Core authentication endpoints using Google OAuth 2.0 + JWT.\n\n## Flow:\n1. User initiates Google OAuth (browser)\n2. Backend handles callback and creates/finds user\n3. Returns JWT token (full or temporary)\n4. Use JWT for subsequent API calls"
+		},
+		{
+			"name": "Signup",
+			"item": [
+				{
+					"name": "Complete Teacher Signup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save JWT token after successful signup",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        pm.environment.set('jwt_token', response.data.token);",
+									"        pm.environment.unset('temp_token');",
+									"        console.log('JWT token saved. Signup complete!');",
+									"        console.log('User:', response.data.user);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{temp_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"bio\": \"Passionate mathematics teacher with 10 years of experience in CBSE curriculum.\",\n  \"specialization\": \"Mathematics, Physics\",\n  \"qualification\": \"M.Sc. Mathematics, B.Ed.\",\n  \"experience\": 10,\n  \"profileVisibility\": \"PUBLIC\",\n  \"defaultContentMode\": \"PUBLIC\",\n  \"allowFollowers\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/signup/teacher",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"signup",
+								"teacher"
+							]
+						},
+						"description": "Complete teacher profile after Google OAuth.\n\n**Prerequisites:**\n1. Valid temporary token from OAuth flow\n2. Set `temp_token` environment variable\n\n**Required Fields:**\n- `firstName`: Teacher's first name\n- `lastName`: Teacher's last name\n\n**Optional Fields:**\n- `bio`: Professional bio/introduction\n- `specialization`: Subjects taught (comma-separated)\n- `qualification`: Educational qualifications\n- `experience`: Years of teaching experience (number)\n- `profileVisibility`: PUBLIC | FOLLOWERS | PRIVATE (default: PUBLIC)\n- `defaultContentMode`: PUBLIC | FOLLOWERS | PRIVATE (default: PUBLIC)\n- `allowFollowers`: Allow students to follow (default: true)\n\n**Response:**\n- Full JWT token (expires in 7 days)\n- User profile with teacher details"
+					},
+					"response": [
+						{
+							"name": "Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"bio\": \"Mathematics teacher\",\n  \"specialization\": \"Mathematics, Physics\",\n  \"qualification\": \"M.Sc. Mathematics\",\n  \"experience\": 10\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/signup/teacher",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"signup",
+										"teacher"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"success\": true,\n  \"message\": \"Teacher account created successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"user_123\",\n      \"email\": \"teacher@example.com\",\n      \"displayName\": \"John Doe\",\n      \"role\": \"TEACHER\",\n      \"avatarUrl\": \"https://lh3.googleusercontent.com/...\"\n    },\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expiresIn\": \"7d\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Complete Student Signup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save JWT token after successful signup",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        pm.environment.set('jwt_token', response.data.token);",
+									"        pm.environment.unset('temp_token');",
+									"        console.log('JWT token saved. Signup complete!');",
+									"        console.log('User:', response.data.user);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{temp_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"grade\": \"10\",\n  \"institution\": \"Delhi Public School\",\n  \"interests\": \"Mathematics, Physics, Computer Science\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/signup/student",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"signup",
+								"student"
+							]
+						},
+						"description": "Complete student profile after Google OAuth.\n\n**Prerequisites:**\n1. Valid temporary token from OAuth flow\n2. Set `temp_token` environment variable\n\n**Required Fields:**\n- `firstName`: Student's first name\n- `lastName`: Student's last name\n\n**Optional Fields:**\n- `grade`: Grade/class (e.g., \"10\", \"12\", \"Undergraduate\")\n- `institution`: School/college name\n- `interests`: Subjects of interest (comma-separated)\n\n**Response:**\n- Full JWT token (expires in 7 days)\n- User profile with student details"
+					},
+					"response": [
+						{
+							"name": "Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"grade\": \"10\",\n  \"institution\": \"Delhi Public School\",\n  \"interests\": \"Mathematics, Physics\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/signup/student",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"signup",
+										"student"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"success\": true,\n  \"message\": \"Student account created successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"user_456\",\n      \"email\": \"student@example.com\",\n      \"displayName\": \"Jane Smith\",\n      \"role\": \"STUDENT\",\n      \"avatarUrl\": \"https://lh3.googleusercontent.com/...\"\n    },\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expiresIn\": \"7d\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"description": "Complete user registration after Google OAuth.\n\n## Flow:\n1. User completes Google OAuth → receives temp token\n2. Choose teacher or student signup\n3. Submit profile details with temp token\n4. Receive full JWT token\n5. Account fully activated\n\n## Important:\n- Temp token valid for 30 minutes only\n- Must use temp token (not regular JWT) for signup\n- After signup, temp token is invalidated\n- Use returned JWT token for all future requests"
+		},
+		{
+			"name": "Error Examples",
+			"item": [
+				{
+					"name": "401 - Unauthorized (No Token)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Example of calling protected route without token.\n\n**Expected Response:** 401 Unauthorized"
+					},
+					"response": [
+						{
+							"name": "No Token",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/auth/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"me"
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"error\",\n  \"message\": \"No authorization header provided\"\n}"
+						}
+					]
+				},
+				{
+					"name": "401 - Invalid Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "invalid_token_here",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Example of using invalid/expired token.\n\n**Expected Response:** 401 Unauthorized with token error"
+					},
+					"response": []
+				},
+				{
+					"name": "400 - Temp Token on Protected Route",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{temp_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Trying to use temporary token (from OAuth) on protected routes.\n\nTemp tokens are ONLY valid for signup endpoints.\n\n**Expected Response:** 401 with temp token error"
+					},
+					"response": []
+				},
+				{
+					"name": "409 - Profile Already Exists",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{temp_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/signup/teacher",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"signup",
+								"teacher"
+							]
+						},
+						"description": "Trying to signup when user already has a profile.\n\n**Expected Response:** 409 Conflict"
+					},
+					"response": []
+				},
+				{
+					"name": "429 - Too Many Requests",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/google",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"google"
+							]
+						},
+						"description": "Rate limit exceeded.\n\n**Limits:**\n- Auth endpoints: 10 requests per 15 minutes\n- Signup endpoints: 5 requests per hour\n\n**Expected Response:** 429 Too Many Requests"
+					},
+					"response": []
+				}
+			],
+			"description": "Common error scenarios and their responses.\n\nHelps understand:\n- Authentication failures\n- Rate limiting\n- Validation errors\n- Token issues"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global pre-request script",
+					"console.log('Request to:', pm.request.url.toString());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script",
+					"pm.test('Response time is acceptable', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}

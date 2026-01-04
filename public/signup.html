@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Your Profile - homeWork</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .role-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .role-option {
+            flex: 1;
+            padding: 20px;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .role-option:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .role-option.active {
+            border-color: #667eea;
+            background: #eef2ff;
+        }
+
+        .role-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .role-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+
+        .role-desc {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #e53e3e;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 4px solid #e53e3e;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2c5282;
+            border-left: 4px solid #3182ce;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Complete Your Profile</h1>
+        <p class="subtitle">Choose your role and complete your profile to get started</p>
+
+        <div id="alertContainer"></div>
+
+        <!-- Role Selection -->
+        <div class="role-selector">
+            <div class="role-option" onclick="selectRole('teacher')">
+                <div class="role-icon">👨‍🏫</div>
+                <div class="role-title">Teacher</div>
+                <div class="role-desc">Create and share content</div>
+            </div>
+            <div class="role-option" onclick="selectRole('student')">
+                <div class="role-icon">👨‍🎓</div>
+                <div class="role-title">Student</div>
+                <div class="role-desc">Learn and explore</div>
+            </div>
+        </div>
+
+        <!-- Teacher Form -->
+        <form id="teacherForm" class="form-section">
+            <div class="form-group">
+                <label>First Name <span class="required">*</span></label>
+                <input type="text" id="teacher_firstName" required>
+            </div>
+
+            <div class="form-group">
+                <label>Last Name <span class="required">*</span></label>
+                <input type="text" id="teacher_lastName" required>
+            </div>
+
+            <div class="form-group">
+                <label>Bio</label>
+                <textarea id="teacher_bio" placeholder="Tell us about yourself..."></textarea>
+                <div class="hint">A brief introduction for your students</div>
+            </div>
+
+            <div class="form-group">
+                <label>Specialization</label>
+                <input type="text" id="teacher_specialization" placeholder="e.g., Mathematics, Physics">
+                <div class="hint">Subjects you teach (comma-separated)</div>
+            </div>
+
+            <div class="form-group">
+                <label>Qualification</label>
+                <input type="text" id="teacher_qualification" placeholder="e.g., M.Sc. Mathematics, B.Ed.">
+            </div>
+
+            <div class="form-group">
+                <label>Years of Experience</label>
+                <input type="number" id="teacher_experience" min="0" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label>Profile Visibility</label>
+                <select id="teacher_profileVisibility">
+                    <option value="PUBLIC">Public - Everyone can see</option>
+                    <option value="FOLLOWERS">Followers Only</option>
+                    <option value="PRIVATE">Private</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Default Content Visibility</label>
+                <select id="teacher_defaultContentMode">
+                    <option value="PUBLIC">Public</option>
+                    <option value="FOLLOWERS">Followers Only</option>
+                    <option value="PRIVATE">Private</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                ✅ Create Teacher Account
+            </button>
+        </form>
+
+        <!-- Student Form -->
+        <form id="studentForm" class="form-section">
+            <div class="form-group">
+                <label>First Name <span class="required">*</span></label>
+                <input type="text" id="student_firstName" required>
+            </div>
+
+            <div class="form-group">
+                <label>Last Name <span class="required">*</span></label>
+                <input type="text" id="student_lastName" required>
+            </div>
+
+            <div class="form-group">
+                <label>Grade/Class</label>
+                <input type="text" id="student_grade" placeholder="e.g., 10, 12, Undergraduate">
+            </div>
+
+            <div class="form-group">
+                <label>Institution</label>
+                <input type="text" id="student_institution" placeholder="Your school or college name">
+            </div>
+
+            <div class="form-group">
+                <label>Interests</label>
+                <input type="text" id="student_interests" placeholder="e.g., Mathematics, Physics, Computer Science">
+                <div class="hint">Subjects you're interested in (comma-separated)</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                ✅ Create Student Account
+            </button>
+        </form>
+
+        <!-- Loading -->
+        <div id="loadingSection" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Creating your profile...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let selectedRole = null;
+        let tempToken = null;
+
+        // Get temp token from URL or localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            tempToken = urlParams.get('token') || localStorage.getItem('temp_token');
+
+            if (!tempToken) {
+                showAlert('No temporary token found. Please login first.', 'error');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+            }
+
+            // Pre-fill name if in URL
+            const name = urlParams.get('name');
+            const email = urlParams.get('email');
+            if (name) {
+                const [firstName, ...lastNameParts] = name.split(' ');
+                const lastName = lastNameParts.join(' ');
+                
+                document.getElementById('teacher_firstName').value = firstName;
+                document.getElementById('teacher_lastName').value = lastName;
+                document.getElementById('student_firstName').value = firstName;
+                document.getElementById('student_lastName').value = lastName;
+            }
+        });
+
+        function selectRole(role) {
+            selectedRole = role;
+            
+            // Update UI
+            document.querySelectorAll('.role-option').forEach(el => {
+                el.classList.remove('active');
+            });
+            event.target.closest('.role-option').classList.add('active');
+
+            // Show appropriate form
+            document.querySelectorAll('.form-section').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            if (role === 'teacher') {
+                document.getElementById('teacherForm').classList.add('active');
+            } else {
+                document.getElementById('studentForm').classList.add('active');
+            }
+        }
+
+        // Teacher form submission
+        document.getElementById('teacherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                firstName: document.getElementById('teacher_firstName').value,
+                lastName: document.getElementById('teacher_lastName').value,
+                bio: document.getElementById('teacher_bio').value || undefined,
+                specialization: document.getElementById('teacher_specialization').value || undefined,
+                qualification: document.getElementById('teacher_qualification').value || undefined,
+                experience: parseInt(document.getElementById('teacher_experience').value) || undefined,
+                profileVisibility: document.getElementById('teacher_profileVisibility').value,
+                defaultContentMode: document.getElementById('teacher_defaultContentMode').value,
+            };
+
+            await submitSignup('teacher', data);
+        });
+
+        // Student form submission
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                firstName: document.getElementById('student_firstName').value,
+                lastName: document.getElementById('student_lastName').value,
+                grade: document.getElementById('student_grade').value || undefined,
+                institution: document.getElementById('student_institution').value || undefined,
+                interests: document.getElementById('student_interests').value || undefined,
+            };
+
+            await submitSignup('student', data);
+        });
+
+        async function submitSignup(role, data) {
+            // Show loading
+            document.querySelectorAll('.form-section').forEach(el => el.style.display = 'none');
+            document.getElementById('loadingSection').style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/signup/${role}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${tempToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Signup failed');
+                }
+
+                if (result.success && result.data.token) {
+                    // Save JWT token
+                    localStorage.setItem('jwt_token', result.data.token);
+                    localStorage.removeItem('temp_token');
+                    
+                    showAlert('Account created successfully! Redirecting...', 'info');
+                    
+                    // Redirect to home
+                    setTimeout(() => {
+                        window.location.href = '/?token=' + result.data.token;
+                    }, 2000);
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                showAlert(error.message, 'error');
+                
+                // Show form again
+                document.getElementById('loadingSection').style.display = 'none';
+                if (role === 'teacher') {
+                    document.getElementById('teacherForm').style.display = 'block';
+                } else {
+                    document.getElementById('studentForm').style.display = 'block';
+                }
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertClass = type === 'error' ? 'alert-error' : 'alert-info';
+            alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

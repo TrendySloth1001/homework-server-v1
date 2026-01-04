@@ -68,13 +68,13 @@ Without auth, your API is completely open. Anyone can:
    ```
 
 2. **Authentication Endpoints** (2 days)
-   - `POST /api/v1/auth/register` - User registration
-   - `POST /api/v1/auth/login` - Login (returns JWT + refresh token)
-   - `POST /api/v1/auth/logout` - Logout
-   - `POST /api/v1/auth/refresh` - Refresh access token
-   - `POST /api/v1/auth/verify-email` - Email verification
-   - `POST /api/v1/auth/forgot-password` - Password reset request
-   - `POST /api/v1/auth/reset-password` - Password reset
+   - `POST /api/auth/register` - User registration
+   - `POST /api/auth/login` - Login (returns JWT + refresh token)
+   - `POST /api/auth/logout` - Logout
+   - `POST /api/auth/refresh` - Refresh access token
+   - `POST /api/auth/verify-email` - Email verification
+   - `POST /api/auth/forgot-password` - Password reset request
+   - `POST /api/auth/reset-password` - Password reset
 
 3. **Authorization Middleware** (1 day)
    ```typescript

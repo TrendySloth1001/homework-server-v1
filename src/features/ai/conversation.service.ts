@@ -336,7 +336,7 @@ class ConversationService {
      * Get all conversations for a user
      */
     async getUserConversations(
-        teacherId: string,
+        userId: string,
         options?: {
             sessionType?: string;
             limit?: number;
@@ -347,9 +347,9 @@ class ConversationService {
 
         const where: any = {
             OR: [
-                { teacherId },
-                { teacherId },
-                { studentId: teacherId },
+                { userId },
+                { teacherId: userId },
+                { studentId: userId },
             ],
         };
 
