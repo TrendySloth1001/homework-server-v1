@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../shared/middleware/errorHandler';
 import { ValidationError } from '../../shared/lib/errors';
+//import config from '../../shared/config/index.js';
 import {
   generateTextService,
   chatService,
@@ -239,6 +240,7 @@ export const getUnifiedJobStatusHandler = asyncHandler(async (req: Request, res:
 
 import { conversationService } from './conversation.service';
 import { ragService } from '../../shared/lib/rag';
+import { config } from '../../shared/config';
 
 /**
  * Get conversation history
@@ -448,5 +450,72 @@ export const getConversationMessagesHandler = asyncHandler(async (req: Request, 
     message: 'All messages retrieved successfully',
     data: messages,
     count: messages.length,
+  });
+});
+
+/**
+ * Authless Form Helper
+ * POST /api/ai/helper/form
+ * Rate Limited: 10 requests per hour per IP
+ */
+export const authlessFormHelperHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { fieldType, context, maxLength } = req.body;
+
+  if (!fieldType) {
+    throw new ValidationError('fieldType is required (e.g., "bio", "description", "interests")');
+  }
+
+  // Simple prompt construction for form field help
+  let prompt = '';
+  
+  switch (fieldType.toLowerCase()) {
+    case 'bio':
+      prompt = `Write a professional bio${context ? ` for someone who is ${context}` : ''}. Make it engaging and concise (2-3 sentences, ${maxLength || 150} characters max).`;
+      break;
+    case 'description':
+      prompt = `Write a compelling description${context ? ` about ${context}` : ''}. Keep it clear and informative (${maxLength || 200} characters max).`;
+      break;
+    case 'interests':
+      prompt = `Suggest 5-7 relevant interests or topics${context ? ` related to ${context}` : ''}. Return as comma-separated list.`;
+      break;
+    case 'specialization':
+      prompt = `Suggest relevant specializations or areas of expertise${context ? ` for ${context}` : ''}. Return as comma-separated list (3-5 items).`;
+      break;
+    default:
+      prompt = `Help fill out a form field labeled "${fieldType}"${context ? ` with context: ${context}` : ''}. Be concise (${maxLength || 150} characters max).`;
+  }
+
+  // Make direct stateless Ollama API call
+  const ollamaResponse = await fetch(`${config.ai.ollama.baseUrl}/api/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.ai.ollama.model,
+      prompt,
+      stream: false,
+      options: {
+        temperature: 0.7,
+        num_predict: 150,
+      },
+    }),
+  });
+
+  if (!ollamaResponse.ok) {
+    throw new Error(`Ollama API error: ${ollamaResponse.statusText}`);
+  }
+
+  const ollamaData = await ollamaResponse.json();
+  const suggestion = ollamaData.response?.trim() || '';
+
+  res.status(200).json({
+    success: true,
+    message: 'Form helper suggestion generated',
+    data: {
+      fieldType,
+      suggestion,
+      characterCount: suggestion.length,
+    },
   });
 });

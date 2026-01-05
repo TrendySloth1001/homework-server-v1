@@ -374,6 +374,9 @@ model ConversationMessage {
   retrievedDocs  Json?    // Array of doc IDs/snippets used for context
   embedding      String?  @db.Text // Vector embedding (384d)
   
+  // AI thought process tags (2-4 context tags per message)
+  thoughtTags    String?  // Comma-separated tags: "mathematics,geometry,theorem"
+  
   // Metadata
   tokensUsed     Int?     // Track token consumption
   model          String?  // Model used (qwen2.5:14b)
@@ -389,6 +392,7 @@ model ConversationMessage {
   
   @@index([conversationId, sequenceNumber])
   @@index([conversationId])
+  @@index([createdAt])
 }
 
 model User {

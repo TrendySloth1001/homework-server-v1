@@ -19,6 +19,7 @@ export interface Message {
     content: string;
     retrievedDocs?: any;
     embedding?: string;
+    thoughtTags?: string; // Comma-separated thought tags
     tokensUsed?: number;
     model?: string;
     temperature?: number;
@@ -65,6 +66,7 @@ export interface AddMessageParams {
     role: 'system' | 'user' | 'assistant';
     content: string;
     retrievedDocs?: any;
+    thoughtTags?: string; // Comma-separated thought tags
     tokensUsed?: number;
     model?: string;
     temperature?: number;
@@ -159,6 +161,7 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
+                thoughtTags: true, // Include thought tags
                 tokensUsed: true,
                 model: true,
                 temperature: true,
@@ -192,6 +195,7 @@ class ConversationService {
             role,
             content,
             retrievedDocs,
+            thoughtTags, // Accept thought tags
             tokensUsed,
             model,
             temperature,
@@ -244,8 +248,7 @@ class ConversationService {
                 content,
                 sequenceNumber,
                 ...(retrievedDocs ? { retrievedDocs } : {}),
-                ...(embedding ? { embedding } : {}),
-                ...(tokensUsed ? { tokensUsed } : {}),
+                ...(embedding ? { embedding } : {}),                ...(thoughtTags ? { thoughtTags } : {}), // Store thought tags                ...(tokensUsed ? { tokensUsed } : {}),
                 ...(model ? { model } : {}),
                 ...(temperature ? { temperature } : {}),
             },
@@ -578,6 +581,7 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
+                thoughtTags: true, // Include thought tags
                 tokensUsed: true,
                 model: true,
                 temperature: true,

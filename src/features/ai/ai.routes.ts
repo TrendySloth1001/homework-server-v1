@@ -4,6 +4,7 @@
  */
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { authenticateToken } from '../auth/middleware/auth.middleware';
 import {
   generateTextHandler,
@@ -21,9 +22,23 @@ import {
   indexContentHandler,
   searchConversationsHandler,
   getConversationMessagesHandler,
+  // Authless helper
+  authlessFormHelperHandler,
 } from './ai.controller';
 
 const router = Router();
+
+/**
+ * Rate Limiter for Authless Endpoints
+ * 10 requests per hour per IP address
+ */
+const authlessRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 requests per hour
+  message: 'Too many requests from this IP, please try again after an hour',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * AI Routes - /api/ai
@@ -32,6 +47,9 @@ const router = Router();
 
 // Health check for AI service (public)
 router.get('/health', aiHealthHandler);                                     // GET /api/ai/health
+
+// Authless form helper (public with aggressive rate limiting)
+router.post('/helper/form', authlessRateLimiter, authlessFormHelperHandler); // POST /api/ai/helper/form
 
 // Protected routes - require authentication
 router.use(authenticateToken);
