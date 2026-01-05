@@ -1,30 +1,40 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import passport from 'passport';
 import syllabusRoutes from './features/syllabus/routes/index';
 import aiRoutes from './features/ai/ai.routes';
 import questionRoutes from './features/questions/questions.routes';
 import notificationRoutes from './features/notifications/notifications.routes';
 import assessmentRoutes from './features/assessment/assessment.routes';
+import authRoutes from './features/auth/auth.routes';
+import signupRoutes from './features/signup/signup.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
 import { embeddingService } from './shared/lib/embeddings';
 import { qdrantService } from './shared/lib/qdrant';
+import { configurePassport } from './shared/lib/passport';
 
 const app = express();
+
+// Configure Passport for Google OAuth
+configurePassport();
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
 
 // Serve static files from public directory
-// app.use(express.static(path.join(__dirname, '../public')));    // Uncomment if you have static assets to serve
+app.use(express.static(path.join(__dirname, '../public')));
 
 /**
  * API Routes
  * RESTful API endpoints
  */
+app.use('/api/auth', authRoutes);                                           // Authentication (Google OAuth)
+app.use('/api/signup', signupRoutes);                                       // User signup (teacher/student)
 app.use('/api', syllabusRoutes);                                            // Syllabi, Units, Topics
 app.use('/api/ai', aiRoutes);                                               // AI-powered features
 app.use('/api/questions', questionRoutes);                                  // Question bank

@@ -50,3 +50,33 @@ export class DatabaseError extends AppError {
         }
     }
 }
+
+export class UnauthorizedError extends AppError {
+    constructor(message: string = 'Unauthorized') {
+        super(message, 401);
+        this.name = 'UnauthorizedError';
+    }
+}
+
+export class ConflictError extends AppError {
+    constructor(message: string) {
+        super(message, 409);
+        this.name = 'ConflictError';
+    }
+}
+
+export class BadRequestError extends AppError {
+    constructor(message: string) {
+        super(message, 400);
+        this.name = 'BadRequestError';
+    }
+}
+
+/**
+ * Async handler wrapper to catch errors in async route handlers
+ */
+export function asyncHandler(fn: Function) {
+    return (req: any, res: any, next: any) => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    };
+}

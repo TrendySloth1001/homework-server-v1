@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>homeWork Auth - Test Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .auth-section {
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            text-decoration: none;
+        }
+
+        .btn-google {
+            background: #fff;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+
+        .btn-google:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-google img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .user-info {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .user-info.active {
+            display: block;
+        }
+
+        .user-info h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 120px;
+        }
+
+        .info-value {
+            color: #2d3748;
+            word-break: break-all;
+        }
+
+        .token-display {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #a0aec0;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2c5282;
+            border-left: 4px solid #3182ce;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 4px solid #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>📚 homeWork</h1>
+            <p>AI-Powered Educational Platform</p>
+        </div>
+
+        <!-- Alert for URL params -->
+        <div id="alertContainer"></div>
+
+        <!-- Login Section (shown when not authenticated) -->
+        <div id="loginSection" class="auth-section">
+            <a href="http://localhost:3000/api/auth/google" class="btn btn-google">
+                <img src="https://www.google.com/favicon.ico" alt="Google">
+                Sign in with Google
+            </a>
+            <div class="divider">OR</div>
+            <button onclick="testWithToken()" class="btn btn-primary">
+                🔑 Test with Existing Token
+            </button>
+        </div>
+
+        <!-- User Profile Section (shown when authenticated) -->
+        <div id="profileSection" class="user-info">
+            <div style="text-align: center;">
+                <img id="userAvatar" class="avatar" src="" alt="User Avatar" style="display: none;">
+                <h3 id="userName">Welcome!</h3>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value" id="userEmail">-</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Role:</span>
+                <span class="info-value" id="userRole">-</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">User ID:</span>
+                <span class="info-value" id="userId">-</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="status status-success" id="userStatus">Active</span>
+            </div>
+
+            <div class="token-display" id="tokenDisplay"></div>
+
+            <button onclick="logout()" class="btn btn-danger" style="margin-top: 20px;">
+                🚪 Logout
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingSection" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Loading profile...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let currentToken = null;
+
+        // Check for token in URL (from OAuth callback)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const tempToken = urlParams.get('tempToken') || urlParams.get('temp_token');
+            
+            if (token) {
+                showAlert('Login successful! Token received.', 'info');
+                localStorage.setItem('jwt_token', token);
+                currentToken = token;
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                loadUserProfile();
+            } else if (tempToken) {
+                showAlert('Please complete your profile (teacher or student)', 'info');
+                localStorage.setItem('temp_token', tempToken);
+                // Redirect to signup (you would implement this page)
+                alert('Temporary token received. In production, redirect to signup page.\nTemp Token: ' + tempToken);
+            } else {
+                // Check for stored token
+                const storedToken = localStorage.getItem('jwt_token');
+                if (storedToken) {
+                    currentToken = storedToken;
+                    loadUserProfile();
+                }
+            }
+        });
+
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertClass = type === 'error' ? 'alert-error' : 'alert-info';
+            alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        async function loadUserProfile() {
+            if (!currentToken) {
+                console.log('No token available');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('profileSection').classList.remove('active');
+            document.getElementById('loadingSection').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load profile');
+                }
+
+                const data = await response.json();
+                console.log('Profile data:', data);
+
+                if (data.success && data.data) {
+                    displayUserProfile(data.data);
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                showAlert('Failed to load profile. Please login again.', 'error');
+                logout();
+            } finally {
+                document.getElementById('loadingSection').classList.add('hidden');
+            }
+        }
+
+        function displayUserProfile(data) {
+            const { user, profile } = data;
+
+            // Update UI
+            document.getElementById('userName').textContent = user.displayName || 'User';
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userRole').textContent = user.role;
+            document.getElementById('userId').textContent = user.id;
+            
+            if (user.avatarUrl) {
+                const avatar = document.getElementById('userAvatar');
+                avatar.src = user.avatarUrl;
+                avatar.style.display = 'block';
+            }
+
+            // Show token (shortened)
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const shortToken = currentToken.substring(0, 50) + '...' + currentToken.substring(currentToken.length - 20);
+            tokenDisplay.textContent = shortToken;
+            tokenDisplay.title = currentToken; // Full token on hover
+
+            // Show profile section
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('profileSection').classList.add('active');
+        }
+
+        function testWithToken() {
+            const token = prompt('Enter your JWT token:');
+            if (token) {
+                localStorage.setItem('jwt_token', token);
+                currentToken = token;
+                loadUserProfile();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('temp_token');
+            currentToken = null;
+            
+            // Reset UI
+            document.getElementById('profileSection').classList.remove('active');
+            document.getElementById('loginSection').classList.remove('hidden');
+            
+            showAlert('Logged out successfully', 'info');
+        }
+
+        // Copy token to clipboard
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'tokenDisplay') {
+                navigator.clipboard.writeText(currentToken).then(() => {
+                    showAlert('Token copied to clipboard!', 'info');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
