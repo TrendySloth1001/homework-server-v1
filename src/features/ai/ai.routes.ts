@@ -37,19 +37,19 @@ router.get('/health', aiHealthHandler);                                     // G
 router.use(authenticateToken);
 
 // Unified job status endpoint (for all AI job types)
-router.get('/jobs/:jobId/status', getUnifiedJobStatusHandler);              // GET /api/ai/jobs/:jobId/status
+//router.get('/jobs/:jobId/status', getUnifiedJobStatusHandler);              // GET /api/ai/jobs/:jobId/status
 
 // General AI endpoints
 router.post('/generate', generateTextHandler);                              // POST /api/ai/generate (RAG-enabled)
-router.post('/chat', chatHandler);                                          // POST /api/ai/chat
+//router.post('/chat', chatHandler);                                          // POST /api/ai/chat
 
 // Syllabus enhancement
-router.post('/enhance', enhanceSyllabusHandler);                            // POST /api/ai/enhance
-router.post('/enhance/:syllabusId', enhanceSyllabusHandler);                // POST /api/ai/enhance/:syllabusId
+// router.post('/enhance', enhanceSyllabusHandler);                            // POST /api/ai/enhance
+// router.post('/enhance/:syllabusId', enhanceSyllabusHandler);                // POST /api/ai/enhance/:syllabusId
 
 // Generate summary
-router.post('/summary', generateSummaryHandler);                            // POST /api/ai/summary
-router.get('/summary/units/:unitId', generateSummaryHandler);               // GET /api/ai/summary/units/:unitId
+// router.post('/summary', generateSummaryHandler);                            // POST /api/ai/summary
+// router.get('/summary/units/:unitId', generateSummaryHandler);               // GET /api/ai/summary/units/:unitId
 
 /**
  * RAG & Conversation Management Routes
@@ -65,6 +65,6 @@ router.get('/conversations/:id/stats', getConversationStatsHandler);        // G
 router.delete('/conversations/:id', deleteConversationHandler);             // DELETE /api/ai/conversations/:id
 
 // RAG indexing
-router.post('/index', indexContentHandler);                                 // POST /api/ai/index
+//router.post('/index', indexContentHandler);                                 // POST /api/ai/index
 
 export default router;
