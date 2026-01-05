@@ -197,6 +197,8 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
     profileData.profileVisibility = user.teacher.profileVisibility;
     profileData.defaultContentMode = user.teacher.defaultContentMode;
     profileData.allowFollowers = user.teacher.allowFollowers;
+    profileData.followersCount = user.teacher.followersCount;
+    profileData.contentCount = user.teacher.contentCount;
   }
 
   // Add student-specific fields
@@ -204,6 +206,7 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
     profileData.grade = user.student.grade;
     profileData.institution = user.student.institution;
     profileData.interests = user.student.interests;
+    profileData.followingCount = user.student.followingCount;
   }
 
   return {
