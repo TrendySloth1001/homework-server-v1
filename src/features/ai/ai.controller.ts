@@ -35,8 +35,8 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
   } = req.body;
   console.log(webSearch);
   
-  if (!(prompt && teacherId)) {
-  throw new ValidationError('Prompt is required');
+  if (!prompt || (!teacherId && !studentId && !userId)) {
+    throw new ValidationError('Prompt and user identification are required');
   }
 
   // Handle streaming response
