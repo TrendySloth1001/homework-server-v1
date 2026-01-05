@@ -170,6 +170,11 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   // Step 4.5: Generate thought tags for assistant response (2-4 context tags)
   const thoughtTags = await generateThoughtTags(prompt, response);
 
+  // Log token usage before storing
+  if (config.isDevelopment) {
+    console.log('[AIService] Storing message with tokens:', tokensUsed);
+  }
+
   // Step 5: Store assistant message with thought tags
   const assistantMessage = await conversationService.addMessage(conversation.id, {
     role: 'assistant',

@@ -246,9 +246,11 @@ class ConversationService {
                 conversationId,
                 role,
                 content,
+                tokensUsed: tokensUsed ?? null,
                 sequenceNumber,
                 ...(retrievedDocs ? { retrievedDocs } : {}),
-                ...(embedding ? { embedding } : {}),                ...(thoughtTags ? { thoughtTags } : {}), // Store thought tags                ...(tokensUsed ? { tokensUsed } : {}),
+                ...(embedding ? { embedding } : {}),
+                ...(thoughtTags ? { thoughtTags } : {}), // Store thought tags
                 ...(model ? { model } : {}),
                 ...(temperature ? { temperature } : {}),
             },
