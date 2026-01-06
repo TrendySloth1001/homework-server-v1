@@ -17,6 +17,8 @@ import { aiSettingsService } from '../ai-settings/ai-settings.service';
 import { promptBuilder } from '../../shared/lib/promptBuilder';
 import { responseEnhancer } from '../../shared/lib/responseEnhancer';
 import { urlValidator } from '../../shared/lib/urlValidator';
+import { mem0Service } from '../../shared/lib/mem0Client';
+import { langchainService } from '../../shared/lib/langchainService';
 
 /**
  * Check if query is asking about personal information
@@ -124,7 +126,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       
       // Smart context loading - only load when relevant to the query
       const shouldLoadPersonalContext = checkIfPersonalQuery(prompt);
-      const shouldLoadMemory = aiSettings.memoryEnabled && checkIfNeedsMemory(prompt);
+      const shouldLoadMemory = checkIfNeedsMemory(prompt);
       
       // Load user context only if query seems personal and profile is enabled
       if (shouldLoadPersonalContext && aiSettings.profileEnabled) {
