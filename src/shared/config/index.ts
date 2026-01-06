@@ -54,13 +54,27 @@ interface Config {
       maxRequests: number;
     };
   };
+
+  // Authentication
+  auth: {
+    google: {
+      clientId: string;
+      clientSecret: string;
+      callbackUrl: string;
+    };
+    jwt: {
+      secret: string;
+      expiresIn: string;
+      tempTokenExpiresIn: string; // For OAuth -> signup flow
+    };
+  };
 }
 
 function validateConfig(): Config {
   const nodeEnv = process.env.NODE_ENV || 'development';
 
   return {
-    port: parseInt(process.env.PORT || '3000', 10),
+    port: parseInt(process.env.PORT || '3001', 10),
     nodeEnv,
     isDevelopment: nodeEnv === 'development',
     isProduction: nodeEnv === 'production',
@@ -109,6 +123,19 @@ function validateConfig(): Config {
       rateLimit: {
         windowMs: 15 * 60 * 1000,
         maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      },
+    },
+
+    auth: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+        callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
+      },
+      jwt: {
+        secret: process.env.JWT_SECRET || 'dev-secret-change-in-production-' + nodeEnv,
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+        tempTokenExpiresIn: '30m', // Temporary token for OAuth -> signup
       },
     },
   };

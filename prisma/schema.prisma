@@ -44,13 +44,19 @@ model Syllabus {
   generationJobId String? // Link to AIGeneration/JobQueue for tracking
   
   // Relations
+  teacher      Teacher?  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   units        Unit[]
+  visibility      Visibility @default(PUBLIC)  // NEW: Content access control
+  viewCount       Int        @default(0)       // NEW: Track popularity
+  
 
   @@index([teacherId])
   @@index([subjectName, className, board])
   @@index([teacherId, subjectName, className, board, term, academicYear])
   @@index([isLatest])
   @@index([version])
+  @@index([teacherId, visibility, isLatest])
+  @@index([visibility, subjectName, className])
 }
 
 model Unit {
@@ -73,8 +79,11 @@ model Unit {
 
   // Relations
   syllabus      Syllabus @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   topics        Topic[]
-
+  visibility      Visibility?  // NEW: NULL = inherit from Syllabus
+  
+  @@index([syllabusId, visibility])
   // Indexes
   @@index([syllabusId])
   @@index([teacherId])
@@ -102,9 +111,12 @@ model Topic {
 
   // Relations
   unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   questions   Question[]
   resources   TopicResource[] // External resources from web search
-
+  visibility      Visibility?  // NEW: NULL = inherit from Unit
+  
+  @@index([unitId, visibility])
   // Indexes
   @@index([unitId])
   @@index([teacherId])
@@ -139,8 +151,12 @@ model Question {
 
   // Relations
   topic         Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   studentAnswers  StudentAnswer[]
-
+  visibility      Visibility @default(PUBLIC)  // NEW: Control question access
+  
+  @@index([teacherId, visibility])
+  @@index([topicId, visibility])
   // Indexes for better query performance
   @@index([topicId])
   @@index([teacherId])
@@ -182,6 +198,7 @@ model AIGeneration {
   unitId      String?
   topicId     String?
   teacherId   String?
+  teacher     Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   
   createdAt   DateTime @default(now())
   
@@ -196,6 +213,7 @@ model AIGeneration {
 model Notification {
   id          String   @id @default(cuid())
   teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   title       String
   message     String
   isRead      Boolean  @default(false)
@@ -306,7 +324,9 @@ model StudentAnswer {
   
   // Relations
   question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  visibility      Visibility @default(FOLLOWERS)  // NEW: Default to followers only
   
+  @@index([teacherId, visibility])
   @@index([questionId])
   @@index([studentId])
   @@index([teacherId])
@@ -369,4 +389,194 @@ model ConversationMessage {
   
   @@index([conversationId, sequenceNumber])
   @@index([conversationId])
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  googleId      String?   @unique  // Google OAuth ID
+  displayName   String
+  avatarUrl     String?
+  role          UserRole
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations (one-to-one)
+  teacher       Teacher?
+  student       Student?
+
+  // Indexes for performance
+  @@index([email])
+  @@index([googleId])
+  @@index([role, isActive])
+}
+
+enum UserRole {
+  TEACHER
+  STUDENT
+}
+
+model Teacher {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Profile
+  firstName       String
+  lastName        String
+  bio             String?   @db.Text
+  specialization  String?   // e.g., "Mathematics, Physics"
+  qualification   String?
+  experience      Int?      // years
+  
+  // Settings
+  profileVisibility    Visibility @default(PUBLIC)  // Profile visibility
+  defaultContentMode   Visibility @default(PUBLIC)  // Default for new content
+  allowFollowers       Boolean    @default(true)
+  
+  // Stats (denormalized for performance)
+  followersCount  Int       @default(0)
+  contentCount    Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  followers       TeacherFollower[]  @relation("TeacherFollowers")
+  syllabi         Syllabus[]
+  units           Unit[]
+  topics          Topic[]
+  questions       Question[]
+  assessments     Assessment[]
+  aiGenerations   AIGeneration[]
+  notifications   Notification[]
+
+  @@index([userId])
+  @@index([allowFollowers])
+}
+
+model Student {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Profile
+  firstName       String
+  lastName        String
+  grade           String?   // e.g., "10", "12", "Undergraduate"
+  institution     String?
+  interests       String?   // Comma-separated subjects
+  
+  // Stats (denormalized for performance)
+  followingCount  Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  following       TeacherFollower[]  @relation("StudentFollowing")
+  submissions     AssessmentSubmission[]
+
+  @@index([userId])
+  @@index([grade])
+}
+
+model TeacherFollower {
+  id          String    @id @default(uuid())
+  teacherId   String
+  teacher     Teacher   @relation("TeacherFollowers", fields: [teacherId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student   @relation("StudentFollowing", fields: [studentId], references: [id], onDelete: Cascade)
+  followedAt  DateTime  @default(now())
+
+  // Prevent duplicate follows
+  @@unique([teacherId, studentId])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([followedAt])  // For "recent followers" queries
+}
+
+enum Visibility {
+  PUBLIC       // Everyone can see
+  FOLLOWERS    // Only followers can see
+  PRIVATE      // Only teacher can see
+}
+
+// Assessment - Tests and Assignments
+model Assessment {
+  id              String   @id @default(uuid())
+  teacherId       String
+  teacher         Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  // Assessment details
+  title           String
+  description     String?  @db.Text
+  assessmentType  String   // 'quiz', 'test', 'assignment', 'homework'
+  
+  // Configuration
+  totalMarks      Float
+  passingMarks    Float?
+  duration        Int?     // Duration in minutes
+  instructions    String?  @db.Text
+  
+  // Visibility and access
+  visibility      Visibility @default(FOLLOWERS)
+  
+  // Scheduling
+  startDate       DateTime?
+  endDate         DateTime?
+  isPublished     Boolean  @default(false)
+  
+  // Metadata
+  subjectName     String?
+  className       String?
+  syllabusId      String?  // Optional link to syllabus
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  submissions     AssessmentSubmission[]
+  
+  @@index([teacherId, visibility])
+  @@index([isPublished, visibility])
+  @@index([subjectName, className])
+  @@index([startDate, endDate])
+}
+
+// Assessment Submission - Student submissions
+model AssessmentSubmission {
+  id              String   @id @default(uuid())
+  assessmentId    String
+  assessment      Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // Submission data
+  answers         Json     // Array of {questionId, answer, selectedOption}
+  
+  // Grading results
+  totalScore      Float    @default(0.0)
+  maxScore        Float
+  percentage      Float    @default(0.0)
+  
+  // Status
+  status          String   @default("in-progress") // 'in-progress', 'submitted', 'graded'
+  isGraded        Boolean  @default(false)
+  
+  // Timing
+  startedAt       DateTime @default(now())
+  submittedAt     DateTime?
+  gradedAt        DateTime?
+  
+  // Metadata
+  feedback        String?  @db.Text
+  teacherComments String?  @db.Text
+  
+  @@index([assessmentId])
+  @@index([studentId])
+  @@index([status, isGraded])
+  @@index([submittedAt])
 }
