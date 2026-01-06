@@ -73,9 +73,17 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   let userContext;
   let relevantFacts;
   let relevantConversations;
+  let userName: string | undefined;
 
   try {
     if (currentUserId) {
+      // Load user's display name for personalization
+      const user = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { displayName: true }
+      });
+      userName = user?.displayName;
+
       // Load AI customization settings
       aiSettings = await aiSettingsService.getSettings(currentUserId);
       
@@ -167,6 +175,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
           content: msg.content,
         })),
         aiSettings,
+        userName, // Add user's display name for personalization
       };
       
       if (userContext) promptContext.userContext = userContext;

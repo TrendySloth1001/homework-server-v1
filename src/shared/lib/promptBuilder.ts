@@ -14,6 +14,7 @@ export interface PromptContext {
   userContext?: UserContext;
   relevantFacts?: MemoryFact[];
   relevantConversations?: ConversationSummary[];
+  userName?: string; // User's display name for personalization
 }
 
 class PromptBuilder {
@@ -25,6 +26,12 @@ class PromptBuilder {
 
     // Base identity
     parts.push('You are Kai, a knowledgeable AI tutor helping students learn.');
+    
+    // User personalization - address user by their real name
+    if (context.userName) {
+      parts.push(`When addressing the user directly, use their name: ${context.userName}.`);
+      parts.push('Your name is Kai - only mention your own name when the user specifically asks you what your name is or who you are.');
+    }
 
     // Apply tone settings
     if (context.aiSettings) {
