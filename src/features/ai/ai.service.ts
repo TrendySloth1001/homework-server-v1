@@ -5,7 +5,7 @@
 
 import { ollamaService } from '../../shared/lib/ollama';
 import { prisma } from '../../shared/lib/prisma';
-import { NotFoundError, ValidationError } from '../../shared/lib/errors';
+import { NotFoundError, ValidationError, AppError } from '../../shared/lib/errors';
 import type { GenerateTextRequest, GenerateTextResponse, ChatRequest, EnhanceSyllabusRequest } from './ai.types';
 import { config } from '../../shared/config';
 import { ragService } from '../../shared/lib/rag';
@@ -19,6 +19,7 @@ import { responseEnhancer } from '../../shared/lib/responseEnhancer';
 import { urlValidator } from '../../shared/lib/urlValidator';
 import { mem0Service } from '../../shared/lib/mem0Client';
 import { langchainService } from '../../shared/lib/langchainService';
+import axios from 'axios';
 
 /**
  * Check if query is asking about personal information
@@ -812,3 +813,62 @@ async function generateThoughtTags(userPrompt: string, aiResponse: string): Prom
     return 'general,conversation'; // Fallback
   }
 }
+
+/**
+ * Get locally installed Ollama models with metadata
+ */
+export const getOllamaModelsService = async () => {
+  try {
+    const response = await axios.get(`${config.ai.ollama.baseUrl}/api/tags`);
+    
+    // Transform Ollama response to include useful metadata
+    const models = response.data.models?.map((model: any) => {
+      const name = model.name;
+      const size = model.size;
+      const modified = model.modified_at;
+      
+      // Categorize models by name patterns
+      let purpose = 'General Purpose';
+      let hasAPI = true;
+      
+      if (name.includes('code') || name.includes('coder')) {
+        purpose = 'Code Generation & Analysis';
+      } else if (name.includes('embed')) {
+        purpose = 'Embeddings & Vector Generation';
+        hasAPI = false;
+      } else if (name.includes('vision') || name.includes('llava')) {
+        purpose = 'Vision & Image Understanding';
+      } else if (name.includes('math')) {
+        purpose = 'Mathematics & Reasoning';
+      } else if (name.includes('chat') || name.includes('instruct')) {
+        purpose = 'Conversational AI';
+      }
+      
+      // Format size
+      const formatSize = (bytes: number) => {
+        if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)}GB`;
+        if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)}MB`;
+        return `${(bytes / 1e3).toFixed(1)}KB`;
+      };
+      
+      return {
+        name,
+        displayName: name.split(':')[0],
+        tag: name.split(':')[1] || 'latest',
+        size: formatSize(size),
+        sizeBytes: size,
+        purpose,
+        hasAPI,
+        modified: new Date(modified).toLocaleDateString(),
+        family: model.details?.family || 'unknown',
+        parameterSize: model.details?.parameter_size || 'unknown',
+      };
+    }) || [];
+    
+    console.log(`[AIService] Found ${models.length} Ollama models`);
+    return models;
+  } catch (error: any) {
+    console.error('[AIService] Failed to fetch Ollama models:', error.message);
+    throw new AppError('Failed to fetch Ollama models. Make sure Ollama is running.', 503);
+  }
+};
