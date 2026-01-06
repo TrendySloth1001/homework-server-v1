@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,8 +14,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@langchain/community": "^1.1.2",
-    "@langchain/core": "^1.1.9",
+    "@langchain/community": "^0.3.36",
+    "@langchain/core": "^1.1.10",
     "@libsql/client": "^0.15.15",
     "@prisma/adapter-libsql": "^7.1.0",
     "@prisma/adapter-pg": "^7.1.0",
@@ -33,8 +33,9 @@
     "firebase": "^12.7.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.3",
-    "langchain": "^1.2.4",
+    "langchain": "^1.2.5",
     "llamaindex": "^0.12.1",
+    "mem0ai": "^1.0.39",
     "node-fetch": "^2.7.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
