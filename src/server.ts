@@ -10,6 +10,7 @@ import notificationRoutes from './features/notifications/notifications.routes';
 import assessmentRoutes from './features/assessment/assessment.routes';
 import authRoutes from './features/auth/auth.routes';
 import signupRoutes from './features/signup/signup.routes';
+import legalRoutes from './features/legal/legal.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
@@ -45,6 +46,7 @@ app.use('/api/ai', aiRoutes);                                               // A
 app.use('/api/questions', questionRoutes);                                  // Question bank
 app.use('/api/notifications', notificationRoutes);                          // Notifications
 app.use('/api/assessment', assessmentRoutes);                               // Answer grading (mathematical)
+app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
 
 
 
