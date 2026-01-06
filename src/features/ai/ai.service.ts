@@ -19,6 +19,41 @@ import { responseEnhancer } from '../../shared/lib/responseEnhancer';
 import { urlValidator } from '../../shared/lib/urlValidator';
 
 /**
+ * Check if query is asking about personal information
+ */
+function checkIfPersonalQuery(query: string): boolean {
+  const personalKeywords = [
+    'my', 'me', 'i am', "i'm", 'my name', 'who am i',
+    'my goal', 'my interest', 'about me', 'tell me about myself',
+    'what do i', 'what did i', 'remember about me'
+  ];
+  
+  const lowerQuery = query.toLowerCase();
+  return personalKeywords.some(keyword => lowerQuery.includes(keyword));
+}
+
+/**
+ * Check if query needs memory/past context
+ */
+function checkIfNeedsMemory(query: string): boolean {
+  const memoryKeywords = [
+    'remember', 'recall', 'we discussed', 'we talked',
+    'last time', 'before', 'previous', 'earlier',
+    'you said', 'you told me', 'you mentioned',
+    'what did', 'when did', 'history', 'past'
+  ];
+  
+  const lowerQuery = query.toLowerCase();
+  
+  // Also check if query is too short - simple questions don't need memory
+  if (query.split(' ').length <= 3) {
+    return false;
+  }
+  
+  return memoryKeywords.some(keyword => lowerQuery.includes(keyword));
+}
+
+/**
  * Enhanced text generation with RAG and conversation history
  * Now supports context retrieval and sliding window conversation management
  */
@@ -84,27 +119,40 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       });
       userName = user?.displayName;
 
-      // Load AI customization settings
+      // Load AI customization settings (always needed for personality)
       aiSettings = await aiSettingsService.getSettings(currentUserId);
       
-      // Load user context if profile is enabled
-      if (aiSettings.profileEnabled) {
+      // Smart context loading - only load when relevant to the query
+      const shouldLoadPersonalContext = checkIfPersonalQuery(prompt);
+      const shouldLoadMemory = aiSettings.memoryEnabled && checkIfNeedsMemory(prompt);
+      
+      // Load user context only if query seems personal and profile is enabled
+      if (shouldLoadPersonalContext && aiSettings.profileEnabled) {
         userContext = await aiSettingsService.getUserContext(currentUserId);
+        console.log('[AIService] Loading user context - query appears personal');
       }
 
-      // Load relevant memory facts
-      relevantFacts = await memoryManager.loadRelevantFacts(currentUserId, prompt, 5);
-
-      // Search for relevant past conversations
-      relevantConversations = await memoryManager.searchConversations(currentUserId, prompt, 2);
-      
-      // Mark used facts
-      if (relevantFacts.length > 0) {
-        relevantFacts.forEach(fact => {
-          memoryManager.markFactAsUsed(fact.id).catch(err => 
-            console.error('[AIService] Failed to mark fact as used:', err)
-          );
-        });
+      // Load memory only if enabled and query suggests need for past context
+      if (shouldLoadMemory) {
+        // Load relevant memory facts
+        relevantFacts = await memoryManager.loadRelevantFacts(currentUserId, prompt, 5);
+        
+        // Only search conversations if facts were found or query is about past discussions
+        if (relevantFacts && relevantFacts.length > 0) {
+          relevantConversations = await memoryManager.searchConversations(currentUserId, prompt, 2);
+          console.log(`[AIService] Loaded ${relevantFacts.length} relevant facts and ${relevantConversations?.length || 0} past conversations`);
+        }
+        
+        // Mark used facts
+        if (relevantFacts && relevantFacts.length > 0) {
+          relevantFacts.forEach(fact => {
+            memoryManager.markFactAsUsed(fact.id).catch(err => 
+              console.error('[AIService] Failed to mark fact as used:', err)
+            );
+          });
+        }
+      } else {
+        console.log('[AIService] Skipping memory/context retrieval - not needed for this query');
       }
     }
   } catch (error) {
