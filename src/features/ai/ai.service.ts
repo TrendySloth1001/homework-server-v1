@@ -106,52 +106,69 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
   // Step 2.1: Load AI settings and memory (Phase 3 Integration)
   const currentUserId = userId || teacherId || studentId;
-  let aiSettings;
-  let userContext;
-  let relevantFacts;
-  let relevantConversations;
+  let aiSettings: any;
+  let userContext: any;
+  let relevantFacts: any[] = [];
+  let relevantConversations: any[] = [];
   let userName: string | undefined;
 
   try {
     if (currentUserId) {
-      // Load user's display name for personalization
-      const user = await prisma.user.findUnique({
-        where: { id: currentUserId },
-        select: { displayName: true }
-      });
+      // Load AI settings and user info in parallel
+      const [user, settings] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { displayName: true }
+        }),
+        aiSettingsService.getSettings(currentUserId),
+      ]);
+      
       userName = user?.displayName;
-
-      // Load AI customization settings (always needed for personality)
-      aiSettings = await aiSettingsService.getSettings(currentUserId);
+      aiSettings = settings;
       
       // Smart context loading - only load when relevant to the query
       const shouldLoadPersonalContext = checkIfPersonalQuery(prompt);
       const shouldLoadMemory = checkIfNeedsMemory(prompt);
       
-      // Load user context only if query seems personal and profile is enabled
-      if (shouldLoadPersonalContext && aiSettings.profileEnabled) {
-        userContext = await aiSettingsService.getUserContext(currentUserId);
-        console.log('[AIService] Loading user context - query appears personal');
-      }
-
-      // Load memory only if enabled and query suggests need for past context
-      if (shouldLoadMemory) {
-        // Load relevant memory facts
-        relevantFacts = await memoryManager.loadRelevantFacts(currentUserId, prompt, 5);
+      // Parallel loading of context and memory if needed
+      if (shouldLoadPersonalContext || shouldLoadMemory) {
+        const parallelOps: Promise<any>[] = [];
         
-        // Only search conversations if facts were found or query is about past discussions
-        if (relevantFacts && relevantFacts.length > 0) {
-          relevantConversations = await memoryManager.searchConversations(currentUserId, prompt, 2);
-          console.log(`[AIService] Loaded ${relevantFacts.length} relevant facts and ${relevantConversations?.length || 0} past conversations`);
+        // Load user context if needed
+        if (shouldLoadPersonalContext && aiSettings.profileEnabled) {
+          parallelOps.push(
+            aiSettingsService.getUserContext(currentUserId)
+              .then(ctx => { userContext = ctx; })
+          );
         }
         
-        // Mark used facts
-        if (relevantFacts && relevantFacts.length > 0) {
+        // Load memory if needed
+        if (shouldLoadMemory) {
+          parallelOps.push(
+            memoryManager.loadRelevantFacts(currentUserId, prompt, 5)
+              .then(facts => { relevantFacts = facts; })
+          );
+        }
+        
+        // Execute all in parallel
+        await Promise.all(parallelOps);
+        
+        // Load conversations if facts were found
+        if (shouldLoadMemory && relevantFacts && relevantFacts.length > 0) {
+          relevantConversations = await memoryManager.searchConversations(currentUserId, prompt, 2);
+          
+          console.log(`[AIService] Loaded ${relevantFacts.length} relevant facts and ${relevantConversations?.length || 0} past conversations`);
+          
+          // Mark used facts (background)
           relevantFacts.forEach(fact => {
             memoryManager.markFactAsUsed(fact.id).catch(err => 
               console.error('[AIService] Failed to mark fact as used:', err)
             );
           });
+        }
+        
+        if (shouldLoadPersonalContext) {
+          console.log('[AIService] Loaded user context - query appears personal');
         }
       } else {
         console.log('[AIService] Skipping memory/context retrieval - not needed for this query');
@@ -264,6 +281,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       tokensUsed = ragResponse.tokensUsed || 0;
     } else if (currentUserId) {
       // Use LangChain + Mem0 for memory-enhanced conversations
+      // With all optimizations: caching, smart model selection, connection pooling
       await langchainService.initialize();
       
       response = await langchainService.chat(
@@ -273,7 +291,11 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
           role: msg.role as 'user' | 'assistant',
           content: msg.content,
         })),
-        systemPrompt
+        systemPrompt,
+        {
+          stream: stream,
+          // Smart model selection happens automatically
+        }
       );
       
       // Estimate tokens (rough approximation)
@@ -351,7 +373,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       conversation.id,
       prompt,
       response
-    ).catch(err => console.error('[AIService] Mem0 storage failed:', err));
+    ).catch((err: any) => console.error('[AIService] Mem0 storage failed:', err));
   }
   
   // Step 4.2: Extract facts from conversation (Phase 3 Integration)

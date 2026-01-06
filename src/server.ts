@@ -19,6 +19,8 @@ import { embeddingService } from './shared/lib/embeddings';
 import { qdrantService } from './shared/lib/qdrant';
 import { memoryManager } from './shared/lib/memoryManager';
 import { configurePassport } from './shared/lib/passport';
+import { cachingService } from './shared/lib/cachingService';
+import { memoryPruningService } from './shared/lib/memoryPruning';
 
 const app = express();
 
@@ -234,6 +236,14 @@ async function initializeServices() {
     
     // Warmup embedding service (downloads model on first use)
     await embeddingService.warmup();
+    
+    // Initialize caching service (Redis)
+    await cachingService.initialize();
+    console.log(':: Caching service initialized with Redis');
+    
+    // Start automatic memory pruning (daily cleanup)
+    memoryPruningService.startAutoPruning();
+    console.log(':: Memory pruning service started (90-day retention)');
     
     console.log('\n:: All RAG services initialized successfully\n');
   } catch (error) {

@@ -5,10 +5,17 @@
 
 import { MemoryClient } from 'mem0ai';
 import { config } from '../config';
+import { cachingService } from './cachingService';
+
+interface MemorySearchOptions {
+  limit?: number;
+  minRelevanceScore?: number;
+}
 
 class Mem0Service {
   private client: MemoryClient | null = null;
   private initialized = false;
+  private readonly DEFAULT_RELEVANCE_THRESHOLD = 0.7;
 
   /**
    * Initialize Mem0 client
@@ -43,6 +50,10 @@ class Mem0Service {
       });
 
       console.log(`[Mem0] Added memory for user ${userId}`);
+      
+      // Invalidate cache for this user
+      await cachingService.invalidateUserMemories(userId);
+      
       return result;
     } catch (error) {
       console.error('[Mem0] Failed to add memory:', error);
@@ -51,23 +62,68 @@ class Mem0Service {
   }
 
   /**
-   * Search memories for a user based on query
+   * Search memories for a user based on query with caching and relevance filtering
    */
-  async searchMemories(userId: string, query: string, limit: number = 5): Promise<any[]> {
+  async searchMemories(userId: string, query: string, limit: number = 5, options?: MemorySearchOptions): Promise<any[]> {
     if (!this.client) await this.initialize();
+
+    // Check cache first
+    const cached = await cachingService.getMemorySearch(userId, query);
+    if (cached) {
+      console.log(`[Mem0] Cache hit for user ${userId}`);
+      return this.filterByRelevance(cached, options?.minRelevanceScore);
+    }
 
     try {
       const memories = await this.client!.search(query, {
         user_id: userId,
-        limit,
+        limit: limit * 2, // Fetch more for filtering
       });
 
-      console.log(`[Mem0] Found ${memories.length} relevant memories for user ${userId}`);
-      return memories;
+      // Cache results
+      await cachingService.cacheMemorySearch(userId, query, memories);
+
+      // Filter by relevance score
+      const filtered = this.filterByRelevance(memories, options?.minRelevanceScore);
+      
+      console.log(`[Mem0] Found ${filtered.length}/${memories.length} relevant memories (threshold: ${options?.minRelevanceScore || this.DEFAULT_RELEVANCE_THRESHOLD})`);
+      return filtered.slice(0, limit);
     } catch (error) {
       console.error('[Mem0] Failed to search memories:', error);
       return [];
     }
+  }
+
+  /**
+   * Batch search memories for multiple queries
+   */
+  async batchSearchMemories(userId: string, queries: string[], limit: number = 3): Promise<Map<string, any[]>> {
+    const results = new Map<string, any[]>();
+    
+    // Execute searches in parallel
+    const searches = queries.map(query => 
+      this.searchMemories(userId, query, limit)
+        .then(memories => ({ query, memories }))
+    );
+
+    const allResults = await Promise.all(searches);
+    
+    allResults.forEach(({ query, memories }) => {
+      results.set(query, memories);
+    });
+
+    return results;
+  }
+
+  /**
+   * Filter memories by relevance score
+   */
+  private filterByRelevance(memories: any[], minScore?: number): any[] {
+    const threshold = minScore ?? this.DEFAULT_RELEVANCE_THRESHOLD;
+    return memories.filter(m => {
+      const score = m.score || m.relevance_score || 1.0;
+      return score >= threshold;
+    });
   }
 
   /**
