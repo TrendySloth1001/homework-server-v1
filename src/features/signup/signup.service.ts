@@ -121,7 +121,7 @@ export async function completeStudentSignupService(
   });
 
   // Create student profile
-  const student = await prisma.student.create({
+  await prisma.student.create({
     data: {
       userId,
       firstName: input.firstName,
