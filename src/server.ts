@@ -11,11 +11,13 @@ import assessmentRoutes from './features/assessment/assessment.routes';
 import authRoutes from './features/auth/auth.routes';
 import signupRoutes from './features/signup/signup.routes';
 import legalRoutes from './features/legal/legal.routes';
+import aiSettingsRoutes from './features/ai-settings/ai-settings.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
 import { embeddingService } from './shared/lib/embeddings';
 import { qdrantService } from './shared/lib/qdrant';
+import { memoryManager } from './shared/lib/memoryManager';
 import { configurePassport } from './shared/lib/passport';
 
 const app = express();
@@ -67,6 +69,7 @@ app.use('/api/questions', questionRoutes);                                  // Q
 app.use('/api/notifications', notificationRoutes);                          // Notifications
 app.use('/api/assessment', assessmentRoutes);                               // Answer grading (mathematical)
 app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
+app.use('/api', aiSettingsRoutes);                                          // AI customization settings
 
 
 
@@ -225,6 +228,9 @@ async function initializeServices() {
   try {
     // Initialize Qdrant collections
     await qdrantService.initializeCollections();
+    
+    // Initialize memory manager collections
+    await memoryManager.ensureCollections();
     
     // Warmup embedding service (downloads model on first use)
     await embeddingService.warmup();

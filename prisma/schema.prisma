@@ -607,3 +607,104 @@ model LegalDocument {
   @@index([effectiveDate])
   @@unique([type, version])
 }
+
+// AI Settings - User preferences for AI behavior (ChatGPT-style customization)
+model AISettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  
+  // Base personality settings
+  baseTone           String   @default("friendly") // friendly, formal, neutral, enthusiastic
+  warmth             Int      @default(7)          // 0-10 scale
+  enthusiasm         Int      @default(5)          // 0-10 scale
+  
+  // Response formatting preferences
+  useHeaders         Boolean  @default(true)
+  emojiUsage         String   @default("moderate") // none, minimal, moderate, frequent
+  responseLength     String   @default("balanced") // concise, balanced, detailed
+  
+  // Custom user instructions
+  customInstructions String?  @db.Text
+  
+  // Profile connection
+  profileEnabled     Boolean  @default(false)
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+// User Context - "About You" section for AI personalization
+model UserContext {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  
+  // Learning profile
+  learningGoals     String?  @db.Text
+  weakSubjects      String[] // Array of subjects user finds difficult
+  strongSubjects    String[] // Array of subjects user excels in
+  preferredExamples String?  // real-world, mathematical, visual, etc.
+  interests         String?  @db.Text
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+// Memory Facts - Long-term memory extracted from conversations
+model MemoryFact {
+  id            String   @id @default(cuid())
+  userId        String
+  
+  // Fact content
+  fact          String   @db.Text    // "User struggles with calculus"
+  category      String                // "difficulty", "preference", "goal", "achievement", "fact"
+  confidence    Float    @default(1.0) // 0-1 (decays over time if not used)
+  
+  // Source tracking
+  source        String                // "conversation:{id}", "profile", "manual"
+  conversationId String?              // Reference if from conversation
+  
+  // Vector embedding for similarity search
+  embedding     String?  @db.Text     // JSON array of embedding vector
+  
+  // Relevance tracking
+  relevanceCount Int     @default(1)  // How many times this fact was relevant
+  lastUsedAt    DateTime?             // Last time this fact was used in context
+  expiresAt     DateTime?             // Optional expiration for temporary facts
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([userId, category])
+  @@index([userId, lastUsedAt])
+  @@index([conversationId])
+}
+
+// Conversation References - Searchable summaries of past conversations
+model ConversationReference {
+  id              String   @id @default(cuid())
+  userId          String
+  conversationId  String   @unique
+  
+  // Searchable summary
+  summary         String   @db.Text  // AI-generated summary of conversation
+  topics          String[]          // Extracted topics ["physics", "motion", "newton"]
+  keyPoints       String[] @default([]) // Important points discussed
+  
+  // Vector embedding for similarity search
+  embedding       String?  @db.Text  // JSON array of embedding vector
+  
+  // Metadata
+  messageCount    Int      @default(0)
+  sentiment       String?  // positive, neutral, negative, mixed
+  wasHelpful      Boolean? // User feedback
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([userId, createdAt])
+}
