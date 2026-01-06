@@ -48,7 +48,7 @@ export async function completeTeacherSignupService(
   });
 
   // Create teacher profile
-  const teacher = await prisma.teacher.create({
+  await prisma.teacher.create({
     data: {
       userId,
       firstName: input.firstName,

@@ -350,7 +350,6 @@
 
             // Pre-fill name if in URL
             const name = urlParams.get('name');
-            const email = urlParams.get('email');
             if (name) {
                 const [firstName, ...lastNameParts] = name.split(' ');
                 const lastName = lastNameParts.join(' ');

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../../shared/lib/prisma';
+import { NotFoundError } from '../../shared/lib/errors';
 import { LegalDocumentType, CreateLegalDocumentInput, UpdateLegalDocumentInput } from './legal.types';
 
 export class LegalService {
@@ -22,7 +23,7 @@ export class LegalService {
     });
 
     if (!document) {
-      throw new Error(`No active ${type} document found`);
+      throw new NotFoundError(`${type} document`);
     }
 
     return document;
@@ -49,7 +50,7 @@ export class LegalService {
     });
 
     if (!document) {
-      throw new Error('Document not found');
+      throw new NotFoundError('Legal document', id);
     }
 
     return document;

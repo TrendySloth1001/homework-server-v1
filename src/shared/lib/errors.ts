@@ -75,8 +75,12 @@ export class BadRequestError extends AppError {
 /**
  * Async handler wrapper to catch errors in async route handlers
  */
-export function asyncHandler(fn: Function) {
-    return (req: any, res: any, next: any) => {
+import { Request, Response, NextFunction } from 'express';
+
+export function asyncHandler(
+    fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+) {
+    return (req: Request, res: Response, next: NextFunction) => {
         Promise.resolve(fn(req, res, next)).catch(next);
     };
 }
