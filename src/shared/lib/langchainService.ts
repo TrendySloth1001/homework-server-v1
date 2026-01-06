@@ -4,8 +4,6 @@
  */
 
 import { ChatOllama } from '@langchain/ollama';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
 import { config } from '../config';
 import { mem0Service } from './mem0Client';
 
