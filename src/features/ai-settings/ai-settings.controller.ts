@@ -20,15 +20,15 @@ class AISettingsController {
 
       // Verify user is requesting their own settings
       if (user?.userId !== userId) {
-        res.status(403).json({ error: 'Unauthorized' });
+        res.status(403).json({ success: false, error: { message: 'Unauthorized' } });
         return;
       }
 
       const settings = await aiSettingsService.getSettings(userId);
-      res.json(settings);
+      res.json({ success: true, data: settings });
     } catch (error) {
       console.error('[AISettingsController] Error getting settings:', error);
-      res.status(500).json({ error: 'Failed to get AI settings' });
+      res.status(500).json({ success: false, error: { message: 'Failed to get AI settings' } });
     }
   }
 
@@ -44,15 +44,15 @@ class AISettingsController {
 
       // Verify user is updating their own settings
       if (user?.userId !== userId) {
-        res.status(403).json({ error: 'Unauthorized' });
+        res.status(403).json({ success: false, error: { message: 'Unauthorized' } });
         return;
       }
 
       const settings = await aiSettingsService.updateSettings(userId, updates);
-      res.json(settings);
+      res.json({ success: true, data: settings });
     } catch (error: any) {
       console.error('[AISettingsController] Error updating settings:', error);
-      res.status(400).json({ error: error.message || 'Failed to update AI settings' });
+      res.status(400).json({ success: false, error: { message: error.message || 'Failed to update AI settings' } });
     }
   }
 
@@ -67,15 +67,15 @@ class AISettingsController {
 
       // Verify user is resetting their own settings
       if (user?.userId !== userId) {
-        res.status(403).json({ error: 'Unauthorized' });
+        res.status(403).json({ success: false, error: { message: 'Unauthorized' } });
         return;
       }
 
       const settings = await aiSettingsService.resetToDefaults(userId);
-      res.json(settings);
+      res.json({ success: true, data: settings });
     } catch (error) {
       console.error('[AISettingsController] Error resetting settings:', error);
-      res.status(500).json({ error: 'Failed to reset AI settings' });
+      res.status(500).json({ success: false, error: { message: 'Failed to reset AI settings' } });
     }
   }
 
@@ -90,15 +90,15 @@ class AISettingsController {
 
       // Verify user is requesting their own context
       if (user?.userId !== userId) {
-        res.status(403).json({ error: 'Unauthorized' });
+        res.status(403).json({ success: false, error: { message: 'Unauthorized' } });
         return;
       }
 
       const context = await aiSettingsService.getUserContext(userId);
-      res.json(context || {});
+      res.json({ success: true, data: context || {} });
     } catch (error) {
       console.error('[AISettingsController] Error getting user context:', error);
-      res.status(500).json({ error: 'Failed to get user context' });
+      res.status(500).json({ success: false, error: { message: 'Failed to get user context' } });
     }
   }
 
@@ -114,15 +114,15 @@ class AISettingsController {
 
       // Verify user is updating their own context
       if (user?.userId !== userId) {
-        res.status(403).json({ error: 'Unauthorized' });
+        res.status(403).json({ success: false, error: { message: 'Unauthorized' } });
         return;
       }
 
       const context = await aiSettingsService.updateUserContext(userId, updates);
-      res.json(context);
+      res.json({ success: true, data: context });
     } catch (error) {
       console.error('[AISettingsController] Error updating user context:', error);
-      res.status(500).json({ error: 'Failed to update user context' });
+      res.status(500).json({ success: false, error: { message: 'Failed to update user context' } });
     }
   }
 }

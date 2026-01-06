@@ -201,7 +201,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
       });
 
       // Parse and save question
-      const parsed = parseQuestionResponse(response, questionType);
+      const parsed = parseQuestionResponse(response.response, questionType);
       
       // Check for duplicate ONLY against current session (not historical questions)
       console.log(`[Attempt ${attemptCount}/${maxAttempts}, Success ${successCount}/${count}] Checking: "${parsed.question.substring(0, 60)}..."`);
