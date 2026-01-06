@@ -133,7 +133,12 @@ function validateConfig(): Config {
         callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback',
       },
       jwt: {
-        secret: process.env.JWT_SECRET || 'dev-secret-change-in-production-' + nodeEnv,
+        secret: (() => {
+          if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET must be set in production environment');
+          }
+          return process.env.JWT_SECRET || 'dev-secret-change-in-production-' + nodeEnv;
+        })(),
         expiresIn: process.env.JWT_EXPIRES_IN || '7d',
         tempTokenExpiresIn: '30m', // Temporary token for OAuth -> signup
       },

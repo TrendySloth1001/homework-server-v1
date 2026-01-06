@@ -11,7 +11,7 @@ import {
   getUserProfileService,
   deactivateUserService,
 } from './auth.service';
-import { AuthenticatedRequest, GoogleProfile, JWTPayload } from './auth.types';
+import { GoogleProfile, JWTPayload } from './auth.types';
 import { asyncHandler } from '../../shared/lib/errors';
 
 /**

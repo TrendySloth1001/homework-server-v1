@@ -246,7 +246,7 @@ class ConversationService {
                 conversationId,
                 role,
                 content,
-                tokensUsed: tokensUsed ?? null,
+                ...(tokensUsed !== undefined ? { tokensUsed } : {}),
                 sequenceNumber,
                 ...(retrievedDocs ? { retrievedDocs } : {}),
                 ...(embedding ? { embedding } : {}),

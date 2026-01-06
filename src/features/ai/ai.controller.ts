@@ -36,8 +36,13 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
   } = req.body;
   console.log(webSearch);
   
-  if (!prompt || (!teacherId && !studentId && !userId)) {
+  // Ensure exactly one user identifier is provided
+  const userIds = [teacherId, studentId, userId].filter(id => id !== undefined && id !== null);
+  if (!prompt || userIds.length === 0) {
     throw new ValidationError('Prompt and user identification are required');
+  }
+  if (userIds.length > 1) {
+    throw new ValidationError('Only one of teacherId, studentId, or userId should be provided');
   }
 
   // Handle streaming response
