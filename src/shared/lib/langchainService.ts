@@ -3,7 +3,7 @@
  * Modern approach using LangChain Expression Language (LCEL) with Mem0
  */
 
-import { ChatOllama } from '@langchain/community/chat_models/ollama';
+import { ChatOllama } from '@langchain/ollama';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { config } from '../config';
