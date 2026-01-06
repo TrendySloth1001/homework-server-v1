@@ -7,6 +7,8 @@ interface EnhancementOptions {
   addEmojis?: boolean;
   addPersonalTouch?: boolean;
   maxLength?: number;
+  emojiLevel?: 'none' | 'low' | 'moderate' | 'high';
+  warmth?: 'low' | 'medium' | 'high';
 }
 
 export class ResponseEnhancer {
@@ -16,17 +18,23 @@ export class ResponseEnhancer {
   enhance(response: string, options: EnhancementOptions = {}): string {
     let enhanced = response;
 
+    // Map new options to old options
+    const shouldAddEmojis = options.addEmojis ?? (options.emojiLevel !== 'none' && options.emojiLevel !== undefined);
+    const shouldAddPersonalTouch = options.addPersonalTouch ?? (options.warmth !== 'low' && options.warmth !== undefined);
+
     // Remove robotic phrases
     enhanced = this.removeRoboticPhrases(enhanced);
 
     // Add conversational elements
-    if (options.addPersonalTouch !== false) {
+    if (shouldAddPersonalTouch !== false) {
       enhanced = this.addPersonalTouch(enhanced);
     }
 
     // Add strategic emojis
-    if (options.addEmojis !== false) {
-      enhanced = this.addEmojis(enhanced);
+    if (shouldAddEmojis !== false) {
+      const emojiCount = options.emojiLevel === 'high' ? 3 : 
+                        options.emojiLevel === 'moderate' ? 2 : undefined;
+      enhanced = this.addEmojis(enhanced, emojiCount);
     }
 
     // Add engaging hooks
@@ -101,7 +109,7 @@ export class ResponseEnhancer {
     return text;
   }
 
-  private addEmojis(text: string): string {
+  private addEmojis(text: string, maxEmojis?: number): string {
     // Add contextual emojis (sparingly to avoid spam)
     const emojiMappings = [
       { pattern: /\b(important|crucial|key point)\b/i, emoji: '💡', maxUses: 2 },

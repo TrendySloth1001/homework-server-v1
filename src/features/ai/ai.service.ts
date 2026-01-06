@@ -12,6 +12,11 @@ import { ragService } from '../../shared/lib/rag';
 import { conversationService } from './conversation.service';
 import { responseFormatter } from '../../shared/lib/responseFormatter';
 import { searchWeb, type SearchResult } from '../../shared/lib/webSearch';
+import { memoryManager } from '../../shared/lib/memoryManager';
+import { aiSettingsService } from '../ai-settings/ai-settings.service';
+import { promptBuilder } from '../../shared/lib/promptBuilder';
+import { responseEnhancer } from '../../shared/lib/responseEnhancer';
+import { urlValidator } from '../../shared/lib/urlValidator';
 
 /**
  * Enhanced text generation with RAG and conversation history
@@ -62,6 +67,43 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   // Step 2: Load conversation history (sliding window - last 100)
   const history = await conversationService.getConversationHistory(conversation.id, 100);
 
+  // Step 2.1: Load AI settings and memory (Phase 3 Integration)
+  const currentUserId = userId || teacherId || studentId;
+  let aiSettings;
+  let userContext;
+  let relevantFacts;
+  let relevantConversations;
+
+  try {
+    if (currentUserId) {
+      // Load AI customization settings
+      aiSettings = await aiSettingsService.getSettings(currentUserId);
+      
+      // Load user context if profile is enabled
+      if (aiSettings.profileEnabled) {
+        userContext = await aiSettingsService.getUserContext(currentUserId);
+      }
+
+      // Load relevant memory facts
+      relevantFacts = await memoryManager.loadRelevantFacts(currentUserId, prompt, 5);
+
+      // Search for relevant past conversations
+      relevantConversations = await memoryManager.searchConversations(currentUserId, prompt, 2);
+      
+      // Mark used facts
+      if (relevantFacts.length > 0) {
+        relevantFacts.forEach(fact => {
+          memoryManager.markFactAsUsed(fact.id).catch(err => 
+            console.error('[AIService] Failed to mark fact as used:', err)
+          );
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[AIService] Error loading memory/settings:', error);
+    // Continue without memory if it fails
+  }
+
   // Step 2.5: Perform web search if enabled
   let webSearchResults: SearchResult[] | undefined;
   let webSearchContext = '';
@@ -77,14 +119,30 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       });
       
       if (webSearchResults && webSearchResults.length > 0) {
-        console.log(`[AIService] Found ${webSearchResults.length} web search results`);
-        // Format search results as context
-        webSearchContext = '\n\n=== RECENT WEB SEARCH RESULTS ===\n' +
-          webSearchResults.map((result, idx) => 
-            `${idx + 1}. ${result.title}\n   ${result.snippet || ''}\n   Source: ${result.url}`
-          ).join('\n\n') +
-          '\n\n=== END WEB SEARCH RESULTS ===\n\n' +
-          'Based on the above web search results, please provide an accurate and up-to-date response.\n\n';
+        console.log(`[AIService] Found ${webSearchResults.length} web search results, validating URLs...`);
+        
+        // Validate URLs to filter out 404s (Phase 3 Integration)
+        const validatedResults = await urlValidator.validateBatch(
+          webSearchResults.map(r => r.url)
+        );
+        
+        // Filter to only valid URLs
+        webSearchResults = webSearchResults.filter((result) => {
+          const validation = validatedResults.get(result.url);
+          return validation?.isValid;
+        });
+        
+        console.log(`[AIService] ${webSearchResults.length} valid URLs after validation`);
+        
+        if (webSearchResults.length > 0) {
+          // Format search results as context
+          webSearchContext = '\n\n=== RECENT WEB SEARCH RESULTS ===\n' +
+            webSearchResults.map((result, idx) => 
+              `${idx + 1}. ${result.title}\n   ${result.snippet || ''}\n   Source: ${result.url}`
+            ).join('\n\n') +
+            '\n\n=== END WEB SEARCH RESULTS ===\n\n' +
+            'Based on the above web search results, please provide an accurate and up-to-date response.\n\n';
+        }
       }
     } catch (error) {
       console.warn('[AIService] Web search failed:', error);
@@ -98,10 +156,33 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
 
   try {
+    // Build enhanced prompt with memory and settings (Phase 3 Integration)
+    let enhancedPrompt = prompt;
+    
+    if (aiSettings) {
+      const promptContext = promptBuilder.buildFullPrompt({
+        userMessage: prompt,
+        conversationHistory: history.slice(-10).map(msg => ({ // Last 10 messages
+          role: msg.role,
+          content: msg.content,
+        })),
+        aiSettings,
+        userContext: userContext || undefined,
+        relevantFacts: relevantFacts || undefined,
+        relevantConversations: relevantConversations || undefined,
+      });
+      enhancedPrompt = promptContext;
+    }
+
+    // Add web search context if available
+    if (webSearchContext) {
+      enhancedPrompt = webSearchContext + enhancedPrompt;
+    }
+
     if (useRAG) {
       // Query with RAG - includes context retrieval + generation
       const ragResponse = await ragService.query({
-        query: webSearchContext + prompt, // Include web search context in query
+        query: enhancedPrompt,
         topK: ragTopK,
         conversationHistory: history.map((msg) => ({
           role: msg.role,
@@ -116,8 +197,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       sourceDocuments = ragResponse.sourceNodes;
       tokensUsed = ragResponse.tokensUsed || 0;
     } else {
-      // Simple generation without RAG (include web search context)
-      const enhancedPrompt = webSearchContext ? webSearchContext + prompt : prompt;
+      // Simple generation without RAG
       const ollamaResponse = await ollamaService.generate(enhancedPrompt, {
         temperature,
         num_predict: maxTokens,
@@ -156,6 +236,20 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       // Not a JSON wrapper, continue with original response
     }
 
+    // Apply response enhancer for better personality (Phase 3 Integration)
+    if (aiSettings) {
+      try {
+        response = responseEnhancer.enhance(response, {
+          emojiLevel: aiSettings.emojiUsage === 'frequent' ? 'high' : 
+                     aiSettings.emojiUsage === 'occasional' ? 'moderate' : 'none',
+          warmth: aiSettings.warmth >= 7 ? 'high' : aiSettings.warmth <= 3 ? 'low' : 'medium',
+        });
+      } catch (error) {
+        console.warn('[AIService] Response enhancement failed:', error);
+        // Continue with original response
+      }
+    }
+
   } catch (error) {
     console.error('[AIService] Error generating response:', error);
     throw new Error(`Failed to generate AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -166,6 +260,17 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     role: 'user',
     content: prompt,
   });
+
+  // Step 4.1: Extract facts from conversation (Phase 3 Integration)
+  if (currentUserId && aiSettings?.profileEnabled) {
+    // Extract facts in background (don't block response)
+    memoryManager.extractFactsFromConversation(
+      currentUserId,
+      prompt,
+      response,
+      conversation.id
+    ).catch(err => console.error('[AIService] Fact extraction failed:', err));
+  }
 
   // Step 4.5: Generate thought tags for assistant response (2-4 context tags)
   const thoughtTags = await generateThoughtTags(prompt, response);
@@ -190,6 +295,13 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
   // Step 6: Format response if requested
   const formatted = formatResponse ? responseFormatter.formatResponse(response) : undefined;
+
+  // Step 7: Summarize conversation periodically (Phase 3 Integration)
+  // Summarize every 10 messages to keep conversation references updated
+  if (currentUserId && history.length % 10 === 0 && history.length >= 10) {
+    memoryManager.summarizeConversation(conversation.id, currentUserId)
+      .catch(err => console.error('[AIService] Conversation summarization failed:', err));
+  }
 
   const result: GenerateTextResponse = {
     response,
