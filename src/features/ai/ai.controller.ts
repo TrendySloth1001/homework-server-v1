@@ -14,6 +14,7 @@ import {
   generateSummaryService,
   checkAIHealthService,
   getUnifiedJobStatusService,
+  getOllamaModelsService,
 } from './ai.service';
 
 export const generateTextHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -517,5 +518,19 @@ export const authlessFormHelperHandler = asyncHandler(async (req: Request, res: 
       suggestion,
       characterCount: suggestion.length,
     },
+  });
+});
+
+/**
+ * Get Ollama Models Handler
+ * Fetches locally installed Ollama models with metadata
+ */
+export const getOllamaModelsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const models = await getOllamaModelsService();
+  
+  res.json({
+    success: true,
+    models,
+    count: models.length,
   });
 });

@@ -24,6 +24,8 @@ import {
   getConversationMessagesHandler,
   // Authless helper
   authlessFormHelperHandler,
+  // Ollama models
+  getOllamaModelsHandler,
 } from './ai.controller';
 
 const router = Router();
@@ -47,6 +49,9 @@ const authlessRateLimiter = rateLimit({
 
 // Health check for AI service (public)
 router.get('/health', aiHealthHandler);                                     // GET /api/ai/health
+
+// Get installed Ollama models (public)
+router.get('/models', getOllamaModelsHandler);                              // GET /api/ai/models
 
 // Authless form helper (public with aggressive rate limiting)
 router.post('/helper/form', authlessRateLimiter, authlessFormHelperHandler); // POST /api/ai/helper/form
