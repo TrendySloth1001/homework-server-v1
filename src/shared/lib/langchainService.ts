@@ -6,22 +6,58 @@
 import { ChatOllama } from '@langchain/ollama';
 import { config } from '../config';
 import { mem0Service } from './mem0Client';
+import { cachingService } from './cachingService';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
+interface ChatOptions {
+  stream?: boolean;
+  onToken?: (token: string) => void;
+  modelOverride?: string;
+}
+
 class LangChainService {
-  private model: ChatOllama;
+  private modelCache: Map<string, ChatOllama> = new Map();
   private initialized = false;
 
-  constructor() {
-    this.model = new ChatOllama({
-      model: config.ai.ollama.model || 'qwen2.5:7b',
-      baseUrl: config.ai.ollama.baseUrl,
-      temperature: 0.7,
-    });
+  /**
+   * Get or create model instance with connection pooling
+   */
+  private getModel(modelName?: string): ChatOllama {
+    const name = modelName || config.ai.ollama.model || 'qwen2.5:7b';
+    
+    if (!this.modelCache.has(name)) {
+      this.modelCache.set(name, new ChatOllama({
+        model: name,
+        baseUrl: config.ai.ollama.baseUrl,
+        temperature: 0.7,
+        keepAlive: '10m', // Keep connection alive for 10 minutes
+      }));
+      console.log(`[LangChain] Created model instance: ${name}`);
+    }
+    
+    return this.modelCache.get(name)!;
+  }
+
+  /**
+   * Smart model selection based on query complexity
+   */
+  private selectModel(query: string): string {
+    const wordCount = query.split(/\s+/).length;
+    const hasCode = /```|function|class|const|let|var/.test(query);
+    const hasMath = /\d+[+\-*/]\d+|equation|formula|calculate/.test(query);
+    const isComplex = wordCount > 50 || hasCode || hasMath;
+
+    // Use larger model for complex queries
+    if (isComplex && process.env.OLLAMA_LARGE_MODEL) {
+      console.log('[LangChain] Using large model for complex query');
+      return process.env.OLLAMA_LARGE_MODEL;
+    }
+
+    return config.ai.ollama.model || 'qwen2.5:7b';
   }
 
   async initialize(): Promise<void> {
@@ -34,19 +70,27 @@ class LangChainService {
 
   /**
    * Chat with context and memory using modern LCEL approach
+   * Now with streaming, caching, and smart model selection
    */
   async chat(
     userId: string,
     query: string,
     conversationHistory: ConversationMessage[] = [],
-    systemPrompt?: string
+    systemPrompt?: string,
+    options?: ChatOptions
   ): Promise<string> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    // Search for relevant memories using Mem0
-    const memories = await mem0Service.searchMemories(userId, query, 3);
+    // Smart model selection
+    const selectedModel = options?.modelOverride || this.selectModel(query);
+    const model = this.getModel(selectedModel);
+
+    // Search for relevant memories using Mem0 (with relevance threshold)
+    const memories = await mem0Service.searchMemories(userId, query, 3, {
+      minRelevanceScore: 0.7,
+    });
     const relevantMemories = memories.map((m: any) => m.memory || m.text);
 
     console.log(`[LangChain] Found ${relevantMemories.length} relevant memories for query`);
@@ -56,8 +100,9 @@ class LangChainService {
       ? `\n\nRelevant information about the user:\n${relevantMemories.join('\n')}`
       : '';
 
-    // Build conversation history
-    const historyMessages = conversationHistory.map(msg => 
+    // Build conversation history (with sliding window)
+    const recentHistory = conversationHistory.slice(-10); // Last 10 messages
+    const historyMessages = recentHistory.map(msg => 
       `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`
     ).join('\n');
 
@@ -67,11 +112,24 @@ class LangChainService {
 
     // Create the full prompt
     const fullSystemPrompt = `${systemPrompt || 'You are a helpful AI assistant.'}${memoryContext}${conversationContext}`;
-
-    // Invoke model directly with formatted prompt
     const fullPrompt = `${fullSystemPrompt}\n\nUser: ${query}\nAssistant:`;
-    const response = await this.model.invoke(fullPrompt);
-    
+
+    // Handle streaming if requested
+    if (options?.stream && options?.onToken) {
+      const stream = await model.stream(fullPrompt);
+      let fullResponse = '';
+
+      for await (const chunk of stream) {
+        const token = chunk.content.toString();
+        fullResponse += token;
+        options.onToken(token);
+      }
+
+      return fullResponse;
+    }
+
+    // Regular invocation
+    const response = await model.invoke(fullPrompt);
     return response.content.toString();
   }
 
