@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 import { prisma } from '../../shared/lib/prisma';
 import { config } from '../../shared/config';
-import { NotFoundError, UnauthorizedError, ValidationError } from '../../shared/lib/errors';
+import { BadRequestError, NotFoundError, UnauthorizedError, ValidationError } from '../../shared/lib/errors';
 import { JWTPayload, GoogleProfile, AuthResponse, TempTokenResponse, UserProfileResponse } from './auth.types';
 
 /**
