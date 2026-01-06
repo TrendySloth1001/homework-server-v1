@@ -195,13 +195,13 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
       
       // IMPORTANT: Don't cache question generation to ensure unique questions
       // Each generation should be fresh to avoid duplicates
-      const result = await ollamaService.generate(prompt, {
+      const response = await ollamaService.generate(prompt, {
         temperature: 0.9, // Higher temperature for maximum variation
         num_predict: 500,
       });
 
       // Parse and save question
-      const parsed = parseQuestionResponse(result.response, questionType);
+      const parsed = parseQuestionResponse(response, questionType);
       
       // Check for duplicate ONLY against current session (not historical questions)
       console.log(`[Attempt ${attemptCount}/${maxAttempts}, Success ${successCount}/${count}] Checking: "${parsed.question.substring(0, 60)}..."`);

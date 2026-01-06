@@ -138,6 +138,17 @@ class OllamaService {
       const completionTokens = data.eval_count || 0;
       const totalTokens = promptTokens + completionTokens;
       
+      // Log token information for debugging
+      if (config.isDevelopment) {
+        console.log('[Ollama] Token usage:', {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          hasPromptEvalCount: !!data.prompt_eval_count,
+          hasEvalCount: !!data.eval_count,
+        });
+      }
+      
       return {
         response: data.response,
         promptTokens,
@@ -207,6 +218,17 @@ class OllamaService {
       const promptTokens = data.prompt_eval_count || 0;
       const completionTokens = data.eval_count || 0;
       const totalTokens = promptTokens + completionTokens;
+      
+      // Log token information for debugging
+      if (config.isDevelopment) {
+        console.log('[Ollama Chat] Token usage:', {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          hasPromptEvalCount: !!data.prompt_eval_count,
+          hasEvalCount: !!data.eval_count,
+        });
+      }
       
       return {
         response: data.message.content,

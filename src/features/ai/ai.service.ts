@@ -167,7 +167,15 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     content: prompt,
   });
 
-  // Step 5: Store assistant message
+  // Step 4.5: Generate thought tags for assistant response (2-4 context tags)
+  const thoughtTags = await generateThoughtTags(prompt, response);
+
+  // Log token usage before storing
+  if (config.isDevelopment) {
+    console.log('[AIService] Storing message with tokens:', tokensUsed);
+  }
+
+  // Step 5: Store assistant message with thought tags
   const assistantMessage = await conversationService.addMessage(conversation.id, {
     role: 'assistant',
     content: response,
@@ -177,6 +185,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     tokensUsed,
     model: process.env.OLLAMA_MODEL || 'qwen2.5:14b',
     temperature,
+    thoughtTags, // Add thought tags
   });
 
   // Step 6: Format response if requested
@@ -509,4 +518,70 @@ export async function getUnifiedJobStatusService(jobId: string) {
     createdAt: dbJob.createdAt,
     updatedAt: dbJob.updatedAt,
   };
+}
+
+/**
+ * Generate thought tags for AI response
+ * Extracts 2-4 contextual tags representing what the AI was "thinking about"
+ * Tags represent: topics, themes, domains, or concepts in the response
+ */
+async function generateThoughtTags(userPrompt: string, aiResponse: string): Promise<string> {
+  try {
+    // Quick extraction using keyword analysis (fast, no extra AI call)
+    const combined = `${userPrompt} ${aiResponse}`.toLowerCase();
+    
+    // Define domain keywords for categorization
+    const domainKeywords = {
+      mathematics: ['math', 'equation', 'calculus', 'algebra', 'geometry', 'theorem', 'formula', 'proof'],
+      science: ['physics', 'chemistry', 'biology', 'experiment', 'hypothesis', 'molecule', 'atom', 'cell'],
+      programming: ['code', 'function', 'algorithm', 'javascript', 'python', 'programming', 'debug', 'api'],
+      education: ['learn', 'teach', 'student', 'course', 'lesson', 'study', 'education', 'curriculum'],
+      history: ['history', 'war', 'ancient', 'civilization', 'historical', 'century', 'period', 'event'],
+      literature: ['book', 'novel', 'poem', 'author', 'literature', 'story', 'character', 'plot'],
+      art: ['art', 'painting', 'music', 'design', 'creative', 'artist', 'aesthetic', 'visual'],
+      business: ['business', 'market', 'company', 'finance', 'economy', 'profit', 'management', 'strategy'],
+      technology: ['technology', 'software', 'hardware', 'digital', 'internet', 'computer', 'tech', 'innovation'],
+      philosophy: ['philosophy', 'ethics', 'moral', 'logic', 'metaphysics', 'epistemology', 'thought', 'reason'],
+    };
+
+    // Count matches for each domain
+    const domainScores: Record<string, number> = {};
+    for (const [domain, keywords] of Object.entries(domainKeywords)) {
+      domainScores[domain] = keywords.filter(keyword => combined.includes(keyword)).length;
+    }
+
+    // Get top 2-4 domains
+    const topDomains = Object.entries(domainScores)
+      .filter(([_, score]) => score > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([domain]) => domain);
+
+    // If no domains matched, use generic tags based on response length and complexity
+    if (topDomains.length === 0) {
+      const responseLength = aiResponse.length;
+      const hasCode = /```/.test(aiResponse);
+      const hasList = /\d\.|•|-\s/.test(aiResponse);
+      
+      const genericTags = ['general'];
+      if (hasCode) genericTags.push('technical');
+      if (hasList) genericTags.push('structured');
+      if (responseLength > 500) genericTags.push('detailed');
+      else genericTags.push('concise');
+      
+      return genericTags.slice(0, 4).join(',');
+    }
+
+    // Ensure 2-4 tags
+    const finalTags = topDomains.slice(0, 4);
+    if (finalTags.length < 2) {
+      // Add generic tags if we have less than 2
+      finalTags.push('general');
+    }
+
+    return finalTags.join(',');
+  } catch (error) {
+    console.warn('[AIService] Failed to generate thought tags:', error);
+    return 'general,conversation'; // Fallback
+  }
 }

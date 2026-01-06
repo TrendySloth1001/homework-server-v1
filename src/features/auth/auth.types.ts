@@ -3,7 +3,6 @@
  * Types for Google OAuth, JWT, and user management
  */
 
-import { Request } from 'express';
 import { UserRole } from '@prisma/client';
 
 // JWT Payload
@@ -85,9 +84,6 @@ export interface StudentProfile {
 }
 
 // Request types for Express
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Express.Request {
   user: JWTPayload; // Non-optional for routes that require auth
-  body: any;
-  params: any;
-  query: any;
 }

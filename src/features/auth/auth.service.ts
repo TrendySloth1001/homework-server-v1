@@ -84,11 +84,14 @@ export async function findOrCreateUserFromGoogleService(
       },
     });
 
-    // If found by email, link the googleId
+    // If found by email, link the googleId and update avatar if not set
     if (user) {
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { googleId: profile.id },
+        data: { 
+          googleId: profile.id,
+          ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}),
+        },
         include: {
           teacher: true,
           student: true,
@@ -97,11 +100,14 @@ export async function findOrCreateUserFromGoogleService(
     }
   }
 
-  // If user exists and has profile, update lastLoginAt and return full token
+  // If user exists and has profile, update lastLoginAt and avatarUrl, then return full token
   if (user && (user.teacher || user.student)) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { 
+        lastLoginAt: new Date(),
+        ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}),
+      },
     });
 
     const token = await generateTokenService(user.id, user.email, user.role);
@@ -112,7 +118,7 @@ export async function findOrCreateUserFromGoogleService(
         email: user.email,
         displayName: user.displayName,
         role: user.role,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: user.avatarUrl || avatarUrl,
       },
       token,
       expiresIn: config.auth.jwt.expiresIn,
@@ -174,6 +180,35 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
     throw new ValidationError('User profile not completed');
   }
 
+  // Build full profile response with all relevant information
+  const profileData: any = {
+    id: profile.id,
+    userId: user.id,
+    firstName: (profile as any).firstName,
+    lastName: (profile as any).lastName,
+  };
+
+  // Add teacher-specific fields
+  if (user.role === 'TEACHER' && user.teacher) {
+    profileData.bio = user.teacher.bio;
+    profileData.specialization = user.teacher.specialization;
+    profileData.qualification = user.teacher.qualification;
+    profileData.experience = user.teacher.experience;
+    profileData.profileVisibility = user.teacher.profileVisibility;
+    profileData.defaultContentMode = user.teacher.defaultContentMode;
+    profileData.allowFollowers = user.teacher.allowFollowers;
+    profileData.followersCount = user.teacher.followersCount;
+    profileData.contentCount = user.teacher.contentCount;
+  }
+
+  // Add student-specific fields
+  if (user.role === 'STUDENT' && user.student) {
+    profileData.grade = user.student.grade;
+    profileData.institution = user.student.institution;
+    profileData.interests = user.student.interests;
+    profileData.followingCount = user.student.followingCount;
+  }
+
   return {
     user: {
       id: user.id,
@@ -185,7 +220,7 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
     },
-    profile,
+    profile: profileData,
   };
 }
 

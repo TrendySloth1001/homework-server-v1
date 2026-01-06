@@ -16,7 +16,7 @@ import { asyncHandler } from '../../shared/lib/errors';
 
 /**
  * Initiate Google OAuth login
- * GET /api/v1/auth/google
+ * GET /api/auth/google
  */
 export const googleAuthHandler = passport.authenticate('google', {
   scope: ['profile', 'email'],
@@ -25,7 +25,7 @@ export const googleAuthHandler = passport.authenticate('google', {
 
 /**
  * Google OAuth callback handler
- * GET /api/v1/auth/google/callback
+ * GET /api/auth/google/callback
  */
 export const googleCallbackHandler = [
   passport.authenticate('google', {
@@ -38,16 +38,18 @@ export const googleCallbackHandler = [
     // Find or create user
     const result = await findOrCreateUserFromGoogleService(profile);
 
+    const frontendUrl = config.isDevelopment ? 'http://localhost:3000' : config.auth.google.callbackUrl.split('/api')[0];
+
     // Check if it's a temp token (needs signup) or full auth
     if ('tempToken' in result) {
-      // Redirect to frontend signup page with temp token
-      const redirectUrl = `${config.isDevelopment ? 'http://localhost:3000' : config.auth.google.callbackUrl.split('/api')[0]}/signup.html?token=${result.tempToken}&email=${encodeURIComponent(result.email)}&name=${encodeURIComponent(result.displayName)}`;
+      // Redirect to frontend auth callback with temp token
+      const redirectUrl = `${frontendUrl}/auth/callback?tempToken=${result.tempToken}&email=${encodeURIComponent(result.email)}&name=${encodeURIComponent(result.displayName)}`;
       
       return res.redirect(redirectUrl);
     }
 
-    // Full authentication - redirect to frontend with token
-    const redirectUrl = `${config.isDevelopment ? 'http://localhost:3000' : config.auth.google.callbackUrl.split('/api')[0]}/?token=${result.token}`;
+    // Full authentication - redirect to frontend auth callback with token
+    const redirectUrl = `${frontendUrl}/auth/callback?token=${result.token}`;
     
     res.redirect(redirectUrl);
   }),
@@ -55,7 +57,7 @@ export const googleCallbackHandler = [
 
 /**
  * Get current user profile
- * GET /api/v1/auth/me
+ * GET /api/auth/me
  * Protected route
  */
 export const getMeHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -79,7 +81,7 @@ export const getMeHandler = asyncHandler(async (req: Request, res: Response) => 
 
 /**
  * Logout handler (client-side token deletion)
- * DELETE /api/v1/auth/logout
+ * DELETE /api/auth/logout
  * Protected route
  */
 export const logoutHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -94,7 +96,7 @@ export const logoutHandler = asyncHandler(async (req: Request, res: Response) =>
 
 /**
  * Deactivate user account
- * PATCH /api/v1/auth/deactivate
+ * PATCH /api/auth/deactivate
  * Protected route
  */
 export const deactivateAccountHandler = asyncHandler(async (req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import passport from 'passport';
 import syllabusRoutes from './features/syllabus/routes/index';
@@ -9,6 +10,7 @@ import notificationRoutes from './features/notifications/notifications.routes';
 import assessmentRoutes from './features/assessment/assessment.routes';
 import authRoutes from './features/auth/auth.routes';
 import signupRoutes from './features/signup/signup.routes';
+import legalRoutes from './features/legal/legal.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
@@ -22,6 +24,10 @@ const app = express();
 configurePassport();
 
 // Middleware
+app.use(cors({
+  origin: config.isDevelopment ? ['http://localhost:3000', 'http://localhost:3001'] : true,
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
@@ -40,6 +46,7 @@ app.use('/api/ai', aiRoutes);                                               // A
 app.use('/api/questions', questionRoutes);                                  // Question bank
 app.use('/api/notifications', notificationRoutes);                          // Notifications
 app.use('/api/assessment', assessmentRoutes);                               // Answer grading (mathematical)
+app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
 
 
 

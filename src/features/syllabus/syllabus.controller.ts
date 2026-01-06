@@ -7,8 +7,6 @@ import { Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../../shared/middleware/errorHandler';
 import { ValidationError } from '../../shared/lib/errors';
 import { searchSimilarSyllabi } from '../../shared/lib/vectorSearch';
-import { getTeacherIdFromUserId } from '../auth/auth.helpers';
-import { AuthenticatedRequest } from '../auth/auth.types';
 import { 
     createSyllabusService,
     updateSyllabusService,
@@ -43,20 +41,12 @@ import {
 } from './syllabus.service';
 
 
-export const createSyllabusHandler = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { subjectName, className, board, term, academicYear, overview, objectives, prerequisites, assessmentMethods, resources, otherFields } = req.body;
-
-    // Get teacherId from authenticated user
-    const userId = req.user?.userId;
-    if (!userId) {
-        throw new ValidationError('User not authenticated');
-    }
-
-    const teacherId = await getTeacherIdFromUserId(userId);
+export const createSyllabusHandler = asyncHandler(async (req: Request, res: Response) => {
+    const { teacherId, subjectName, className, board, term, academicYear, overview, objectives, prerequisites, assessmentMethods, resources, otherFields } = req.body;
 
     // Validation
-    if (!subjectName || !className || !board || !term || !academicYear) {
-        throw new ValidationError('Missing required fields: subjectName, className, board, term, academicYear');
+    if (!teacherId || !subjectName || !className || !board || !term || !academicYear) {
+        throw new ValidationError('Missing required fields: teacherId, subjectName, className, board, term, academicYear');
     }
 
     const syllabus = await createSyllabusService({

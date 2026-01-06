@@ -288,14 +288,12 @@ Format your response as JSON:
   const top_p = aiParams?.top_p ?? 0.95;
   const top_k = aiParams?.top_k ?? 60;
   
-  const result = await ollamaService.generate(prompt, {
+  const response = await ollamaService.generate(prompt, {
     temperature,
     num_predict: 500,
     top_p,
     top_k,
   });
-
-  const response = result.response;
 
   // Parse AI response with robust error handling
   let parsed;
@@ -592,12 +590,12 @@ ${unit.topics.map((t, i) => `${i + 1}. ${t.topicName}`).join('\n')}
 
 Provide a clear, student-friendly summary in 2-3 paragraphs.`;
 
-  const result = await ollamaService.generate(prompt, {
+  const summary = await ollamaService.generate(prompt, {
     temperature: 0.7,
     num_predict: 400,
   });
 
-  return { summary: result.response, prompt };
+  return { summary, prompt };
 }
 
 async function generateEnhancement(data: AIGenerationJobData) {
@@ -638,7 +636,7 @@ ${syllabus.units.map((u, i) => `${i + 1}. ${u.title}`).join('\n')}
 Provide 2-3 engaging paragraphs.`;
   }
 
-  const result = await ollamaService.generate(prompt, {
+  const content = await ollamaService.generate(prompt, {
     temperature: 0.7,
     num_predict: 500,
   });
@@ -646,10 +644,10 @@ Provide 2-3 engaging paragraphs.`;
   // Update syllabus
   await prisma.syllabus.update({
     where: { id: syllabusId },
-    data: { [updateField]: result.response },
+    data: { [updateField]: content },
   });
 
-  return { content: result.response, field: updateField, prompt };
+  return { content, field: updateField, prompt };
 }
 
 /**
@@ -920,13 +918,11 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
     console.log(`[Queue/DEV] ⏳ Still generating... (${elapsed}s elapsed)`);
   }, 15000) : null;
   
-  const result = await ollamaService.generate(prompt, {
+  const response = await ollamaService.generate(prompt, {
     temperature: 0.7, // Balanced creativity
     num_predict: tokenLimit, // Dynamic token allocation based on subject complexity
     top_p: 0.9,
   });
-  
-  const response = result.response;
   
   if (progressInterval) clearInterval(progressInterval);
   const aiDuration = Date.now() - startTime;

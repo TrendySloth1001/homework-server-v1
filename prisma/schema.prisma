@@ -374,6 +374,9 @@ model ConversationMessage {
   retrievedDocs  Json?    // Array of doc IDs/snippets used for context
   embedding      String?  @db.Text // Vector embedding (384d)
   
+  // AI thought process tags (2-4 context tags per message)
+  thoughtTags    String?  // Comma-separated tags: "mathematics,geometry,theorem"
+  
   // Metadata
   tokensUsed     Int?     // Track token consumption
   model          String?  // Model used (qwen2.5:14b)
@@ -389,6 +392,7 @@ model ConversationMessage {
   
   @@index([conversationId, sequenceNumber])
   @@index([conversationId])
+  @@index([createdAt])
 }
 
 model User {
@@ -579,4 +583,27 @@ model AssessmentSubmission {
   @@index([studentId])
   @@index([status, isGraded])
   @@index([submittedAt])
+}
+
+// Legal Documents - Privacy Policy, Terms of Service, Help
+model LegalDocument {
+  id              String   @id @default(uuid())
+  type            String   // 'PRIVACY_POLICY', 'TERMS_OF_SERVICE', 'HELP_CENTER', 'FAQ', 'ABOUT_US'
+  title           String
+  content         String   @db.Text // Markdown or HTML content
+  version         String   @default("1.0.0") // Semantic versioning
+  isActive        Boolean  @default(false) // Only one active version per type
+  effectiveDate   DateTime // When this version becomes effective
+  
+  // Metadata
+  author          String?  // Admin who created/updated
+  summary         String?  // Short description
+  lastReviewedAt  DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([type, isActive])
+  @@index([effectiveDate])
+  @@unique([type, version])
 }
