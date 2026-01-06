@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "auth-collection-2026",
 		"name": "homeWork Auth API",
-		"description": "Authentication and user management endpoints for homeWork platform.\n\n## Authentication Flow\n\n1. **Google OAuth Login** - Use browser to initiate OAuth flow\n2. **Complete Signup** - Create teacher or student profile after OAuth\n3. **Access Protected Routes** - Use JWT token for authenticated requests\n\n## Environment Variables\n\nCreate a Postman environment with:\n- `base_url`: http://localhost:3000\n- `jwt_token`: (auto-set after login/signup)\n- `temp_token`: (auto-set during OAuth flow)\n- `user_id`: (auto-set after login)\n\n## Setup Instructions\n\n1. Configure Google OAuth credentials in `.env`\n2. Start server: `npm run dev`\n3. Use browser for OAuth flow (steps in folder description)\n4. Use Postman for subsequent API calls",
+		"description": "Authentication and user management endpoints for homeWork platform.\n\n## Authentication Flow\n\n1. **Google OAuth Login** - Use browser to initiate OAuth flow\n2. **Complete Signup** - Create teacher or student profile after OAuth\n3. **Access Protected Routes** - Use JWT token for authenticated requests\n\n## Environment Variables\n\nCreate a Postman environment with:\n- `base_url`: http://localhost:3001\n- `jwt_token`: (auto-set after login/signup)\n- `temp_token`: (auto-set during OAuth flow)\n- `user_id`: (auto-set after login)\n\n## Setup Instructions\n\n1. Configure Google OAuth credentials in `.env`\n2. Start server: `npm run dev`\n3. Use browser for OAuth flow (steps in folder description)\n4. Use Postman for subsequent API calls",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "auth-api"
 	},
@@ -45,7 +45,7 @@
 								"google"
 							]
 						},
-						"description": "**⚠️ Use Browser for This Step**\n\n1. Open this URL in browser: `http://localhost:3000/api/auth/google`\n2. Sign in with Google account\n3. After callback, you'll be redirected with either:\n   - **Full JWT token** (if profile exists) → Copy and save as `jwt_token`\n   - **Temp token** (if new user) → Copy and save as `temp_token`\n\n**Redirect URLs:**\n- New user: `http://localhost:3000/signup?token=TEMP_TOKEN&email=...`\n- Existing user: `http://localhost:3000/auth/success?token=JWT_TOKEN`\n\n**Next Steps:**\n- If new user → Use temp token to complete signup (teacher or student)\n- If existing user → Use JWT token for protected routes"
+						"description": "**⚠️ Use Browser for This Step**\n\n1. Open this URL in browser: `http://localhost:3001/api/auth/google`\n2. Sign in with Google account\n3. After callback, you'll be redirected with either:\n   - **Full JWT token** (if profile exists) → Copy and save as `jwt_token`\n   - **Temp token** (if new user) → Copy and save as `temp_token`\n\n**Redirect URLs:**\n- New user: `http://localhost:3001/signup?token=TEMP_TOKEN&email=...`\n- Existing user: `http://localhost:3001/auth/success?token=JWT_TOKEN`\n\n**Next Steps:**\n- If new user → Use temp token to complete signup (teacher or student)\n- If existing user → Use JWT token for protected routes"
 					},
 					"response": []
 				},
@@ -620,7 +620,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:3000",
+			"value": "http://localhost:3001",
 			"type": "string"
 		}
 	]
