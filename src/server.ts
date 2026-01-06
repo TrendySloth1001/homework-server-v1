@@ -24,8 +24,28 @@ const app = express();
 configurePassport();
 
 // Middleware
+const baseAllowedOrigins = config.isDevelopment
+  ? ['http://localhost:3000', 'http://localhost:3001']
+  : (() => {
+      const anyConfig = config as any;
+      const configuredOrigins: string[] | undefined = anyConfig.allowedOrigins
+        || (anyConfig.frontendUrl ? [anyConfig.frontendUrl] : undefined);
+      return configuredOrigins ?? [];
+    })();
+
 app.use(cors({
-  origin: config.isDevelopment ? ['http://localhost:3000', 'http://localhost:3001'] : true,
+  origin: (origin, callback) => {
+    // Allow requests with no Origin header (e.g., curl, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (baseAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
