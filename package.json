@@ -16,6 +16,7 @@
   "dependencies": {
     "@langchain/community": "^0.3.36",
     "@langchain/core": "^1.1.10",
+    "@langchain/ollama": "^1.1.0",
     "@libsql/client": "^0.15.15",
     "@prisma/adapter-libsql": "^7.1.0",
     "@prisma/adapter-pg": "^7.1.0",

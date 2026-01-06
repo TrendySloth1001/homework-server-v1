@@ -216,6 +216,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   try {
     // Build enhanced prompt with memory and settings (Phase 3 Integration)
     let enhancedPrompt = prompt;
+    let systemPrompt = 'You are Kai, a helpful AI assistant.';
     
     if (aiSettings) {
       const promptContext: any = {
@@ -232,12 +233,16 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       if (relevantFacts) promptContext.relevantFacts = relevantFacts;
       if (relevantConversations) promptContext.relevantConversations = relevantConversations;
       
-      enhancedPrompt = promptBuilder.buildFullPrompt(promptContext);
+      const fullPrompt = promptBuilder.buildFullPrompt(promptContext);
+      // Extract system prompt from built prompt (first part before conversation)
+      const parts = fullPrompt.split('\n\nConversation history:');
+      systemPrompt = parts[0] || systemPrompt;
+      enhancedPrompt = parts[1] || prompt;
     }
 
     // Add web search context if available
     if (webSearchContext) {
-      enhancedPrompt = webSearchContext + enhancedPrompt;
+      systemPrompt = systemPrompt + '\n\n' + webSearchContext;
     }
 
     if (useRAG) {
@@ -257,8 +262,24 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       response = ragResponse.answer;
       sourceDocuments = ragResponse.sourceNodes;
       tokensUsed = ragResponse.tokensUsed || 0;
+    } else if (currentUserId) {
+      // Use LangChain + Mem0 for memory-enhanced conversations
+      await langchainService.initialize();
+      
+      response = await langchainService.chat(
+        currentUserId,
+        enhancedPrompt,
+        history.slice(-10).map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        })),
+        systemPrompt
+      );
+      
+      // Estimate tokens (rough approximation)
+      tokensUsed = Math.ceil((enhancedPrompt.length + response.length) / 4);
     } else {
-      // Simple generation without RAG
+      // Simple generation without RAG or memory
       const ollamaResponse = await ollamaService.generate(enhancedPrompt, {
         temperature,
         num_predict: maxTokens,
@@ -322,7 +343,18 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     content: prompt,
   });
 
-  // Step 4.1: Extract facts from conversation (Phase 3 Integration)
+  // Step 4.1: Store conversation in Mem0 for future memory retrieval
+  if (currentUserId && !useRAG) {
+    // Store in Mem0 (background - don't block response)
+    langchainService.storeConversation(
+      currentUserId,
+      conversation.id,
+      prompt,
+      response
+    ).catch(err => console.error('[AIService] Mem0 storage failed:', err));
+  }
+  
+  // Step 4.2: Extract facts from conversation (Phase 3 Integration)
   if (currentUserId && aiSettings?.profileEnabled) {
     // Extract facts in background (don't block response)
     memoryManager.extractFactsFromConversation(
