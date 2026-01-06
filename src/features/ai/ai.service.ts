@@ -160,18 +160,20 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     let enhancedPrompt = prompt;
     
     if (aiSettings) {
-      const promptContext = promptBuilder.buildFullPrompt({
+      const promptContext: any = {
         userMessage: prompt,
         conversationHistory: history.slice(-10).map(msg => ({ // Last 10 messages
           role: msg.role,
           content: msg.content,
         })),
         aiSettings,
-        userContext: userContext || undefined,
-        relevantFacts: relevantFacts || undefined,
-        relevantConversations: relevantConversations || undefined,
-      });
-      enhancedPrompt = promptContext;
+      };
+      
+      if (userContext) promptContext.userContext = userContext;
+      if (relevantFacts) promptContext.relevantFacts = relevantFacts;
+      if (relevantConversations) promptContext.relevantConversations = relevantConversations;
+      
+      enhancedPrompt = promptBuilder.buildFullPrompt(promptContext);
     }
 
     // Add web search context if available

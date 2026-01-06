@@ -299,7 +299,7 @@ Format your response as JSON:
   let parsed;
   try {
     // Try to extract JSON from response
-    let jsonText = response.match(/\{[\s\S]*\}/)?.[0] || response;
+    let jsonText = response.response.match(/\{[\s\S]*\}/)?.[0] || response.response;
     
     // Fix common AI JSON mistakes
     // 1. Fix unquoted single letters for answer (e.g., "answer": C -> "answer": "C")
@@ -318,17 +318,17 @@ Format your response as JSON:
     }
   } catch (error) {
     console.error('JSON parsing failed:', error);
-    console.log('Raw response:', response.substring(0, 200));
+    console.log('Raw response:', response.response.substring(0, 200));
     
     // Try manual extraction as fallback
     try {
-      const questionMatch = response.match(/"question":\s*"([^"]+)"/);
-      const answerMatch = response.match(/"answer":\s*"?([^",}]+)"?/);
-      const explanationMatch = response.match(/"explanation":\s*"([^"]+)"/);
-      const optionsMatch = response.match(/"options":\s*\[(.*?)\]/s);
+      const questionMatch = response.response.match(/"question":\s*"([^"]+)"/);
+      const answerMatch = response.response.match(/"answer":\s*"?([^",}]+)"?/);
+      const explanationMatch = response.response.match(/"explanation":\s*"([^"]+)"/);
+      const optionsMatch = response.response.match(/"options":\s*\[(.*?)\]/s);
       
       parsed = {
-        question: questionMatch?.[1] || response.substring(0, 200),
+        question: questionMatch?.[1] || response.response.substring(0, 200),
         answer: answerMatch?.[1]?.trim() || '',
         explanation: explanationMatch?.[1] || '',
       };
@@ -343,7 +343,7 @@ Format your response as JSON:
     } catch (fallbackError) {
       // Final fallback
       parsed = {
-        question: response.substring(0, 200),
+        question: response.response.substring(0, 200),
         answer: '',
         explanation: '',
       };
@@ -930,28 +930,28 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
   if (config.isDevelopment) {
     console.log('[Queue/DEV] AI response received!');
     console.log('[Queue/DEV] Duration:', aiDuration + 'ms', '(' + (aiDuration/1000).toFixed(1) + 's)');
-    console.log('[Queue/DEV] Response length:', response.length, 'characters');
-    console.log('[Queue/DEV] Response preview (first 400 chars):', response.substring(0, 400));
-    console.log('[Queue/DEV] Response end (last 200 chars):', response.substring(Math.max(0, response.length - 200)));
+    console.log('[Queue/DEV] Response length:', response.response.length, 'characters');
+    console.log('[Queue/DEV] Response preview (first 400 chars):', response.response.substring(0, 400));
+    console.log('[Queue/DEV] Response end (last 200 chars):', response.response.substring(Math.max(0, response.response.length - 200)));
     console.log('[Queue/DEV] Parsing JSON response...');
     
     // Check if response looks truncated
-    const endsWithClosingBrace = response.trim().endsWith('}') || response.trim().endsWith(']');
+    const endsWithClosingBrace = response.response.trim().endsWith('}') || response.response.trim().endsWith(']');
     if (!endsWithClosingBrace) {
       console.warn('[Queue/DEV] ⚠️ WARNING: Response may be truncated (no closing brace)!');
       console.warn('[Queue/DEV] This usually means num_predict too low - increase beyond 8000');
     }
   }
   console.log(`[Queue] ✓ AI response received in ${aiDuration}ms (${(aiDuration/1000).toFixed(1)}s)`);
-  console.log(`[Queue] Response length: ${response.length} characters`);
-  console.log(`[Queue] Response preview: ${response.substring(0, 150)}...`);
+  console.log(`[Queue] Response length: ${response.response.length} characters`);
+  console.log(`[Queue] Response preview: ${response.response.substring(0, 150)}...`);
   console.log(`[Queue] Parsing JSON response...`);
 
   // Parse AI response with robust error handling
   let parsed: any;
   try {
     // Extract JSON from response
-    let jsonText = response.match(/\{[\s\S]*\}/)?.[0] || response;
+    let jsonText = response.response.match(/\{[\s\S]*\}/)?.[0] || response.response;
     
     // Fix common JSON mistakes
     jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1'); // Trailing commas
@@ -1009,13 +1009,13 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
     }
   } catch (error) {
     console.error('[Queue] JSON parsing failed:', error);
-    console.log('[Queue] Raw response:', response.substring(0, 500));
+    console.log('[Queue] Raw response:', response.response.substring(0, 500));
     
     // Manual extraction fallback
     try {
-      const objectivesMatch = response.match(/"objectives":\s*"([^"]+)"/);
-      const overviewMatch = response.match(/"overview":\s*"([^"]+)"/);
-      const unitsMatch = response.match(/"units":\s*\[([\s\S]*?)\]/);
+      const objectivesMatch = response.response.match(/"objectives":\s*"([^"]+)"/);
+      const overviewMatch = response.response.match(/"overview":\s*"([^"]+)"/);
+      const unitsMatch = response.response.match(/"units":\s*\[([\s\S]*?)\]/);
       
       parsed = {
         objectives: objectivesMatch?.[1] || 'Generated objectives',
