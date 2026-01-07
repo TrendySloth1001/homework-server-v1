@@ -62,9 +62,15 @@ class QuizService {
         .map((m: any) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
         .join('\n\n');
 
+      // Get previous questions to avoid duplicates
+      const previousQuestions = await this.getPreviousQuestions(conversationId);
+      const previousQuestionsContext = previousQuestions.length > 0
+        ? `\n\nPreviously asked questions (DO NOT repeat or ask similar questions):\n${previousQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`
+        : '';
+
       // Generate questions using AI
       const { questions, tokensUsed } = await this.generateQuestionsWithAI(
-        conversationContext,
+        conversationContext + previousQuestionsContext,
         topic,
         questionCount,
         questionTypes,
@@ -329,6 +335,80 @@ class QuizService {
     } catch (error) {
       console.error('[QuizService] Error getting quizzes:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get quiz history summary for AI context
+   * Returns completed quizzes with scores and question texts for context
+   */
+  async getQuizHistoryForAI(conversationId: string): Promise<string> {
+    try {
+      const quizzes = await prisma.quizSession.findMany({
+        where: {
+          conversationId,
+          completedAt: { not: null }, // Only completed quizzes
+        },
+        include: {
+          questions: {
+            select: {
+              questionText: true,
+              questionType: true,
+              difficulty: true,
+              points: true,
+            }
+          },
+          answers: {
+            select: {
+              isCorrect: true,
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5, // Last 5 quizzes
+      });
+
+      if (quizzes.length === 0) {
+        return '';
+      }
+
+      const quizSummaries = quizzes.map((quiz: any) => {
+        const correctCount = quiz.answers.filter((a: any) => a.isCorrect).length;
+        const totalQuestions = quiz.totalQuestions;
+        const score = quiz.score || 0;
+        
+        const questionList = quiz.questions
+          .map((q: any, idx: number) => `    ${idx + 1}. ${q.questionText} (${q.difficulty}, ${q.questionType})`)
+          .join('\n');
+        
+        return `  Quiz: ${quiz.topic}\n  Score: ${score}% (${correctCount}/${totalQuestions} correct)\n  Questions asked:\n${questionList}`;
+      }).join('\n\n');
+
+      return `\n\n=== PREVIOUS QUIZ HISTORY ===\nThe user has completed ${quizzes.length} quiz(es) in this conversation:\n\n${quizSummaries}\n\nIMPORTANT: When the user asks about their quiz performance, scores, or how they're doing, YOU MUST reference this specific data above. Do not say you cannot see it - this data is available to you. Provide specific feedback on their scores and which questions they got right/wrong.\n=== END QUIZ HISTORY ===\n`;
+    } catch (error) {
+      console.error('[QuizService] Error getting quiz history:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Get all previous quiz questions for duplicate detection
+   */
+  async getPreviousQuestions(conversationId: string): Promise<string[]> {
+    try {
+      const questions = await prisma.question.findMany({
+        where: {
+          conversationId,
+        },
+        select: {
+          questionText: true,
+        }
+      });
+
+      return questions.map(q => q.questionText);
+    } catch (error) {
+      console.error('[QuizService] Error getting previous questions:', error);
+      return [];
     }
   }
 

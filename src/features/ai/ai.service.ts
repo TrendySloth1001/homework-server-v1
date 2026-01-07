@@ -19,6 +19,7 @@ import { responseEnhancer } from '../../shared/lib/responseEnhancer';
 import { urlValidator } from '../../shared/lib/urlValidator';
 import { mem0Service } from '../../shared/lib/mem0Client';
 import { langchainService } from '../../shared/lib/langchainService';
+import { quizService } from '../quiz/quiz.service';
 import axios from 'axios';
 
 /**
@@ -115,6 +116,17 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   const history = await conversationService.getConversationHistory(conversation.id, 100);
   if (config.isDevelopment && history.length > 0) {
     console.log(`[AIService] Loaded ${history.length} messages from conversation history`);
+  }
+
+  // Step 2.05: Load quiz history if available (for better context)
+  let quizHistoryContext = '';
+  try {
+    quizHistoryContext = await quizService.getQuizHistoryForAI(conversation.id);
+    if (quizHistoryContext) {
+      console.log('[AIService] 📊 Loaded quiz history for context');
+    }
+  } catch (error) {
+    console.error('[AIService] Error loading quiz history:', error);
   }
 
   // Step 2.1: Load AI settings and memory (Phase 3 Integration)
@@ -270,12 +282,23 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       if (relevantFacts) promptContext.relevantFacts = relevantFacts;
       if (relevantConversations) promptContext.relevantConversations = relevantConversations;
       
+      // Inject quiz history into user context if available
+      if (quizHistoryContext) {
+        if (!promptContext.userContext) {
+          promptContext.userContext = {};
+        }
+        promptContext.userContext.quizHistory = quizHistoryContext;
+      }
+      
       const fullPrompt = promptBuilder.buildFullPrompt(promptContext);
       // Extract system prompt from built prompt (first part before conversation)
       const parts = fullPrompt.split('\n\nConversation history:');
       systemPrompt = parts[0] || systemPrompt;
       console.log('[AIService] 📝 System Prompt Generated:', systemPrompt.substring(0, 300) + '...');
       enhancedPrompt = parts[1] || prompt;
+    } else if (quizHistoryContext) {
+      // If no AI settings but quiz history exists, add it directly to system prompt
+      systemPrompt = systemPrompt + quizHistoryContext;
     }
 
     // Add web search context if available
