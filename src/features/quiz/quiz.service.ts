@@ -63,7 +63,7 @@ class QuizService {
         .join('\n\n');
 
       // Generate questions using AI
-      const questions = await this.generateQuestionsWithAI(
+      const { questions, tokensUsed } = await this.generateQuestionsWithAI(
         conversationContext,
         topic,
         questionCount,
@@ -114,11 +114,12 @@ class QuizService {
         data: {
           conversationId,
           role: 'assistant',
-          content: `📝 **Quiz Generated: ${topic}**\n\nI've created a ${savedQuestions.length}-question quiz based on our conversation. Click below to take the quiz!`,
+          content: `Quiz Generated: ${topic}\n\nI've created a ${savedQuestions.length}-question quiz based on our conversation. Answer the questions below!`,
           messageType: 'quiz',
           quizSessionId: quizSession.id,
           sequenceNumber: messageCount + 1,
           model: 'qwen2.5:7b',
+          tokensUsed: tokensUsed || 0,
         }
       });
 
@@ -358,7 +359,7 @@ class QuizService {
     count: number,
     types: string[],
     difficulty: string
-  ): Promise<QuizQuestion[]> {
+  ): Promise<{ questions: QuizQuestion[], tokensUsed: number }> {
     const prompt = `Based on this conversation about "${topic}", generate ${count} quiz questions.
 
 Conversation context:
@@ -400,7 +401,7 @@ Return ONLY a valid JSON array of questions. No markdown, no extra text.`;
       }
 
       // Validate and normalize questions
-      return questions.slice(0, count).map((q: any, index: number) => ({
+      const normalizedQuestions = questions.slice(0, count).map((q: any, index: number) => ({
         questionText: q.questionText || q.question || `Question ${index + 1}`,
         questionType: types.includes(q.questionType) ? q.questionType : types[0],
         difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty) ? q.difficulty : 'medium',
@@ -409,10 +410,17 @@ Return ONLY a valid JSON array of questions. No markdown, no extra text.`;
         explanation: q.explanation || 'No explanation provided.',
         points: q.points || (q.difficulty === 'hard' ? 3 : q.difficulty === 'easy' ? 1 : 2),
       }));
+
+      // Calculate tokens used (from ollama response wrapper)
+      const tokensUsed = response.totalTokens || ((response.promptTokens || 0) + (response.completionTokens || 0));
+      console.log(`[QuizService] Tokens used for quiz generation: ${tokensUsed}`);
+
+      return { questions: normalizedQuestions, tokensUsed };
     } catch (error) {
       console.error('[QuizService] Error parsing AI response:', error);
       // Fallback: generate simple questions
-      return this.generateFallbackQuestions(topic, count);
+      const fallbackQuestions = this.generateFallbackQuestions(topic, count);
+      return { questions: fallbackQuestions, tokensUsed: 0 };
     }
   }
 
