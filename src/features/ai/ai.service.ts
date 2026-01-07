@@ -78,7 +78,16 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     webSearch = false,
     webSearchDepth = 'advanced',
     stream = false,
+    model,
   } = input;
+
+  console.log('[AIService] Model selection:', { 
+    requestedModel: model, 
+    useRAG, 
+    hasUserId: !!userId,
+    hasTeacherId: !!teacherId,
+    hasStudentId: !!studentId
+  });
 
   if (!prompt || prompt.trim().length === 0) {
     throw new ValidationError('Prompt cannot be empty');
@@ -104,6 +113,9 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
   // Step 2: Load conversation history (sliding window - last 100)
   const history = await conversationService.getConversationHistory(conversation.id, 100);
+  if (config.isDevelopment && history.length > 0) {
+    console.log(`[AIService] Loaded ${history.length} messages from conversation history`);
+  }
 
   // Step 2.1: Load AI settings and memory (Phase 3 Integration)
   const currentUserId = userId || teacherId || studentId;
@@ -229,6 +241,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   // Step 3: Use RAG service if enabled
   let response: string;
   let tokensUsed = 0;
+  let thinking: string | undefined;
   let sourceDocuments: Array<{ text: string; score: number; metadata: Record<string, any> }> | undefined;
 
   try {
@@ -263,8 +276,36 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       systemPrompt = systemPrompt + '\n\n' + webSearchContext;
     }
 
-    if (useRAG) {
-      // Query with RAG - includes context retrieval + generation
+    // Add model-specific instructions
+    if (model?.includes('deepseek')) {
+      systemPrompt = systemPrompt + '\n\nIMPORTANT: When answering, show your reasoning process by wrapping your thoughts in <think>...</think> tags before providing the final answer. The thinking should be detailed and show your step-by-step reasoning.';
+    }
+
+    // Priority 1: If user explicitly selected a model, use it directly (bypass RAG/LangChain)
+    if (model) {
+      console.log('[AIService] Using direct Ollama path with selected model', { model });
+      
+      // Build full prompt with system prompt for model
+      const fullPromptForModel = systemPrompt ? `${systemPrompt}\n\nUser: ${enhancedPrompt}` : enhancedPrompt;
+      
+      if (model.includes('deepseek')) {
+        console.log('[AIService] DeepSeek prompt preview:', fullPromptForModel.substring(0, 200) + '...');
+      }
+      
+      const ollamaResponse = await ollamaService.generate(fullPromptForModel, {
+        temperature,
+        num_predict: maxTokens,
+      }, model);
+      response = ollamaResponse.response;
+      tokensUsed = ollamaResponse.totalTokens;
+      
+      // DeepSeek models return thinking directly from API
+      if (ollamaResponse.thinking) {
+        thinking = ollamaResponse.thinking;
+      }
+    } else if (useRAG) {
+      // Priority 2: Use RAG for document-based questions (with default model)
+      console.log('[AIService] Using RAG path with default model');
       const ragResponse = await ragService.query({
         query: enhancedPrompt,
         topK: ragTopK,
@@ -281,8 +322,8 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       sourceDocuments = ragResponse.sourceNodes;
       tokensUsed = ragResponse.tokensUsed || 0;
     } else if (currentUserId) {
-      // Use LangChain + Mem0 for memory-enhanced conversations
-      // With all optimizations: caching, smart model selection, connection pooling
+      // Priority 3: Use LangChain + Mem0 for memory-enhanced conversations (with default model)
+      console.log('[AIService] Using LangChain/Mem0 path with default model');
       await langchainService.initialize();
       
       response = await langchainService.chat(
@@ -295,14 +336,14 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
         systemPrompt,
         {
           stream: stream,
-          // Smart model selection happens automatically
         }
       );
       
       // Estimate tokens (rough approximation)
       tokensUsed = Math.ceil((enhancedPrompt.length + response.length) / 4);
     } else {
-      // Simple generation without RAG or memory
+      // Priority 4: Fallback to direct Ollama with default model
+      console.log('[AIService] Using direct Ollama path (fallback, default model)');
       const ollamaResponse = await ollamaService.generate(enhancedPrompt, {
         temperature,
         num_predict: maxTokens,
@@ -339,6 +380,17 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       }
     } catch {
       // Not a JSON wrapper, continue with original response
+    }
+
+    // Extract thinking tags (for deepseek-r1 model)
+    const thinkMatch = response.match(/<think>([\s\S]*?)<\/think>/i);
+    if (thinkMatch && thinkMatch[1]) {
+      thinking = thinkMatch[1].trim();
+      console.log('[AIService] ✅ Extracted thinking:', thinking.substring(0, 100) + '...');
+      // Remove thinking tags from main response
+      response = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    } else {
+      console.log('[AIService] ⚠️ No thinking tags found in response');
     }
 
     // Apply response enhancer for better personality (Phase 3 Integration)
@@ -400,11 +452,12 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
   const assistantMessage = await conversationService.addMessage(conversation.id, {
     role: 'assistant',
     content: response,
+    ...(thinking ? { thinking } : {}), // Store AI reasoning
     ...(sourceDocuments ? {
       retrievedDocs: sourceDocuments.map((d) => ({ id: d.metadata.id, score: d.score }))
     } : {}),
     tokensUsed,
-    model: process.env.OLLAMA_MODEL || 'qwen2.5:14b',
+    model: model || process.env.OLLAMA_MODEL || 'qwen2.5:14b',
     temperature,
     thoughtTags, // Add thought tags
   });
@@ -425,6 +478,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     conversationId: conversation.id,
     messageId: assistantMessage.id,
     tokensUsed,
+    ...(thinking ? { thinking } : {}),
     ...(stream ? { isStreaming: true } : {}),
   };
   

@@ -30,7 +30,7 @@ class PromptBuilder {
     // User personalization - address user by their real name
     if (context.userName) {
       parts.push(`When addressing the user directly, use their name: ${context.userName}.`);
-      parts.push('Your name is Kai - only mention your own name when the user specifically asks you what your name is or who you are.');
+      parts.push(`Your name is ${context.userName} - only mention your own name when the user specifically asks you what your name is or who you are.`);
     }
 
     // Apply tone settings
