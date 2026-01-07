@@ -12,6 +12,7 @@ import authRoutes from './features/auth/auth.routes';
 import signupRoutes from './features/signup/signup.routes';
 import legalRoutes from './features/legal/legal.routes';
 import aiSettingsRoutes from './features/ai-settings/ai-settings.routes';
+import quizRoutes from './features/quiz/quiz.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
@@ -72,6 +73,7 @@ app.use('/api/notifications', notificationRoutes);                          // N
 app.use('/api/assessment', assessmentRoutes);                               // Answer grading (mathematical)
 app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
 app.use('/api', aiSettingsRoutes);                                          // AI customization settings
+app.use('/api', quizRoutes);                                                // Quiz generation and submission
 
 
 

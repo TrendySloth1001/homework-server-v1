@@ -17,6 +17,8 @@ export interface Message {
     conversationId: string;
     role: 'system' | 'user' | 'assistant';
     content: string;
+    messageType?: string; // 'text' | 'quiz'
+    quizSessionId?: string; // Link to quiz session if messageType is 'quiz'
     thinking?: string; // AI reasoning process (DeepSeek-R1)
     retrievedDocs?: any;
     embedding?: string;
@@ -587,6 +589,8 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
+                messageType: true, // Include message type (text/quiz)
+                quizSessionId: true, // Include quiz session ID
                 thinking: true, // Include AI reasoning
                 thoughtTags: true, // Include thought tags
                 tokensUsed: true,
