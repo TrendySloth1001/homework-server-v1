@@ -7,6 +7,7 @@ import { ChatOllama } from '@langchain/ollama';
 import { config } from '../config';
 import { mem0Service } from './mem0Client';
 import { cachingService } from './cachingService';
+import { intentClassifier, QueryDomain } from './intentClassifier';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -17,6 +18,7 @@ interface ChatOptions {
   stream?: boolean;
   onToken?: (token: string) => void;
   modelOverride?: string;
+  useIntentRouting?: boolean; // NEW: Enable smart model routing
 }
 
 class LangChainService {
@@ -43,9 +45,27 @@ class LangChainService {
   }
 
   /**
-   * Smart model selection based on query complexity
+   * Smart model selection based on query complexity and intent classification
    */
-  private selectModel(query: string): string {
+  private selectModel(query: string, useIntentRouting: boolean = false): string {
+    // PHASE 1: Intent-based routing (if enabled)
+    if (useIntentRouting) {
+      const analysis = intentClassifier.classify(query);
+      
+      if (analysis.confidence > 0.7) {
+        console.log(`[LangChain] Intent routing: ${analysis.domain} (${(analysis.confidence * 100).toFixed(0)}%)`);
+        console.log(`[LangChain] Recommended model: ${analysis.recommendedModel}`);
+        console.log(`[LangChain] Reasoning: ${analysis.reasoning}`);
+        
+        if (analysis.requiresTools) {
+          console.log(`[LangChain] Required tools: ${analysis.tools.join(', ')}`);
+        }
+        
+        return analysis.recommendedModel;
+      }
+    }
+
+    // PHASE 2: Complexity-based routing (fallback)
     const wordCount = query.split(/\s+/).length;
     const hasCode = /```|function|class|const|let|var/.test(query);
     const hasMath = /\d+[+\-*/]\d+|equation|formula|calculate/.test(query);
@@ -83,8 +103,8 @@ class LangChainService {
       await this.initialize();
     }
 
-    // Smart model selection
-    const selectedModel = options?.modelOverride || this.selectModel(query);
+    // Smart model selection with intent routing
+    const selectedModel = options?.modelOverride || this.selectModel(query, options?.useIntentRouting ?? true);
     const model = this.getModel(selectedModel);
 
     // Search for relevant memories using Mem0 (with relevance threshold)
