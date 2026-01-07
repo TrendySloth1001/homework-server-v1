@@ -138,6 +138,12 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       
       userName = user?.displayName;
       aiSettings = settings;
+      console.log('[AIService] 🔧 Loaded AI Settings:', {
+        userId: currentUserId,
+        baseTone: aiSettings?.baseTone,
+        customInstructions: aiSettings?.customInstructions?.substring(0, 100),
+        profileEnabled: aiSettings?.profileEnabled
+      });
       
       // Smart context loading - only load when relevant to the query
       const shouldLoadPersonalContext = checkIfPersonalQuery(prompt);
@@ -268,6 +274,7 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
       // Extract system prompt from built prompt (first part before conversation)
       const parts = fullPrompt.split('\n\nConversation history:');
       systemPrompt = parts[0] || systemPrompt;
+      console.log('[AIService] 📝 System Prompt Generated:', systemPrompt.substring(0, 300) + '...');
       enhancedPrompt = parts[1] || prompt;
     }
 
@@ -278,7 +285,32 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
 
     // Add model-specific instructions
     if (model?.includes('deepseek')) {
-      systemPrompt = systemPrompt + '\n\nIMPORTANT: When answering, show your reasoning process by wrapping your thoughts in <think>...</think> tags before providing the final answer. The thinking should be detailed and show your step-by-step reasoning.';
+      systemPrompt = systemPrompt + `\n\n## CRITICAL INSTRUCTIONS FOR RESPONSE FORMAT:
+
+You MUST separate your response into TWO distinct parts:
+
+1. THINKING SECTION (wrap in <think></think> tags):
+   - Put ALL your internal reasoning, analysis, and thought process here
+   - Include context understanding, key points consideration, and formulation
+   - This should contain your complete reasoning chain
+   - Example: "Understanding the context... analyzing the problem... considering alternatives..."
+
+2. FINAL ANSWER (outside the think tags):
+   - Put ONLY the clean, final answer here
+   - No reasoning, no "thinking about", no internal monologue
+   - Direct, clear, and concise response to the user's question
+   - This is what the user will see as the main message
+
+EXAMPLE FORMAT:
+<think>
+Understanding Context: The user is asking about X...
+Analyzing Key Points: First, I need to consider...
+Formulating Response: The best approach is...
+</think>
+
+Here's the answer: [Your clean, final answer without any reasoning or thinking process]
+
+IMPORTANT: Everything that explains HOW you arrived at the answer goes in <think> tags. Only the WHAT (the actual answer) goes outside.`;
     }
 
     // Priority 1: If user explicitly selected a model, use it directly (bypass RAG/LangChain)
@@ -386,9 +418,68 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     const thinkMatch = response.match(/<think>([\s\S]*?)<\/think>/i);
     if (thinkMatch && thinkMatch[1]) {
       thinking = thinkMatch[1].trim();
-      console.log('[AIService] ✅ Extracted thinking:', thinking.substring(0, 100) + '...');
+      console.log('[AIService] ✅ Extracted thinking from tags:', thinking.substring(0, 100) + '...');
       // Remove thinking tags from main response
       response = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    } else if (model?.includes('deepseek')) {
+      // Check for explicit THINKING SECTION marker (with various formats)
+      const thinkingSectionMatch = response.match(/###?\s*THINKING\s*SECTION:?\s*\n([\s\S]*?)(?=\n###|$)/i);
+      if (thinkingSectionMatch && thinkingSectionMatch[1]) {
+        thinking = thinkingSectionMatch[1].trim();
+        response = response.replace(/###?\s*THINKING\s*SECTION:?\s*\n[\s\S]*?(?=\n###|$)/i, '').trim();
+        console.log('[AIService] ✅ Extracted thinking from THINKING SECTION marker:', thinking.substring(0, 100) + '...');
+      } else {
+        // Fallback: Line-by-line pattern detection
+        const lines = response.split('\n');
+        const thinkingLines: string[] = [];
+        const answerLines: string[] = [];
+        let inThinkingSection = false;
+        
+        for (const line of lines) {
+          const lowerLine = line.toLowerCase();
+          const trimmedLine = line.trim();
+          
+          // Detect thinking section markers (more precise)
+          if (lowerLine.startsWith('understanding context:') || 
+              lowerLine.startsWith('clarifying key points:') ||
+              lowerLine.startsWith('formulating response:') ||
+              lowerLine.startsWith('thinking:') ||
+              (lowerLine.startsWith('step ') && /^step \d+:/.test(lowerLine)) ||
+              (lowerLine.includes('alright, so') && lowerLine.length < 100) ||
+              (lowerLine.includes('let me break this down') && lowerLine.length < 100) ||
+              (lowerLine.includes('from our previous conversation') && lowerLine.length < 100)) {
+            inThinkingSection = true;
+            thinkingLines.push(line);
+            continue;
+          }
+          
+          // Detect answer section markers (end of thinking)
+          if ((lowerLine.startsWith('here\'s why') || 
+              lowerLine.startsWith('here is') ||
+              lowerLine.startsWith('answer:') ||
+              lowerLine.startsWith('here\'s the') ||
+              lowerLine.startsWith('in summary') ||
+              (/^#+\s/.test(trimmedLine) && !inThinkingSection)) && answerLines.length === 0) {
+            inThinkingSection = false;
+            answerLines.push(line);
+            continue;
+          }
+          
+          if (inThinkingSection) {
+            thinkingLines.push(line);
+          } else {
+            answerLines.push(line);
+          }
+        }
+        
+        if (thinkingLines.length > 2) { // Need at least a few lines to be thinking
+          thinking = thinkingLines.join('\n').trim();
+          response = answerLines.join('\n').trim();
+          console.log('[AIService] ✅ Extracted thinking via pattern matching:', thinking.substring(0, 100) + '...');
+        } else {
+          console.log('[AIService] ⚠️ No thinking tags or patterns found in DeepSeek response');
+        }
+      }
     } else {
       console.log('[AIService] ⚠️ No thinking tags found in response');
     }
