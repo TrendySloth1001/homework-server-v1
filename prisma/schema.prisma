@@ -124,8 +124,8 @@ model Topic {
 
 model Question {
   id            String   @id @default(cuid())
-  topicId       String
-  teacherId     String
+  topicId       String?  // Made optional for chat quizzes
+  teacherId     String?  // Made optional for chat quizzes
   // Question content
   questionText  String
   questionType  String   // 'mcq', 'short-answer', 'essay', 'true-false'
@@ -146,17 +146,29 @@ model Question {
   // Stored as JSON string for Prisma compatibility
   embedding     String?  @db.Text
 
+  // Chat quiz support
+  inChat           Boolean   @default(false)  // Differentiate chat vs assessment questions
+  conversationId   String?                    // Link to conversation if in-chat
+  quizSessionId    String?                    // Group questions into quiz sessions
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  topic         Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  topic         Topic?    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  teacher       Teacher?  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  quizSession   QuizSession? @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+  
   studentAnswers  StudentAnswer[]
-  visibility      Visibility @default(PUBLIC)  // NEW: Control question access
+  chatAnswers     ConversationQuizAnswer[]  // For chat quiz answers
+  visibility      Visibility @default(PUBLIC)
   
   @@index([teacherId, visibility])
   @@index([topicId, visibility])
+  @@index([conversationId])
+  @@index([quizSessionId])
+  @@index([inChat])
   // Indexes for better query performance
   @@index([topicId])
   @@index([teacherId])
@@ -355,6 +367,8 @@ model Conversation {
   
   // Relations
   messages    ConversationMessage[]
+  questions   Question[]        // Chat quiz questions
+  quizSessions QuizSession[]    // Quiz sessions in this conversation
   
   @@index([userId])
   @@index([teacherId])
@@ -369,6 +383,8 @@ model ConversationMessage {
   // Message content
   role           String   // 'system' | 'user' | 'assistant'
   content        String   @db.Text
+  messageType    String   @default("text") // 'text' | 'quiz'
+  quizSessionId  String?  // Link to quiz if messageType is 'quiz'
   
   // AI reasoning (DeepSeek-R1 thinking process)
   thinking       String?  @db.Text // Reasoning chain for models like DeepSeek-R1
@@ -392,10 +408,13 @@ model ConversationMessage {
   
   // Relations
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  quizSession    QuizSession? @relation(fields: [quizSessionId], references: [id], onDelete: SetNull)
   
   @@index([conversationId, sequenceNumber])
   @@index([conversationId])
   @@index([createdAt])
+  @@index([quizSessionId])
+  @@index([messageType])
 }
 
 model User {
@@ -697,17 +716,56 @@ model ConversationReference {
   topics          String[]          // Extracted topics ["physics", "motion", "newton"]
   keyPoints       String[] @default([]) // Important points discussed
   
-  // Vector embedding for similarity search
-  embedding       String?  @db.Text  // JSON array of embedding vector
-  
-  // Metadata
-  messageCount    Int      @default(0)
-  sentiment       String?  // positive, neutral, negative, mixed
-  wasHelpful      Boolean? // User feedback
-  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   @@index([userId])
-  @@index([userId, createdAt])
+}
+
+// Quiz Session - Groups chat quiz questions together
+model QuizSession {
+  id               String   @id @default(cuid())
+  conversationId   String
+  userId           String   // Who took the quiz
+  
+  // Quiz metadata
+  topic            String   // Extracted from conversation
+  totalQuestions   Int
+  score            Int?     // Percentage (0-100)
+  completedAt      DateTime?
+  
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  questions        Question[]
+  answers          ConversationQuizAnswer[]
+  messages         ConversationMessage[]  // Link to messages that display this quiz
+  
+  @@index([conversationId])
+  @@index([userId])
+  @@index([completedAt])
+}
+
+// Conversation Quiz Answer - Stores user answers for chat quizzes
+model ConversationQuizAnswer {
+  id             String   @id @default(cuid())
+  questionId     String
+  quizSessionId  String
+  userId         String
+  
+  // Answer data
+  userAnswer     String   // User's submitted answer
+  isCorrect      Boolean  // Was it correct?
+  timeSpent      Int?     // Seconds spent on question
+  
+  answeredAt     DateTime @default(now())
+  
+  // Relations
+  question       Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quizSession    QuizSession @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+  
+  @@index([questionId])
+  @@index([quizSessionId])
+  @@index([userId])
 }
