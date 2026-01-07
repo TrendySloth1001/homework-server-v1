@@ -54,6 +54,12 @@ class PromptBuilder {
       }
     }
 
+    // Always add quiz history if available (even if profile is disabled)
+    if (!context.aiSettings?.profileEnabled && context.userContext && (context.userContext as any).quizHistory) {
+      parts.push('\nQuiz Performance Data:');
+      parts.push((context.userContext as any).quizHistory);
+    }
+
     // Add memory facts
     if (context.relevantFacts && context.relevantFacts.length > 0) {
       const memoryInfo = this.buildMemoryContext(context.relevantFacts);
@@ -129,7 +135,7 @@ class PromptBuilder {
   /**
    * Build profile context from user data
    */
-  private buildProfileContext(userContext: UserContext): string {
+  private buildProfileContext(userContext: any): string {
     const parts: string[] = [];
 
     if (userContext.learningGoals) {
@@ -150,6 +156,11 @@ class PromptBuilder {
 
     if (userContext.interests) {
       parts.push(`Interests: ${userContext.interests}`);
+    }
+
+    // Add quiz history if available
+    if (userContext.quizHistory) {
+      parts.push(userContext.quizHistory);
     }
 
     return parts.join('\n');
