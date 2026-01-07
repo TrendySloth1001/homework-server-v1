@@ -28,6 +28,7 @@ export interface GenerateTextRequest {
   webSearch?: boolean; // Enable web search for real-time information (default: false)
   webSearchDepth?: 'basic' | 'advanced'; // Web search depth (default: 'advanced')
   stream?: boolean; // Enable streaming response (default: false)
+  model?: string; // Specific model to use (e.g., 'deepseek-r1:14b', 'qwen2.5:7b')
 }
 
 export interface GenerateTextResponse {
@@ -36,6 +37,7 @@ export interface GenerateTextResponse {
   conversationId: string;
   messageId: string;
   tokensUsed?: number; // Total tokens consumed (prompt + completion)
+  thinking?: string; // AI reasoning from <think> tags (for deepseek)
   sourceDocuments?: Array<{
     text: string;
     score: number;

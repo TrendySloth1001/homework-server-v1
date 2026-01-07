@@ -370,6 +370,9 @@ model ConversationMessage {
   role           String   // 'system' | 'user' | 'assistant'
   content        String   @db.Text
   
+  // AI reasoning (DeepSeek-R1 thinking process)
+  thinking       String?  @db.Text // Reasoning chain for models like DeepSeek-R1
+  
   // RAG context used for this message
   retrievedDocs  Json?    // Array of doc IDs/snippets used for context
   embedding      String?  @db.Text // Vector embedding (384d)

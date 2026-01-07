@@ -34,6 +34,7 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
     webSearch,
     webSearchDepth,
     stream,
+    model,
   } = req.body;
   console.log(webSearch);
   
@@ -67,6 +68,7 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
         topic,
         webSearch,
         webSearchDepth,
+        model,
         stream: true,
       });
 
@@ -119,6 +121,7 @@ export const generateTextHandler = asyncHandler(async (req: Request, res: Respon
     topic,
     webSearch,
     webSearchDepth,
+    model,
   });
 
   res.status(200).json({

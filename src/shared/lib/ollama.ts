@@ -98,13 +98,21 @@ class OllamaService {
    */
   async generate(
     prompt: string,
-    options?: OllamaGenerateRequest['options']
-  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number }> {
+    options?: OllamaGenerateRequest['options'],
+    customModel?: string
+  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number; thinking?: string }> {
+    const modelToUse = customModel || this.model;
+    
+    // Use chat API for deepseek models to get thinking field
+    if (modelToUse.includes('deepseek')) {
+      return this.chat([{ role: 'user', content: prompt }], options, modelToUse);
+    }
+    
     const url = `${this.baseUrl}/api/generate`;
     
     const mergedOptions = this.getOptions(options);
     const requestBody: any = {
-      model: this.model,
+      model: customModel || this.model,
       prompt,
       stream: false,
       // NOTE: format: 'json' removed - causes incomplete/corrupted responses
@@ -181,13 +189,14 @@ class OllamaService {
    */
   async chat(
     messages: OllamaChatMessage[],
-    options?: OllamaChatRequest['options']
-  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number }> {
+    options?: OllamaChatRequest['options'],
+    customModel?: string
+  ): Promise<{ response: string; promptTokens: number; completionTokens: number; totalTokens: number; thinking?: string }> {
     const url = `${this.baseUrl}/api/chat`;
     
     const mergedOptions = this.getOptions(options);
     const requestBody: OllamaChatRequest = {
-      model: this.model,
+      model: customModel || this.model,
       messages,
       stream: false,
       ...(mergedOptions ? { options: mergedOptions } : {}),
@@ -219,6 +228,9 @@ class OllamaService {
       const completionTokens = data.eval_count || 0;
       const totalTokens = promptTokens + completionTokens;
       
+      // Extract thinking field (for deepseek models)
+      const thinking = (data.message as any).thinking;
+      
       // Log token information for debugging
       if (config.isDevelopment) {
         console.log('[Ollama Chat] Token usage:', {
@@ -227,7 +239,12 @@ class OllamaService {
           totalTokens,
           hasPromptEvalCount: !!data.prompt_eval_count,
           hasEvalCount: !!data.eval_count,
+          hasThinking: !!thinking,
         });
+        
+        if (thinking) {
+          console.log('[Ollama Chat] ✅ Thinking extracted:', thinking.substring(0, 100) + '...');
+        }
       }
       
       return {
@@ -235,6 +252,7 @@ class OllamaService {
         promptTokens,
         completionTokens,
         totalTokens,
+        ...(thinking ? { thinking } : {}),
       };
     } catch (error) {
       if (error instanceof Error) {

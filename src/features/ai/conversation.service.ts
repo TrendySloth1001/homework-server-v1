@@ -17,6 +17,7 @@ export interface Message {
     conversationId: string;
     role: 'system' | 'user' | 'assistant';
     content: string;
+    thinking?: string; // AI reasoning process (DeepSeek-R1)
     retrievedDocs?: any;
     embedding?: string;
     thoughtTags?: string; // Comma-separated thought tags
@@ -65,6 +66,7 @@ export interface CreateConversationParams {
 export interface AddMessageParams {
     role: 'system' | 'user' | 'assistant';
     content: string;
+    thinking?: string; // AI reasoning process (DeepSeek-R1)
     retrievedDocs?: any;
     thoughtTags?: string; // Comma-separated thought tags
     tokensUsed?: number;
@@ -194,6 +196,7 @@ class ConversationService {
         const {
             role,
             content,
+            thinking, // AI reasoning process
             retrievedDocs,
             thoughtTags, // Accept thought tags
             tokensUsed,
@@ -248,6 +251,7 @@ class ConversationService {
                 content,
                 tokensUsed: tokensUsed ?? null,
                 sequenceNumber,
+                ...(thinking ? { thinking } : {}), // Store AI reasoning
                 ...(retrievedDocs ? { retrievedDocs } : {}),
                 ...(embedding ? { embedding } : {}),
                 ...(thoughtTags ? { thoughtTags } : {}), // Store thought tags
@@ -583,6 +587,7 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
+                thinking: true, // Include AI reasoning
                 thoughtTags: true, // Include thought tags
                 tokensUsed: true,
                 model: true,
