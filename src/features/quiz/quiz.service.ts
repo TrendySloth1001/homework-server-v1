@@ -7,6 +7,7 @@ import { prisma } from '../../shared/lib/prisma';
 import { ollamaService } from '../../shared/lib/ollama';
 import { conversationService } from '../ai/conversation.service';
 import { createNotificationService } from '../notifications/notifications.service';
+import { addAIJob } from '../../shared/queues/ai.queue';
 
 export interface QuizGenerationOptions {
   questionCount?: number;
@@ -87,6 +88,18 @@ class QuizService {
           totalQuestions: questions.length,
         }
       });
+
+      // Queue quiz generation with lower priority (5) - chat messages served first
+      await addAIJob(
+        {
+          type: 'quiz-generation',
+          quizSessionId: quizSession.id,
+          conversationId,
+          userId,
+          topic
+        } as any,
+        5 // Lower priority for background task
+      );
 
       // Save questions to database
       const savedQuestions = await Promise.all(

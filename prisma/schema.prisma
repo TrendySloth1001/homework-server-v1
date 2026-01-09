@@ -210,12 +210,15 @@ model AIGeneration {
   topicId    String?
   teacherId  String?  // Optional - only for teacher-initiated generations
   teacher    Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  userId     String?  // Optional - for user-initiated generations (students, etc.)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
   // Indexes
   @@index([type])
   @@index([teacherId])
+  @@index([userId])
   @@index([status])
   @@index([createdAt])
   @@index([topicId])
@@ -365,7 +368,7 @@ model Conversation {
   messages     ConversationMessage[]
   questions    Question[] // Chat quiz questions
   quizSessions QuizSession[] // Quiz sessions in this conversation
-  studyPlan    StudyPlan? // Study plan for this conversation
+  studyPlans   StudyPlan[] // Study plans for this conversation (can have multiple)
 
   @@index([userId])
   @@index([teacherId])
@@ -376,7 +379,7 @@ model Conversation {
 // Study Plan - AI-generated learning roadmap
 model StudyPlan {
   id             String @id @default(cuid())
-  conversationId String @unique // 1:1 with conversation
+  conversationId String // Allow multiple study plans per conversation
 
   // Basic info
   subject String // "React", "Python", "Machine Learning"
@@ -469,6 +472,7 @@ model User {
   
   // Relations (one-to-many)
   notifications Notification[]
+  aiGenerations AIGeneration[]
 
   // Indexes for performance
   @@index([email])

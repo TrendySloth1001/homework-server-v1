@@ -48,14 +48,14 @@ async function persistJobToDatabase(
   result?: any,
   error?: string
 ) {
-  const { teacherId, type } = data;
+  const { teacherId, userId, type } = data;
 
   await prisma.jobQueue.upsert({
     where: { jobId },
     create: {
       jobId,
       jobType: type,
-      teacherId,
+      teacherId: teacherId || userId || 'system',
       payload: JSON.stringify(data),
       status,
       progress,
@@ -102,7 +102,16 @@ export const aiWorker = connection
         const startTime = Date.now();
         const { type, teacherId, topicId, unitId, syllabusId } = job.data;
 
-        console.log(`Processing AI job ${job.id}: ${type}`);
+        console.log(`[Queue] 🔄 Processing AI job ${job.id}: ${type} (priority: ${job.opts.priority || 'default'})`);
+        console.log(`[Queue] 📋 Job details:`, {
+          type,
+          priority: job.opts.priority,
+          userId: job.data.userId,
+          teacherId,
+          queuedAt: new Date(job.timestamp).toISOString(),
+          startedAt: new Date().toISOString(),
+          waitTime: `${Date.now() - job.timestamp}ms`
+        });
 
         // Persist job as active
         await persistJobToDatabase(job.id!, job.data, 'active', 10);
@@ -142,11 +151,19 @@ export const aiWorker = connection
               await persistJobToDatabase(job.id!, job.data, 'active', 90);
               break;
 
+            case 'quiz-generation':
+              // Quiz generation is handled synchronously in the service
+              // This case is here for future async quiz processing if needed
+              result = { success: true, message: 'Quiz generation completed' };
+              break;
+
             default:
               throw new Error(`Unknown job type: ${type}`);
           }
 
           const duration = (Date.now() - startTime) / 1000;
+
+          console.log(`[Queue] ✅ Job ${job.id} completed in ${duration.toFixed(2)}s`);
 
           // Log to database
           await prisma.aIGeneration.create({
@@ -159,6 +176,7 @@ export const aiWorker = connection
               provider: config.ai.provider,
               duration,
               status: 'success',
+              ...(job.data.userId ? { userId: job.data.userId } : {}),
               ...(teacherId ? { teacherId } : {}),
               ...(topicId ? { topicId } : {}),
               ...(unitId ? { unitId } : {}),
@@ -178,7 +196,9 @@ export const aiWorker = connection
           const duration = (Date.now() - startTime) / 1000;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-          // Log failure to database
+          console.error(`[Queue] ❌ Job ${job.id} failed:`, errorMessage);
+
+          // Log failure to database (only include teacherId if it's not 'system')
           await prisma.aIGeneration.create({
             data: {
               type,
@@ -189,7 +209,8 @@ export const aiWorker = connection
               duration,
               status: 'failed',
               error: errorMessage,
-              ...(teacherId ? { teacherId } : {}),
+              ...(job.data.userId ? { userId: job.data.userId } : {}),
+              ...(teacherId && teacherId !== 'system' ? { teacherId } : {}),
               ...(topicId ? { topicId } : {}),
               ...(unitId ? { unitId } : {}),
               ...(syllabusId ? { syllabusId } : {}),
@@ -204,12 +225,14 @@ export const aiWorker = connection
       },
       {
         connection,
-        concurrency: 2, // Process 2 jobs at a time
+        concurrency: 5, // Process up to 5 jobs concurrently (allows chat to run while async tasks process)
         limiter: {
           max: 10, // Max 10 jobs
           duration: 60000, // per minute
         },
         lockDuration: 30000, // Lock duration for stalled jobs (30s)
+        // BullMQ automatically processes jobs by priority (lower number = higher priority)
+        // Priority 1 (chat) will be picked before priority 5 (quiz/study-plan)
       }
     )
   : null;
@@ -404,7 +427,7 @@ Format your response as JSON:
   const question = await prisma.question.create({
     data: {
       topicId,
-      teacherId: data.teacherId,
+      teacherId: data.teacherId || data.userId || 'system',
       questionText: parsed.question,
       questionType,
       difficulty,
@@ -528,7 +551,8 @@ async function generateBatchQuestions(data: AIGenerationJobData) {
       const result = await generateSingleQuestion(
         {
           type: data.type,
-          teacherId: data.teacherId,
+          teacherId: data.teacherId || data.userId || 'system',
+          userId: data.userId,
           topicId,
           questionType,
           difficulty,
@@ -537,7 +561,7 @@ async function generateBatchQuestions(data: AIGenerationJobData) {
           ...(data.enhancementType ? { enhancementType: data.enhancementType } : {}),
           ...(data.requestId ? { requestId: data.requestId } : {}),
           ...(data.priority ? { priority: data.priority } : {}),
-        },
+        } as AIGenerationJobData,
         {
           temperature: currentTemperature,
           top_p: currentTopP,
@@ -1148,7 +1172,7 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
     : parsed.resources || '';
 
   // Check for existing syllabi with same parameters to determine version number
-  const existingSyllabi = await prisma.syllabus.findMany({
+  const existingSyllabi = teacherId ? await prisma.syllabus.findMany({
     where: {
       teacherId,
       subjectName,
@@ -1161,7 +1185,7 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
       version: 'desc'
     },
     take: 1
-  });
+  }) : [];
 
   let versionNumber = 1;
   let parentSyllabusId = null;
@@ -1180,19 +1204,21 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
     console.log(`[Queue] Creating version ${versionNumber} of syllabus (preserving all previous versions)`);
     
     // Mark all previous versions as not latest
-    await prisma.syllabus.updateMany({
-      where: {
-        teacherId,
-        subjectName,
-        className,
-        board: board || 'GENERAL',
-        term: term || 'Annual',
-        academicYear: academicYear || new Date().getFullYear().toString(),
-      },
-      data: {
-        isLatest: false
-      }
-    });
+    if (teacherId) {
+      await prisma.syllabus.updateMany({
+        where: {
+          teacherId,
+          subjectName,
+          className,
+          board: board || 'GENERAL',
+          term: term || 'Annual',
+          academicYear: academicYear || new Date().getFullYear().toString(),
+        },
+        data: {
+          isLatest: false
+        }
+      });
+    }
     
     if (config.isDevelopment) {
       console.log('[Queue/DEV]  Previous versions preserved and marked as historical');
@@ -1214,7 +1240,7 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
       }
     },
     data: {
-      teacherId,
+      teacherId: teacherId || 'system',
       subjectName,
       className,
       board: board || 'GENERAL',
@@ -1257,7 +1283,7 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
             : 10; // Default: 10 days per unit
           
           return {
-            teacherId, // Add teacherId to Unit
+            teacherId: teacherId || 'system', // Add teacherId to Unit
             title: unit.title,
             teachingHours: isNaN(teachingHours) ? 6 : teachingHours,
             durationDays: isNaN(durationDays) ? 10 : durationDays,
@@ -1283,7 +1309,7 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
                 }
                 
                 return {
-                  teacherId,
+                  teacherId: teacherId || 'system',
                   topicName: topic.topicName,
                   ...(topicDescriptionStr ? { description: topicDescriptionStr } : {}),
                   ...(keywordsStr ? { keywords: keywordsStr } : {}),
@@ -1416,6 +1442,12 @@ IMPORTANT: Generate realistic, detailed, curriculum-aligned content. Ensure ALL 
 }
 
 // Queue helper functions
+/**
+ * Add AI generation job to queue
+ * Priority: Lower number = higher priority
+ * - 1: Normal chat messages (highest priority)
+ * - 5: Quiz/Study plan generation (lower priority)
+ */
 export async function addAIJob(
   data: AIGenerationJobData,
   priority?: number
@@ -1424,14 +1456,37 @@ export async function addAIJob(
     throw new Error('Redis not configured - job queue unavailable');
   }
 
-  const job = await aiQueue.add(JobTypes.AI_GENERATION, data, {
-    priority: priority || 5,
+  // Default priority based on job type
+  let jobPriority = priority;
+  if (jobPriority === undefined) {
+    // Normal chat gets highest priority (1)
+    // Quiz and study-plan get lower priority (5)
+    jobPriority = 1; // Default to chat priority
+  }
+
+  console.log(`[Queue] 📥 Adding job to queue:`, {
+    type: data.type,
+    priority: jobPriority,
+    userId: data.userId,
+    teacherId: data.teacherId,
+    timestamp: new Date().toISOString()
   });
+
+  const job = await aiQueue.add(JobTypes.AI_GENERATION, data, {
+    priority: jobPriority,
+  });
+
+  console.log(`[Queue] ✅ Job added successfully: ${job.id} (priority: ${jobPriority})`);
 
   // Persist initial job state to database
   if (job.id) {
     await persistJobToDatabase(job.id, data, 'waiting', 0);
   }
+
+  // Log current queue status
+  const waiting = await aiQueue.getWaitingCount();
+  const active = await aiQueue.getActiveCount();
+  console.log(`[Queue] 📊 Queue status: ${waiting} waiting, ${active} active`);
 
   return job.id || null;
 }
