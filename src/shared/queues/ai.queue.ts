@@ -24,6 +24,7 @@ import {
   CircuitBreaker, 
   ExponentialBackoff 
 } from '../lib/advancedOptimizations';
+import { studyPlanService } from '../../features/study-plan/study-plan.service';
 
 const connection = config.redis?.enabled && config.redis?.url
   ? (() => {
@@ -134,6 +135,13 @@ export const aiWorker = connection
               await persistJobToDatabase(job.id!, job.data, 'active', 90);
               break;
 
+            case 'study-plan-generation':
+              await persistJobToDatabase(job.id!, job.data, 'active', 20);
+              const planId = job.data.planId as string;
+              result = await studyPlanService.processGeneration(planId);
+              await persistJobToDatabase(job.id!, job.data, 'active', 90);
+              break;
+
             default:
               throw new Error(`Unknown job type: ${type}`);
           }
@@ -151,7 +159,7 @@ export const aiWorker = connection
               provider: config.ai.provider,
               duration,
               status: 'success',
-              teacherId,
+              ...(teacherId ? { teacherId } : {}),
               ...(topicId ? { topicId } : {}),
               ...(unitId ? { unitId } : {}),
               ...(syllabusId ? { syllabusId } : {}),
@@ -181,7 +189,7 @@ export const aiWorker = connection
               duration,
               status: 'failed',
               error: errorMessage,
-              teacherId,
+              ...(teacherId ? { teacherId } : {}),
               ...(topicId ? { topicId } : {}),
               ...(unitId ? { unitId } : {}),
               ...(syllabusId ? { syllabusId } : {}),
@@ -201,6 +209,7 @@ export const aiWorker = connection
           max: 10, // Max 10 jobs
           duration: 60000, // per minute
         },
+        lockDuration: 30000, // Lock duration for stalled jobs (30s)
       }
     )
   : null;

@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
@@ -9,46 +9,45 @@ datasource db {
 }
 
 model Syllabus {
-  id           String    @id @default(cuid())
-  teacherId    String     // comes from POST request
+  id        String @id @default(cuid())
+  teacherId String // comes from POST request
 
   // School fields
-  subjectName  String
-  className    String       // Example: "Class 6", "Class 10"
-  board        String       // CBSE / ICSE / STATE / IB
-  term         String       // Term 1 / Term 2 / Annual
-  academicYear String
-  isCompleted Boolean   @default(false)
-  overview     String?
-  objectives   String?
-  prerequisites String?
+  subjectName       String
+  className         String // Example: "Class 6", "Class 10"
+  board             String // CBSE / ICSE / STATE / IB
+  term              String // Term 1 / Term 2 / Annual
+  academicYear      String
+  isCompleted       Boolean   @default(false)
+  overview          String?
+  objectives        String?
+  prerequisites     String?
   assessmentMethods String?
-  isArchived  Boolean   @default(false)
-  archivedAt DateTime?
-  resources    String?
-  otherFields  Json?    // Dynamic custom fields as JSON object
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  completionStage   Int  @default(0) // percentage of completion based on units/topics added
-  stage         String   @default("draft") // draft / published / archived
-  
+  isArchived        Boolean   @default(false)
+  archivedAt        DateTime?
+  resources         String?
+  otherFields       Json? // Dynamic custom fields as JSON object
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completionStage   Int       @default(0) // percentage of completion based on units/topics added
+  stage             String    @default("draft") // draft / published / archived
+
   // AI generation tracking
-  published    Boolean  @default(false) // draft vs live
-  generatedBy  String?  @default("manual") // 'ai' or 'manual'
-  aiPrompt     String?  @db.Text // Original prompt used for generation
-  
+  published   Boolean @default(false) // draft vs live
+  generatedBy String? @default("manual") // 'ai' or 'manual'
+  aiPrompt    String? @db.Text // Original prompt used for generation
+
   // Version tracking for multiple AI generations
-  version      Int      @default(1) // Version number for same syllabus parameters
-  isLatest     Boolean  @default(true) // Mark the latest version
-  parentId     String?  // Reference to original syllabus if this is a regeneration
+  version         Int     @default(1) // Version number for same syllabus parameters
+  isLatest        Boolean @default(true) // Mark the latest version
+  parentId        String? // Reference to original syllabus if this is a regeneration
   generationJobId String? // Link to AIGeneration/JobQueue for tracking
-  
+
   // Relations
-  teacher      Teacher?  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  units        Unit[]
-  visibility      Visibility @default(PUBLIC)  // NEW: Content access control
-  viewCount       Int        @default(0)       // NEW: Track popularity
-  
+  teacher    Teacher?   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  units      Unit[]
+  visibility Visibility @default(PUBLIC) // NEW: Content access control
+  viewCount  Int        @default(0) // NEW: Track popularity
 
   @@index([teacherId])
   @@index([subjectName, className, board])
@@ -60,29 +59,29 @@ model Syllabus {
 }
 
 model Unit {
-  id            String   @id @default(cuid())
-  syllabusId    String
-  teacherId     String   // Teacher who created/owns this unit
+  id         String @id @default(cuid())
+  syllabusId String
+  teacherId  String // Teacher who created/owns this unit
 
   title         String
   description   String?
   teachingHours Int?
   durationDays  Int?
-  order         Int?     // Display order within syllabus
+  order         Int? // Display order within syllabus
 
   completionStage Int      @default(0) // percentage of completion based on topics added
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   // AI generation tracking
-  generatedBy   String?  @default("manual") // 'ai' or 'manual'
+  generatedBy String? @default("manual") // 'ai' or 'manual'
 
   // Relations
-  syllabus      Syllabus @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
-  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  topics        Topic[]
-  visibility      Visibility?  // NEW: NULL = inherit from Syllabus
-  
+  syllabus   Syllabus    @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  topics     Topic[]
+  visibility Visibility? // NEW: NULL = inherit from Syllabus
+
   @@index([syllabusId, visibility])
   // Indexes
   @@index([syllabusId])
@@ -90,32 +89,32 @@ model Unit {
 }
 
 model Topic {
-  id          String   @id @default(cuid())
-  unitId      String
-  teacherId   String   // Teacher who created/owns this topic
+  id        String @id @default(cuid())
+  unitId    String
+  teacherId String // Teacher who created/owns this topic
 
   topicName   String
   description String?
-  keywords    String?  // Comma-separated keywords for search
-  order       Int?     // Display order within unit
+  keywords    String? // Comma-separated keywords for search
+  order       Int? // Display order within unit
 
   // Vector embedding for semantic search (384 dimensions for all-MiniLM-L6-v2)
   // Stored as JSON string for Prisma compatibility
-  embedding   String?  @db.Text
-  
-  // AI generation tracking
-  generatedBy String?  @default("manual") // 'ai' or 'manual'
+  embedding String? @db.Text
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // AI generation tracking
+  generatedBy String? @default("manual") // 'ai' or 'manual'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  questions   Question[]
-  resources   TopicResource[] // External resources from web search
-  visibility      Visibility?  // NEW: NULL = inherit from Unit
-  
+  unit       Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  teacher    Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  questions  Question[]
+  resources  TopicResource[] // External resources from web search
+  visibility Visibility? // NEW: NULL = inherit from Unit
+
   @@index([unitId, visibility])
   // Indexes
   @@index([unitId])
@@ -123,47 +122,47 @@ model Topic {
 }
 
 model Question {
-  id            String   @id @default(cuid())
-  topicId       String?  // Made optional for chat quizzes
-  teacherId     String?  // Made optional for chat quizzes
+  id           String  @id @default(cuid())
+  topicId      String? // Made optional for chat quizzes
+  teacherId    String? // Made optional for chat quizzes
   // Question content
-  questionText  String
-  questionType  String   // 'mcq', 'short-answer', 'essay', 'true-false'
-  difficulty    String   // 'easy', 'medium', 'hard'
-  points        Int      @default(1)
+  questionText String
+  questionType String // 'mcq', 'short-answer', 'essay', 'true-false'
+  difficulty   String // 'easy', 'medium', 'hard'
+  points       Int     @default(1)
 
   // For MCQ questions
-  options       String?  // JSON string: ["option1", "option2", "option3", "option4"]
-  correctAnswer String?  // For MCQ: index or letter, for others: the answer
+  options       String? // JSON string: ["option1", "option2", "option3", "option4"]
+  correctAnswer String? // For MCQ: index or letter, for others: the answer
 
   // AI metadata
-  explanation   String?  // Explanation of the answer
-  generatedBy   String   // 'ai' or 'manual'
-  aiModel       String?  // 'llama2', 'mistral', etc (if AI generated)
-  aiPrompt      String?  // Original prompt used (for debugging/improvement)
+  explanation String? // Explanation of the answer
+  generatedBy String // 'ai' or 'manual'
+  aiModel     String? // 'llama2', 'mistral', etc (if AI generated)
+  aiPrompt    String? // Original prompt used (for debugging/improvement)
 
   // Vector embedding for semantic similarity (384 dimensions for all-MiniLM-L6-v2)
   // Stored as JSON string for Prisma compatibility
-  embedding     String?  @db.Text
+  embedding String? @db.Text
 
   // Chat quiz support
-  inChat           Boolean   @default(false)  // Differentiate chat vs assessment questions
-  conversationId   String?                    // Link to conversation if in-chat
-  quizSessionId    String?                    // Group questions into quiz sessions
+  inChat         Boolean @default(false) // Differentiate chat vs assessment questions
+  conversationId String? // Link to conversation if in-chat
+  quizSessionId  String? // Group questions into quiz sessions
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  topic         Topic?    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  teacher       Teacher?  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  quizSession   QuizSession? @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
-  
-  studentAnswers  StudentAnswer[]
-  chatAnswers     ConversationQuizAnswer[]  // For chat quiz answers
-  visibility      Visibility @default(PUBLIC)
-  
+  topic        Topic?        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  teacher      Teacher?      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  quizSession  QuizSession?  @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+
+  studentAnswers StudentAnswer[]
+  chatAnswers    ConversationQuizAnswer[] // For chat quiz answers
+  visibility     Visibility               @default(PUBLIC)
+
   @@index([teacherId, visibility])
   @@index([topicId, visibility])
   @@index([conversationId])
@@ -178,42 +177,42 @@ model Question {
 }
 
 model AIGeneration {
-  id          String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Type of generation
-  type        String   // 'question', 'questions-batch', 'summary', 'enhancement', 'objectives'
-  
+  type String // 'question', 'questions-batch', 'summary', 'enhancement', 'objectives'
+
   // Request/Response data
-  input       String   // JSON string of input parameters
-  output      String   // JSON string of AI response
-  prompt      String?  // Actual prompt sent to AI
-  
+  input  String // JSON string of input parameters
+  output String // JSON string of AI response
+  prompt String? // Actual prompt sent to AI
+
   // AI metadata
-  model       String   // 'llama2', 'mistral', 'gpt-4', etc
-  provider    String   // 'ollama', 'openai'
-  tokens      Int?     // Token count if available
-  duration    Float?   // Duration in seconds
-  cost        Float?   // Cost in USD (if using paid API)
-  
+  model    String // 'llama2', 'mistral', 'gpt-4', etc
+  provider String // 'ollama', 'openai'
+  tokens   Int? // Token count if available
+  duration Float? // Duration in seconds
+  cost     Float? // Cost in USD (if using paid API)
+
   // Status tracking
-  status      String   @default("success") // 'success', 'failed', 'timeout'
-  error       String?  // Error message if failed
+  status String  @default("success") // 'success', 'failed', 'timeout'
+  error  String? // Error message if failed
 
   //job tracking
-  jobId       String?  // Background job ID for async processing
-  jobStatus   String?  // 'pending', 'in-progress', 'completed', 'failed'
-  jobNotified Boolean  @default(false) // Whether notification sent upon completion
-  jobError   String?  // Error message if job failed
-  
+  jobId       String? // Background job ID for async processing
+  jobStatus   String? // 'pending', 'in-progress', 'completed', 'failed'
+  jobNotified Boolean @default(false) // Whether notification sent upon completion
+  jobError    String? // Error message if job failed
+
   // Context
-  syllabusId  String?
-  unitId      String?
-  topicId     String?
-  teacherId   String?
-  teacher     Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  
+  syllabusId String?
+  unitId     String?
+  topicId    String?
+  teacherId  String?  // Optional - only for teacher-initiated generations
+  teacher    Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
   // Indexes
   @@index([type])
   @@index([teacherId])
@@ -223,29 +222,28 @@ model AIGeneration {
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  teacherId   String
-  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String   // Changed from teacherId to userId to support all user types
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  @@index([teacherId])
+  @@index([userId])
   @@index([isRead])
 }
 
 model masterSyllabusTemplate {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   subjectName  String
-  className    String       // Example: "Class 6", "Class 10"
-  board        String       // CBSE / ICSE / STATE / IB
-  term         String       // Term 1 / Term 2 / Annual
+  className    String // Example: "Class 6", "Class 10"
+  board        String // CBSE / ICSE / STATE / IB
+  term         String // Term 1 / Term 2 / Annual
   academicYear String
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt  
+  updatedAt    DateTime @updatedAt
 }
-
 
 model Vector {
   id        String   @id @default(cuid())
@@ -256,20 +254,19 @@ model Vector {
   @@index([createdAt])
 }
 
-
 model JobQueue {
-  id          String   @id @default(cuid())
-  jobId       String   @unique // BullMQ job ID for tracking
-  jobType     String   // 'syllabus-generation', 'questions-batch', 'content-enhancement'
-  teacherId   String   // Teacher who initiated the job
-  payload     String   @db.Text // JSON string of job payload
-  status      String   @default("waiting") // 'waiting', 'active', 'completed', 'failed'
-  progress    Int      @default(0) // 0-100 percentage
-  result      String?  @db.Text // JSON string of job result
-  error       String?  @db.Text // Error message if failed
-  attempts    Int      @default(0) // Number of attempts made
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  jobId     String   @unique // BullMQ job ID for tracking
+  jobType   String // 'syllabus-generation', 'questions-batch', 'content-enhancement'
+  teacherId String // Teacher who initiated the job
+  payload   String   @db.Text // JSON string of job payload
+  status    String   @default("waiting") // 'waiting', 'active', 'completed', 'failed'
+  progress  Int      @default(0) // 0-100 percentage
+  result    String?  @db.Text // JSON string of job result
+  error     String?  @db.Text // Error message if failed
+  attempts  Int      @default(0) // Number of attempts made
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([jobId])
   @@index([teacherId])
@@ -279,65 +276,64 @@ model JobQueue {
 
 model WebSearchCache {
   id          String   @id @default(cuid())
-  query       String   // Search query
+  query       String // Search query
   queryHash   String   @unique // MD5 hash for deduplication
   results     String   @db.Text // JSON array of search results
   source      String   @default("duckduckgo") // 'duckduckgo', 'tavily', etc
   resultCount Int      @default(0) // Number of results found
   createdAt   DateTime @default(now())
   expiresAt   DateTime // Cache expiry (default 7 days)
-  
+
   @@index([queryHash])
   @@index([expiresAt])
   @@index([createdAt])
 }
 
 model TopicResource {
-  id          String   @id @default(cuid())
-  topicId     String
-  title       String
-  url         String
-  snippet     String?  @db.Text
-  source      String   @default("web-search") // 'web-search', 'manual', 'ai-generated'
-  relevance   Float?   // 0-1 similarity score
-  createdAt   DateTime @default(now())
-  
-  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(cuid())
+  topicId   String
+  title     String
+  url       String
+  snippet   String?  @db.Text
+  source    String   @default("web-search") // 'web-search', 'manual', 'ai-generated'
+  relevance Float? // 0-1 similarity score
+  createdAt DateTime @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
   @@index([topicId])
   @@index([relevance])
   @@index([source])
 }
 
-
 // Assessment - Student Answer Submissions
 model StudentAnswer {
-  id                  String   @id @default(cuid())
-  questionId          String
-  studentId           String   // Who submitted
-  teacherId           String   // For filtering by teacher
-  
+  id         String @id @default(cuid())
+  questionId String
+  studentId  String // Who submitted
+  teacherId  String // For filtering by teacher
+
   // Answer data
-  studentAnswer       String   @db.Text
-  selectedOption      String?  // For MCQ: "A", "B", "C", "D"
-  
+  studentAnswer  String  @db.Text
+  selectedOption String? // For MCQ: "A", "B", "C", "D"
+
   // Grading results
-  score               Float    @default(0.0)
-  maxScore            Float
-  isCorrect           Boolean  @default(false)
-  correctnessLevel    String?  // excellent, good, partial, incorrect
-  
+  score            Float   @default(0.0)
+  maxScore         Float
+  isCorrect        Boolean @default(false)
+  correctnessLevel String? // excellent, good, partial, incorrect
+
   // Grading metadata
-  gradingMethod       String   // exact-match, semantic-multi-metric, essay-statistical
-  confidence          Float?
-  feedback            String?  @db.Text
-  
-  submittedAt         DateTime @default(now())
-  
+  gradingMethod String // exact-match, semantic-multi-metric, essay-statistical
+  confidence    Float?
+  feedback      String? @db.Text
+
+  submittedAt DateTime @default(now())
+
   // Relations
-  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  visibility      Visibility @default(FOLLOWERS)  // NEW: Default to followers only
-  
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  visibility Visibility @default(FOLLOWERS) // NEW: Default to followers only
+
   @@index([teacherId, visibility])
   @@index([questionId])
   @@index([studentId])
@@ -346,92 +342,133 @@ model StudentAnswer {
 }
 
 model Conversation {
-  id          String   @id @default(cuid())
-  userId      String?  // Optional: link to user/teacher
-  teacherId   String?  // If tied to teacher
-  studentId   String?  // If tied to student
-  
+  id        String  @id @default(cuid())
+  userId    String? // Optional: link to user/teacher
+  teacherId String? // If tied to teacher
+  studentId String? // If tied to student
+
   // Metadata
-  title       String?  // Auto-generated from first message
-  topic       String?  // Subject matter (e.g., "Math tutoring")
-  sessionType String   @default("chat") // chat | tutoring | question-gen | syllabus
-  
+  title       String? // Auto-generated from first message
+  topic       String? // Subject matter (e.g., "Math tutoring")
+  sessionType String  @default("chat") // chat | tutoring | question-gen | syllabus
+
   // Context tracking
-  contextIds  Json?    // Array of document IDs for RAG context
-  metadata    Json?    // Additional metadata (tags, settings)
-  
+  contextIds Json? // Array of document IDs for RAG context
+  metadata   Json? // Additional metadata (tags, settings)
+
   // Timestamps
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lastActiveAt DateTime @default(now())
-  
+
   // Relations
-  messages    ConversationMessage[]
-  questions   Question[]        // Chat quiz questions
-  quizSessions QuizSession[]    // Quiz sessions in this conversation
-  
+  messages     ConversationMessage[]
+  questions    Question[] // Chat quiz questions
+  quizSessions QuizSession[] // Quiz sessions in this conversation
+  studyPlan    StudyPlan? // Study plan for this conversation
+
   @@index([userId])
   @@index([teacherId])
   @@index([studentId])
   @@index([lastActiveAt])
 }
 
-model ConversationMessage {
-  id             String   @id @default(cuid())
-  conversationId String
-  
-  // Message content
-  role           String   // 'system' | 'user' | 'assistant'
-  content        String   @db.Text
-  messageType    String   @default("text") // 'text' | 'quiz'
-  quizSessionId  String?  // Link to quiz if messageType is 'quiz'
-  
-  // AI reasoning (DeepSeek-R1 thinking process)
-  thinking       String?  @db.Text // Reasoning chain for models like DeepSeek-R1
-  
-  // RAG context used for this message
-  retrievedDocs  Json?    // Array of doc IDs/snippets used for context
-  embedding      String?  @db.Text // Vector embedding (384d)
-  
-  // AI thought process tags (2-4 context tags per message)
-  thoughtTags    String?  // Comma-separated tags: "mathematics,geometry,theorem"
-  
+// Study Plan - AI-generated learning roadmap
+model StudyPlan {
+  id             String @id @default(cuid())
+  conversationId String @unique // 1:1 with conversation
+
+  // Basic info
+  subject String // "React", "Python", "Machine Learning"
+  goal    String // "Build production apps", "Career switch"
+
+  // AI-generated content (stored as JSON)
+  // Structure: { overview, phases: [{ name, modules: [{ title, topics: [...] }] }] }
+  content Json @default("{}")
+
+  // Generation status
+  status String @default("generating") // generating, completed, failed
+
   // Metadata
-  tokensUsed     Int?     // Track token consumption
-  model          String?  // Model used (qwen2.5:14b)
-  temperature    Float?   // Generation parameters
-  
-  // Order tracking
-  sequenceNumber Int      // Message order in conversation
-  
-  createdAt      DateTime @default(now())
-  
+  generatedBy    String  @default("ollama")
+  modelUsed      String? // "deepseek-r1:14b"
+  generationTime Int? // Seconds taken
+  errorMessage   String? // Error details if failed
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  quizSession    QuizSession? @relation(fields: [quizSessionId], references: [id], onDelete: SetNull)
-  
+  conversation Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messages     ConversationMessage[] // Link to messages that display this study plan
+
+  @@index([conversationId])
+  @@index([status])
+}
+
+model ConversationMessage {
+  id             String @id @default(cuid())
+  conversationId String
+
+  // Message content
+  role          String // 'system' | 'user' | 'assistant'
+  content       String  @db.Text
+  messageType   String  @default("text") // 'text' | 'quiz' | 'study-plan'
+  quizSessionId String? // Link to quiz if messageType is 'quiz'
+  studyPlanId   String? // Link to study plan if messageType is 'study-plan'
+
+  // AI reasoning (DeepSeek-R1 thinking process)
+  thinking String? @db.Text // Reasoning chain for models like DeepSeek-R1
+
+  // RAG context used for this message
+  retrievedDocs Json? // Array of doc IDs/snippets used for context
+  embedding     String? @db.Text // Vector embedding (384d)
+
+  // AI thought process tags (2-4 context tags per message)
+  thoughtTags String? // Comma-separated tags: "mathematics,geometry,theorem"
+
+  // Metadata
+  tokensUsed  Int? // Track token consumption
+  model       String? // Model used (qwen2.5:14b)
+  temperature Float? // Generation parameters
+
+  // Order tracking
+  sequenceNumber Int // Message order in conversation
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  quizSession  QuizSession? @relation(fields: [quizSessionId], references: [id], onDelete: SetNull)
+  studyPlan    StudyPlan?   @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
+
   @@index([conversationId, sequenceNumber])
   @@index([conversationId])
   @@index([createdAt])
+  @@index([studyPlanId])
   @@index([quizSessionId])
   @@index([messageType])
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  googleId      String?   @unique  // Google OAuth ID
-  displayName   String
-  avatarUrl     String?
-  role          UserRole
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  email       String    @unique
+  googleId    String?   @unique // Google OAuth ID
+  displayName String
+  avatarUrl   String?
+  role        UserRole
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relations (one-to-one)
-  teacher       Teacher?
-  student       Student?
+  teacher Teacher?
+  student Student?
+  
+  // Relations (one-to-many)
+  notifications Notification[]
 
   // Indexes for performance
   @@index([email])
@@ -445,127 +482,126 @@ enum UserRole {
 }
 
 model Teacher {
-  id              String    @id @default(uuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Profile
-  firstName       String
-  lastName        String
-  bio             String?   @db.Text
-  specialization  String?   // e.g., "Mathematics, Physics"
-  qualification   String?
-  experience      Int?      // years
-  
+  firstName      String
+  lastName       String
+  bio            String? @db.Text
+  specialization String? // e.g., "Mathematics, Physics"
+  qualification  String?
+  experience     Int? // years
+
   // Settings
-  profileVisibility    Visibility @default(PUBLIC)  // Profile visibility
-  defaultContentMode   Visibility @default(PUBLIC)  // Default for new content
-  allowFollowers       Boolean    @default(true)
-  
+  profileVisibility  Visibility @default(PUBLIC) // Profile visibility
+  defaultContentMode Visibility @default(PUBLIC) // Default for new content
+  allowFollowers     Boolean    @default(true)
+
   // Stats (denormalized for performance)
-  followersCount  Int       @default(0)
-  contentCount    Int       @default(0)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  followersCount Int @default(0)
+  contentCount   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  followers       TeacherFollower[]  @relation("TeacherFollowers")
-  syllabi         Syllabus[]
-  units           Unit[]
-  topics          Topic[]
-  questions       Question[]
-  assessments     Assessment[]
-  aiGenerations   AIGeneration[]
-  notifications   Notification[]
+  followers     TeacherFollower[] @relation("TeacherFollowers")
+  syllabi       Syllabus[]
+  units         Unit[]
+  topics        Topic[]
+  questions     Question[]
+  assessments   Assessment[]
+  aiGenerations AIGeneration[]
 
   @@index([userId])
   @@index([allowFollowers])
 }
 
 model Student {
-  id              String    @id @default(uuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Profile
-  firstName       String
-  lastName        String
-  grade           String?   // e.g., "10", "12", "Undergraduate"
-  institution     String?
-  interests       String?   // Comma-separated subjects
-  
+  firstName   String
+  lastName    String
+  grade       String? // e.g., "10", "12", "Undergraduate"
+  institution String?
+  interests   String? // Comma-separated subjects
+
   // Stats (denormalized for performance)
-  followingCount  Int       @default(0)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  followingCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  following       TeacherFollower[]  @relation("StudentFollowing")
-  submissions     AssessmentSubmission[]
+  following   TeacherFollower[]      @relation("StudentFollowing")
+  submissions AssessmentSubmission[]
 
   @@index([userId])
   @@index([grade])
 }
 
 model TeacherFollower {
-  id          String    @id @default(uuid())
-  teacherId   String
-  teacher     Teacher   @relation("TeacherFollowers", fields: [teacherId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student   @relation("StudentFollowing", fields: [studentId], references: [id], onDelete: Cascade)
-  followedAt  DateTime  @default(now())
+  id         String   @id @default(uuid())
+  teacherId  String
+  teacher    Teacher  @relation("TeacherFollowers", fields: [teacherId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation("StudentFollowing", fields: [studentId], references: [id], onDelete: Cascade)
+  followedAt DateTime @default(now())
 
   // Prevent duplicate follows
   @@unique([teacherId, studentId])
   @@index([teacherId])
   @@index([studentId])
-  @@index([followedAt])  // For "recent followers" queries
+  @@index([followedAt]) // For "recent followers" queries
 }
 
 enum Visibility {
-  PUBLIC       // Everyone can see
-  FOLLOWERS    // Only followers can see
-  PRIVATE      // Only teacher can see
+  PUBLIC // Everyone can see
+  FOLLOWERS // Only followers can see
+  PRIVATE // Only teacher can see
 }
 
 // Assessment - Tests and Assignments
 model Assessment {
-  id              String   @id @default(uuid())
-  teacherId       String
-  teacher         Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
+  id        String  @id @default(uuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
   // Assessment details
-  title           String
-  description     String?  @db.Text
-  assessmentType  String   // 'quiz', 'test', 'assignment', 'homework'
-  
+  title          String
+  description    String? @db.Text
+  assessmentType String // 'quiz', 'test', 'assignment', 'homework'
+
   // Configuration
-  totalMarks      Float
-  passingMarks    Float?
-  duration        Int?     // Duration in minutes
-  instructions    String?  @db.Text
-  
+  totalMarks   Float
+  passingMarks Float?
+  duration     Int? // Duration in minutes
+  instructions String? @db.Text
+
   // Visibility and access
-  visibility      Visibility @default(FOLLOWERS)
-  
+  visibility Visibility @default(FOLLOWERS)
+
   // Scheduling
-  startDate       DateTime?
-  endDate         DateTime?
-  isPublished     Boolean  @default(false)
-  
+  startDate   DateTime?
+  endDate     DateTime?
+  isPublished Boolean   @default(false)
+
   // Metadata
-  subjectName     String?
-  className       String?
-  syllabusId      String?  // Optional link to syllabus
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  subjectName String?
+  className   String?
+  syllabusId  String? // Optional link to syllabus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  submissions     AssessmentSubmission[]
-  
+  submissions AssessmentSubmission[]
+
   @@index([teacherId, visibility])
   @@index([isPublished, visibility])
   @@index([subjectName, className])
@@ -574,33 +610,33 @@ model Assessment {
 
 // Assessment Submission - Student submissions
 model AssessmentSubmission {
-  id              String   @id @default(uuid())
-  assessmentId    String
-  assessment      Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  studentId       String
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(uuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   // Submission data
-  answers         Json     // Array of {questionId, answer, selectedOption}
-  
+  answers Json // Array of {questionId, answer, selectedOption}
+
   // Grading results
-  totalScore      Float    @default(0.0)
-  maxScore        Float
-  percentage      Float    @default(0.0)
-  
+  totalScore Float @default(0.0)
+  maxScore   Float
+  percentage Float @default(0.0)
+
   // Status
-  status          String   @default("in-progress") // 'in-progress', 'submitted', 'graded'
-  isGraded        Boolean  @default(false)
-  
+  status   String  @default("in-progress") // 'in-progress', 'submitted', 'graded'
+  isGraded Boolean @default(false)
+
   // Timing
-  startedAt       DateTime @default(now())
-  submittedAt     DateTime?
-  gradedAt        DateTime?
-  
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  gradedAt    DateTime?
+
   // Metadata
-  feedback        String?  @db.Text
-  teacherComments String?  @db.Text
-  
+  feedback        String? @db.Text
+  teacherComments String? @db.Text
+
   @@index([assessmentId])
   @@index([studentId])
   @@index([status, isGraded])
@@ -609,97 +645,97 @@ model AssessmentSubmission {
 
 // Legal Documents - Privacy Policy, Terms of Service, Help
 model LegalDocument {
-  id              String   @id @default(uuid())
-  type            String   // 'PRIVACY_POLICY', 'TERMS_OF_SERVICE', 'HELP_CENTER', 'FAQ', 'ABOUT_US'
-  title           String
-  content         String   @db.Text // Markdown or HTML content
-  version         String   @default("1.0.0") // Semantic versioning
-  isActive        Boolean  @default(false) // Only one active version per type
-  effectiveDate   DateTime // When this version becomes effective
-  
+  id            String   @id @default(uuid())
+  type          String // 'PRIVACY_POLICY', 'TERMS_OF_SERVICE', 'HELP_CENTER', 'FAQ', 'ABOUT_US'
+  title         String
+  content       String   @db.Text // Markdown or HTML content
+  version       String   @default("1.0.0") // Semantic versioning
+  isActive      Boolean  @default(false) // Only one active version per type
+  effectiveDate DateTime // When this version becomes effective
+
   // Metadata
-  author          String?  // Admin who created/updated
-  summary         String?  // Short description
-  lastReviewedAt  DateTime?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  author         String? // Admin who created/updated
+  summary        String? // Short description
+  lastReviewedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, version])
   @@index([type, isActive])
   @@index([effectiveDate])
-  @@unique([type, version])
 }
 
 // AI Settings - User preferences for AI behavior (ChatGPT-style customization)
 model AISettings {
-  id                 String   @id @default(cuid())
-  userId             String   @unique
-  
+  id     String @id @default(cuid())
+  userId String @unique
+
   // Base personality settings
-  baseTone           String   @default("friendly") // friendly, formal, neutral, enthusiastic
-  warmth             Int      @default(7)          // 0-10 scale
-  enthusiasm         Int      @default(5)          // 0-10 scale
-  
+  baseTone   String @default("friendly") // friendly, formal, neutral, enthusiastic
+  warmth     Int    @default(7) // 0-10 scale
+  enthusiasm Int    @default(5) // 0-10 scale
+
   // Response formatting preferences
-  useHeaders         Boolean  @default(true)
-  emojiUsage         String   @default("moderate") // none, minimal, moderate, frequent
-  responseLength     String   @default("balanced") // concise, balanced, detailed
-  
+  useHeaders     Boolean @default(true)
+  emojiUsage     String  @default("moderate") // none, minimal, moderate, frequent
+  responseLength String  @default("balanced") // concise, balanced, detailed
+
   // Custom user instructions
-  customInstructions String?  @db.Text
-  
+  customInstructions String? @db.Text
+
   // Profile connection
-  profileEnabled     Boolean  @default(false)
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  
+  profileEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
 }
 
 // User Context - "About You" section for AI personalization
 model UserContext {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  
+  id     String @id @default(cuid())
+  userId String @unique
+
   // Learning profile
   learningGoals     String?  @db.Text
   weakSubjects      String[] // Array of subjects user finds difficult
   strongSubjects    String[] // Array of subjects user excels in
-  preferredExamples String?  // real-world, mathematical, visual, etc.
+  preferredExamples String? // real-world, mathematical, visual, etc.
   interests         String?  @db.Text
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
 }
 
 // Memory Facts - Long-term memory extracted from conversations
 model MemoryFact {
-  id            String   @id @default(cuid())
-  userId        String
-  
+  id     String @id @default(cuid())
+  userId String
+
   // Fact content
-  fact          String   @db.Text    // "User struggles with calculus"
-  category      String                // "difficulty", "preference", "goal", "achievement", "fact"
-  confidence    Float    @default(1.0) // 0-1 (decays over time if not used)
-  
+  fact       String @db.Text // "User struggles with calculus"
+  category   String // "difficulty", "preference", "goal", "achievement", "fact"
+  confidence Float  @default(1.0) // 0-1 (decays over time if not used)
+
   // Source tracking
-  source        String                // "conversation:{id}", "profile", "manual"
-  conversationId String?              // Reference if from conversation
-  
+  source         String // "conversation:{id}", "profile", "manual"
+  conversationId String? // Reference if from conversation
+
   // Vector embedding for similarity search
-  embedding     String?  @db.Text     // JSON array of embedding vector
-  
+  embedding String? @db.Text // JSON array of embedding vector
+
   // Relevance tracking
-  relevanceCount Int     @default(1)  // How many times this fact was relevant
-  lastUsedAt    DateTime?             // Last time this fact was used in context
-  expiresAt     DateTime?             // Optional expiration for temporary facts
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  relevanceCount Int       @default(1) // How many times this fact was relevant
+  lastUsedAt     DateTime? // Last time this fact was used in context
+  expiresAt      DateTime? // Optional expiration for temporary facts
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId, category])
   @@index([userId, lastUsedAt])
   @@index([conversationId])
@@ -707,41 +743,41 @@ model MemoryFact {
 
 // Conversation References - Searchable summaries of past conversations
 model ConversationReference {
-  id              String   @id @default(cuid())
-  userId          String
-  conversationId  String   @unique
-  
+  id             String @id @default(cuid())
+  userId         String
+  conversationId String @unique
+
   // Searchable summary
-  summary         String   @db.Text  // AI-generated summary of conversation
-  topics          String[]          // Extracted topics ["physics", "motion", "newton"]
-  keyPoints       String[] @default([]) // Important points discussed
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  summary   String   @db.Text // AI-generated summary of conversation
+  topics    String[] // Extracted topics ["physics", "motion", "newton"]
+  keyPoints String[] @default([]) // Important points discussed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
 }
 
 // Quiz Session - Groups chat quiz questions together
 model QuizSession {
-  id               String   @id @default(cuid())
-  conversationId   String
-  userId           String   // Who took the quiz
-  
+  id             String @id @default(cuid())
+  conversationId String
+  userId         String // Who took the quiz
+
   // Quiz metadata
-  topic            String   // Extracted from conversation
-  totalQuestions   Int
-  score            Int?     // Percentage (0-100)
-  completedAt      DateTime?
-  
-  createdAt        DateTime @default(now())
-  
+  topic          String // Extracted from conversation
+  totalQuestions Int
+  score          Int? // Percentage (0-100)
+  completedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
   // Relations
-  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  questions        Question[]
-  answers          ConversationQuizAnswer[]
-  messages         ConversationMessage[]  // Link to messages that display this quiz
-  
+  conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  questions    Question[]
+  answers      ConversationQuizAnswer[]
+  messages     ConversationMessage[] // Link to messages that display this quiz
+
   @@index([conversationId])
   @@index([userId])
   @@index([completedAt])
@@ -749,22 +785,22 @@ model QuizSession {
 
 // Conversation Quiz Answer - Stores user answers for chat quizzes
 model ConversationQuizAnswer {
-  id             String   @id @default(cuid())
-  questionId     String
-  quizSessionId  String
-  userId         String
-  
+  id            String @id @default(cuid())
+  questionId    String
+  quizSessionId String
+  userId        String
+
   // Answer data
-  userAnswer     String   // User's submitted answer
-  isCorrect      Boolean  // Was it correct?
-  timeSpent      Int?     // Seconds spent on question
-  
-  answeredAt     DateTime @default(now())
-  
+  userAnswer String // User's submitted answer
+  isCorrect  Boolean // Was it correct?
+  timeSpent  Int? // Seconds spent on question
+
+  answeredAt DateTime @default(now())
+
   // Relations
-  question       Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  quizSession    QuizSession @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
-  
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quizSession QuizSession @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+
   @@index([questionId])
   @@index([quizSessionId])
   @@index([userId])
