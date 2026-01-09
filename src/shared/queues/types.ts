@@ -4,12 +4,15 @@
  */
 
 export interface AIGenerationJobData {
-  type: 'question' | 'questions-batch' | 'summary' | 'enhancement' | 'syllabus-generation' | 'study-plan-generation';
-  teacherId: string;
+  type: 'question' | 'questions-batch' | 'summary' | 'enhancement' | 'syllabus-generation' | 'study-plan-generation' | 'quiz-generation';
+  teacherId?: string;
+  userId?: string;
   topicId?: string;
   unitId?: string;
   syllabusId?: string;
   planId?: string;
+  quizSessionId?: string;
+  conversationId?: string;
   
   // For question generation
   questionCount?: number;

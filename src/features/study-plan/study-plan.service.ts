@@ -2,6 +2,7 @@ import { prisma } from '../../shared/lib/prisma';
 import { ollamaService } from '../../shared/lib/ollama';
 import { ValidationError } from '../../shared/lib/errors';
 import { createNotificationService } from '../notifications/notifications.service';
+import { addAIJob } from '../../shared/queues/ai.queue';
 
 export class StudyPlanService {
   
@@ -13,21 +14,34 @@ export class StudyPlanService {
       throw new ValidationError('conversationId, subject, and goal are required');
     }
 
-    // Check if plan already exists
-    const existing = await prisma.studyPlan.findUnique({
-      where: { conversationId }
+    // Check if there's already a plan being generated for the same subject/goal
+    const existingGenerating = await prisma.studyPlan.findFirst({
+      where: {
+        conversationId,
+        subject,
+        goal,
+        status: 'generating'
+      }
     });
     
-    if (existing) {
+    if (existingGenerating) {
       return { 
-        id: existing.id, 
-        status: existing.status,
-        content: existing.status === 'completed' ? existing.content : null,
-        message: 'Plan already exists for this conversation'
+        id: existingGenerating.id, 
+        status: existingGenerating.status,
+        content: null,
+        message: 'A plan with the same subject and goal is already being generated'
       };
     }
     
-    // Create placeholder record
+    // Get user from conversation
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { userId: true, teacherId: true, studentId: true }
+    });
+    
+    const userId = conversation?.userId || conversation?.teacherId || conversation?.studentId;
+    
+    // Create placeholder record (allows multiple plans per conversation)
     const plan = await prisma.studyPlan.create({
       data: {
         conversationId,
@@ -36,6 +50,19 @@ export class StudyPlanService {
         status: 'generating'
       }
     });
+    
+    // Queue the generation job with lower priority (5) since it's a background task
+    await addAIJob(
+      {
+        type: 'study-plan-generation',
+        planId: plan.id,
+        conversationId,
+        subject,
+        goal,
+        userId
+      } as any,
+      5 // Lower priority - chat messages are served first
+    );
     
     return {
       id: plan.id,
