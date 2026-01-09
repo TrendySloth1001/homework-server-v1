@@ -37,14 +37,14 @@ export const createNotificationHandler = asyncHandler(async (req: Request, res: 
  * GET /api/notifications
  */
 export const getNotificationsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { teacherId, isRead, limit, skip } = req.query;
+  const { userId, isRead, limit, skip } = req.query;
 
-  if (!teacherId) {
-    throw new Error('teacherId query param is required');
+  if (!userId) {
+    throw new Error('userId query param is required');
   }
 
   const query: any = {
-    teacherId: teacherId as string,
+    userId: userId as string,
     limit: limit ? parseInt(limit as string, 10) : 20,
     skip: skip ? parseInt(skip as string, 10) : 0,
   };
@@ -72,13 +72,13 @@ export const getNotificationsHandler = asyncHandler(async (req: Request, res: Re
  */
 export const getNotificationHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { teacherId } = req.query;
+  const { userId } = req.query;
 
-  if (!id || !teacherId) {
-    throw new Error('Notification ID and teacherId are required');
+  if (!id || !userId) {
+    throw new Error('Notification ID and userId are required');
   }
 
-  const notification = await getNotificationByIdService(id, teacherId as string);
+  const notification = await getNotificationByIdService(id, userId as string);
 
   if (!notification) {
     throw new Error('Notification not found');
@@ -96,15 +96,15 @@ export const getNotificationHandler = asyncHandler(async (req: Request, res: Res
  */
 export const markAsReadHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { teacherId } = req.body;
+  const { userId } = req.body;
 
-  if (!id || !teacherId) {
-    throw new Error('Notification ID and teacherId are required');
+  if (!id || !userId) {
+    throw new Error('Notification ID and userId are required');
   }
 
   const notification = await markAsReadService({
     notificationId: id,
-    teacherId,
+    userId,
   });
 
   if (!notification) {
@@ -122,13 +122,13 @@ export const markAsReadHandler = asyncHandler(async (req: Request, res: Response
  * PATCH /api/notifications/read-all
  */
 export const markAllAsReadHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { teacherId } = req.body;
+  const { userId } = req.body;
 
-  if (!teacherId) {
-    throw new Error('teacherId is required');
+  if (!userId) {
+    throw new Error('userId is required');
   }
 
-  const result = await markAllAsReadService({ teacherId });
+  const result = await markAllAsReadService({ userId });
 
   res.status(200).json({
     success: true,
@@ -142,15 +142,15 @@ export const markAllAsReadHandler = asyncHandler(async (req: Request, res: Respo
  */
 export const deleteNotificationHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { teacherId } = req.body;
+  const { userId } = req.body;
 
-  if (!id || !teacherId) {
-    throw new Error('Notification ID and teacherId are required');
+  if (!id || !userId) {
+    throw new Error('Notification ID and userId are required');
   }
 
   const result = await deleteNotificationService({
     notificationId: id,
-    teacherId,
+    userId,
   });
 
   if (!result) {
@@ -168,13 +168,13 @@ export const deleteNotificationHandler = asyncHandler(async (req: Request, res: 
  * DELETE /api/notifications
  */
 export const deleteAllNotificationsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { teacherId } = req.body;
+  const { userId } = req.body;
 
-  if (!teacherId) {
-    throw new Error('teacherId is required');
+  if (!userId) {
+    throw new Error('userId is required');
   }
 
-  const result = await deleteAllNotificationsService(teacherId);
+  const result = await deleteAllNotificationsService(userId);
 
   res.status(200).json({
     success: true,

@@ -165,6 +165,9 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
+                messageType: true, // Include message type (text | quiz | study-plan)
+                quizSessionId: true, // Include quiz session ID
+                studyPlanId: true, // Include study plan ID
                 thoughtTags: true, // Include thought tags
                 tokensUsed: true,
                 model: true,
@@ -589,8 +592,9 @@ class ConversationService {
                 conversationId: true,
                 role: true,
                 content: true,
-                messageType: true, // Include message type (text/quiz)
+                messageType: true, // Include message type (text | quiz | study-plan)
                 quizSessionId: true, // Include quiz session ID
+                studyPlanId: true, // Include study plan ID
                 thinking: true, // Include AI reasoning
                 thoughtTags: true, // Include thought tags
                 tokensUsed: true,

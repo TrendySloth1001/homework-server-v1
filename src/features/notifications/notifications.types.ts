@@ -1,13 +1,13 @@
 // Notification types
 
 export interface CreateNotificationInput {
-  teacherId: string;
+  userId: string;  // Changed from teacherId to support all user types
   title: string;
   message: string;
 }
 
 export interface GetNotificationsQuery {
-  teacherId: string;
+  userId: string;  // Changed from teacherId
   isRead?: boolean;
   limit?: number;
   skip?: number;
@@ -15,14 +15,14 @@ export interface GetNotificationsQuery {
 
 export interface MarkAsReadInput {
   notificationId: string;
-  teacherId: string;
+  userId: string;  // Changed from teacherId
 }
 
 export interface MarkAllAsReadInput {
-  teacherId: string;
+  userId: string;  // Changed from teacherId
 }
 
 export interface DeleteNotificationInput {
   notificationId: string;
-  teacherId: string;
+  userId: string;  // Changed from teacherId
 }

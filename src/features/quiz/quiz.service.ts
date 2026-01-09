@@ -6,6 +6,7 @@
 import { prisma } from '../../shared/lib/prisma';
 import { ollamaService } from '../../shared/lib/ollama';
 import { conversationService } from '../ai/conversation.service';
+import { createNotificationService } from '../notifications/notifications.service';
 
 export interface QuizGenerationOptions {
   questionCount?: number;
@@ -130,6 +131,37 @@ class QuizService {
       });
 
       console.log(`[QuizService] ✅ Created quiz message in conversation`);
+
+      // Get conversation to find user for notification
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { teacherId: true, userId: true, studentId: true }
+      });
+      
+      const notificationUserId = conversation?.userId || conversation?.teacherId || conversation?.studentId;
+      
+      // Fire notification if user exists
+      if (notificationUserId) {
+        try {
+          console.log('[QuizService] Creating notification for user:', notificationUserId);
+          const notification = await createNotificationService({
+            userId: notificationUserId,
+            title: 'Quiz Ready!',
+            message: `Your ${topic} quiz with ${savedQuestions.length} questions is ready`
+          });
+          console.log('[QuizService] ✅ Notification created successfully:', notification.id);
+        } catch (error: any) {
+          console.error('[QuizService] ❌ Failed to create notification:', error);
+          console.error('[QuizService] Error details:', {
+            userId: notificationUserId,
+            errorMessage: error.message,
+            errorStack: error.stack
+          });
+          // Don't fail the whole operation if notification fails
+        }
+      } else {
+        console.warn('[QuizService] ⚠️ No userId found, skipping notification');
+      }
 
       // Return quiz without correct answers (for display)
       return {

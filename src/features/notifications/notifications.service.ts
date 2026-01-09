@@ -12,15 +12,15 @@ import type {
  * Create a new notification
  */
 export async function createNotificationService(data: CreateNotificationInput) {
-  const { teacherId, title, message } = data;
+  const { userId, title, message } = data;
     
-  if (!(teacherId && title && message)) {
-    throw new ValidationError(`teacherId, title, and message are required {data: ${JSON.stringify(data)}}`);
+  if (!(userId && title && message)) {
+    throw new ValidationError(`userId, title, and message are required {data: ${JSON.stringify(data)}}`);
   }
 
   const notification = await prisma.notification.create({
     data: {
-      teacherId,
+      userId,
       title,
       message,
     },
@@ -30,16 +30,16 @@ export async function createNotificationService(data: CreateNotificationInput) {
 }
 
 /**
- * Get notifications for a teacher with filters
+ * Get notifications for a user with filters
  */
 export async function getNotificationsService(query: GetNotificationsQuery) {
-  const { teacherId, isRead, limit = 50, skip = 0 } = query;
+  const { userId, isRead, limit = 50, skip = 0 } = query;
 
-  if (!teacherId) {
-    throw new ValidationError('teacherId is required');
+  if (!userId) {
+    throw new ValidationError('userId is required');
   }
 
-  const where: any = { teacherId };
+  const where: any = { userId };
   
   if (isRead !== undefined) {
     where.isRead = isRead;
@@ -53,7 +53,7 @@ export async function getNotificationsService(query: GetNotificationsQuery) {
       skip,
     }),
     prisma.notification.count({ where }),
-    prisma.notification.count({ where: { teacherId, isRead: false } }),
+    prisma.notification.count({ where: { userId, isRead: false } }),
   ]);
 
   return {
@@ -68,15 +68,15 @@ export async function getNotificationsService(query: GetNotificationsQuery) {
 /**
  * Get single notification by ID
  */
-export async function getNotificationByIdService(notificationId: string, teacherId: string) {
-  if (!notificationId || !teacherId) {
-    throw new ValidationError('notificationId and teacherId are required');
+export async function getNotificationByIdService(notificationId: string, userId: string) {
+  if (!notificationId || !userId) {
+    throw new ValidationError('notificationId and userId are required');
   }
 
   const notification = await prisma.notification.findFirst({
     where: {
       id: notificationId,
-      teacherId,
+      userId,
     },
   });
 
@@ -91,17 +91,17 @@ export async function getNotificationByIdService(notificationId: string, teacher
  * Mark notification as read
  */
 export async function markAsReadService(data: MarkAsReadInput) {
-  const { notificationId, teacherId } = data;
+  const { notificationId, userId } = data;
 
-  if (!notificationId || !teacherId) {
-    throw new ValidationError('notificationId and teacherId are required');
+  if (!notificationId || !userId) {
+    throw new ValidationError('notificationId and userId are required');
   }
 
-  // Check if notification exists and belongs to teacher
+  // Check if notification exists and belongs to user
   const existingNotification = await prisma.notification.findFirst({
     where: {
       id: notificationId,
-      teacherId,
+      userId,
     },
   });
 
@@ -118,18 +118,18 @@ export async function markAsReadService(data: MarkAsReadInput) {
 }
 
 /**
- * Mark all notifications as read for a teacher
+ * Mark all notifications as read for a user
  */
 export async function markAllAsReadService(data: MarkAllAsReadInput) {
-  const { teacherId } = data;
+  const { userId } = data;
 
-  if (!teacherId) {
-    throw new ValidationError('teacherId is required');
+  if (!userId) {
+    throw new ValidationError('userId is required');
   }
 
   const result = await prisma.notification.updateMany({
     where: {
-      teacherId,
+      userId,
       isRead: false,
     },
     data: { isRead: true },
@@ -145,17 +145,17 @@ export async function markAllAsReadService(data: MarkAllAsReadInput) {
  * Delete notification
  */
 export async function deleteNotificationService(data: DeleteNotificationInput) {
-  const { notificationId, teacherId } = data;
+  const { notificationId, userId } = data;
 
-  if (!notificationId || !teacherId) {
-    throw new ValidationError('notificationId and teacherId are required');
+  if (!notificationId || !userId) {
+    throw new ValidationError('notificationId and userId are required');
   }
 
-  // Check if notification exists and belongs to teacher
+  // Check if notification exists and belongs to user
   const existingNotification = await prisma.notification.findFirst({
     where: {
       id: notificationId,
-      teacherId,
+      userId,
     },
   });
 
@@ -174,15 +174,15 @@ export async function deleteNotificationService(data: DeleteNotificationInput) {
 }
 
 /**
- * Delete all notifications for a teacher
+ * Delete all notifications for a user
  */
-export async function deleteAllNotificationsService(teacherId: string) {
-  if (!teacherId) {
-    throw new ValidationError('teacherId is required');
+export async function deleteAllNotificationsService(userId: string) {
+  if (!userId) {
+    throw new ValidationError('userId is required');
   }
 
   const result = await prisma.notification.deleteMany({
-    where: { teacherId },
+    where: { userId },
   });
 
   return {
@@ -195,7 +195,7 @@ export async function deleteAllNotificationsService(teacherId: string) {
  * Helper: Create notification for AI generation completion
  */
 export async function notifyAIGenerationComplete(
-  teacherId: string,
+  userId: string,
   type: string,
   itemName: string,
   success: boolean
@@ -208,5 +208,5 @@ export async function notifyAIGenerationComplete(
     ? `${type} generation completed successfully for "${itemName}"`
     : `${type} generation failed for "${itemName}". Please try again.`;
 
-  return createNotificationService({ teacherId, title, message });
+  return createNotificationService({ userId, title, message });
 }
