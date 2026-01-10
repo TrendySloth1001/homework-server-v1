@@ -406,30 +406,77 @@ class QuizService {
           answers: {
             select: {
               isCorrect: true,
+              studentAnswer: true,
+              correctAnswer: true,
+              question: {
+                select: {
+                  questionText: true,
+                  difficulty: true,
+                }
+              }
             }
           }
         },
         orderBy: { createdAt: 'desc' },
-        take: 5, // Last 5 quizzes
+        take: 10, // Last 10 quizzes for better trend analysis
       });
 
       if (quizzes.length === 0) {
         return '';
       }
 
-      const quizSummaries = quizzes.map((quiz: any) => {
+      // Calculate overall statistics
+      const totalQuizzes = quizzes.length;
+      const totalCorrect = quizzes.reduce((sum, q) => sum + q.answers.filter((a: any) => a.isCorrect).length, 0);
+      const totalQuestions = quizzes.reduce((sum, q) => sum + q.totalQuestions, 0);
+      const averageScore = quizzes.reduce((sum, q) => sum + (q.score || 0), 0) / totalQuizzes;
+      const accuracyRate = Math.round((totalCorrect / totalQuestions) * 100);
+      
+      // Performance trend (last 5 vs first 5)
+      const recentScores = quizzes.slice(0, Math.min(5, totalQuizzes)).map(q => q.score || 0);
+      const olderScores = quizzes.slice(-Math.min(5, totalQuizzes)).map(q => q.score || 0);
+      const recentAvg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+      const olderAvg = olderScores.reduce((a, b) => a + b, 0) / olderScores.length;
+      const trend = recentAvg > olderAvg + 5 ? '📈 Improving' : recentAvg < olderAvg - 5 ? '📉 Declining' : '➡️ Stable';
+
+      // Difficulty breakdown
+      const difficultyStats: Record<string, { correct: number; total: number }> = {};
+      quizzes.forEach(quiz => {
+        quiz.answers.forEach((a: any) => {
+          const diff = a.question?.difficulty || 'unknown';
+          if (!difficultyStats[diff]) difficultyStats[diff] = { correct: 0, total: 0 };
+          difficultyStats[diff].total++;
+          if (a.isCorrect) difficultyStats[diff].correct++;
+        });
+      });
+
+      const difficultyBreakdown = Object.entries(difficultyStats)
+        .map(([diff, stats]) => {
+          const percent = Math.round((stats.correct / stats.total) * 100);
+          return `    ${diff}: ${percent}% (${stats.correct}/${stats.total})`;
+        })
+        .join('\n');
+
+      // Detailed quiz summaries (last 5 only)
+      const quizSummaries = quizzes.slice(0, 5).map((quiz: any, idx: number) => {
         const correctCount = quiz.answers.filter((a: any) => a.isCorrect).length;
         const totalQuestions = quiz.totalQuestions;
         const score = quiz.score || 0;
+        const date = new Date(quiz.createdAt).toLocaleDateString();
         
-        const questionList = quiz.questions
-          .map((q: any, idx: number) => `    ${idx + 1}. ${q.questionText} (${q.difficulty}, ${q.questionType})`)
+        // Show wrong answers with corrections
+        const wrongAnswers = quiz.answers
+          .filter((a: any) => !a.isCorrect)
+          .slice(0, 3) // Max 3 wrong answers per quiz
+          .map((a: any) => 
+            `      ❌ ${a.question?.questionText}\n         Your answer: ${a.studentAnswer}\n         Correct: ${a.correctAnswer}`
+          )
           .join('\n');
         
-        return `  Quiz: ${quiz.topic}\n  Score: ${score}% (${correctCount}/${totalQuestions} correct)\n  Questions asked:\n${questionList}`;
+        return `  ${idx + 1}. Quiz: "${quiz.topic}" (${date})\n     Score: ${score}% (${correctCount}/${totalQuestions} correct)${wrongAnswers ? '\n     Mistakes:\n' + wrongAnswers : ''}`;
       }).join('\n\n');
 
-      return `\n\n=== PREVIOUS QUIZ HISTORY ===\nThe user has completed ${quizzes.length} quiz(es) in this conversation:\n\n${quizSummaries}\n\nIMPORTANT: When the user asks about their quiz performance, scores, or how they're doing, YOU MUST reference this specific data above. Do not say you cannot see it - this data is available to you. Provide specific feedback on their scores and which questions they got right/wrong.\n=== END QUIZ HISTORY ===\n`;
+      return `\n\n╔══════════════════════════════════════════════════════════════╗\n║              COMPREHENSIVE QUIZ PERFORMANCE DATA             ║\n╚══════════════════════════════════════════════════════════════╝\n\n📊 OVERALL STATISTICS:\n  • Total Quizzes Taken: ${totalQuizzes}\n  • Total Questions Answered: ${totalQuestions}\n  • Overall Accuracy: ${accuracyRate}%\n  • Average Score: ${Math.round(averageScore)}%\n  • Performance Trend: ${trend}\n\n📈 DIFFICULTY BREAKDOWN:\n${difficultyBreakdown}\n\n📝 RECENT QUIZ HISTORY (Last 5):\n${quizSummaries}\n\n⚠️ CRITICAL INSTRUCTIONS FOR YOU:\n1. When asked about quiz performance, scores, or progress - YOU HAVE THIS EXACT DATA\n2. DO NOT say "I can't see your scores" or "I don't have access" - YOU DO!\n3. Reference specific numbers: "You've taken ${totalQuizzes} quizzes with ${accuracyRate}% accuracy"\n4. Mention the trend: "Your performance is ${trend.toLowerCase()}"\n5. Point out patterns: strengths in ${Object.entries(difficultyStats).sort((a, b) => (b[1].correct/b[1].total) - (a[1].correct/a[1].total))[0]?.[0] || 'certain areas'} difficulty\n6. For recent mistakes, give targeted advice based on the wrong answers shown above\n\n════════════════════════════════════════════════════════════════\n`;
     } catch (error) {
       console.error('[QuizService] Error getting quiz history:', error);
       return '';
