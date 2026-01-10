@@ -327,6 +327,185 @@ export class StudyPlanService {
       error: plan.errorMessage
     };
   }
+
+  /**
+   * Get study plan history formatted for AI context
+   * Returns comprehensive details including phases, modules, and topics
+   */
+  async getStudyPlanHistoryForAI(conversationId: string): Promise<string> {
+    if (!conversationId) return '';
+    
+    try {
+      // Get all completed study plans for this conversation
+      const plans = await prisma.studyPlan.findMany({
+        where: {
+          conversationId,
+          status: 'completed'
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 5 // Last 5 study plans
+      });
+
+      if (!plans || plans.length === 0) {
+        return '';
+      }
+
+      // Format study plans for AI context with FULL details
+      let formattedHistory = '\n\n╔════════════════════════════════════════════════════════════════════════════════╗\n';
+      formattedHistory += '║                     📚 COMPLETE STUDY PLAN DATABASE                           ║\n';
+      formattedHistory += '╚════════════════════════════════════════════════════════════════════════════════╝\n\n';
+      formattedHistory += `📊 **Total Study Plans Created**: ${plans.length}\n`;
+      formattedHistory += `🗓️  **Date Range**: ${plans[plans.length - 1]?.createdAt.toLocaleDateString()} to ${plans[0]?.createdAt.toLocaleDateString()}\n\n`;
+
+      plans.forEach((plan, planIndex) => {
+        formattedHistory += `${'='.repeat(80)}\n`;
+        formattedHistory += `📖 STUDY PLAN #${planIndex + 1}: ${plan.subject}\n`;
+        formattedHistory += `${'='.repeat(80)}\n`;
+        formattedHistory += `🎯 **Learning Goal**: ${plan.goal}\n`;
+        formattedHistory += `📅 **Created**: ${plan.createdAt.toLocaleDateString()}\n`;
+        formattedHistory += `🆔 **Plan ID**: ${plan.id}\n`;
+        
+        // Parse and extract FULL details from content
+        if (plan.content) {
+          try {
+            const content = typeof plan.content === 'string' ? JSON.parse(plan.content) : plan.content;
+            
+            // Overview and metadata
+            if (content.overview) {
+              formattedHistory += `\n📋 **Overview**: ${content.overview}\n`;
+            }
+            if (content.estimatedWeeks) {
+              formattedHistory += `⏱️  **Total Duration**: ${content.estimatedWeeks} weeks\n`;
+            }
+            if (content.targetAudience) {
+              formattedHistory += `🎓 **Level**: ${content.targetAudience}\n`;
+            }
+            
+            // DETAILED PHASE BREAKDOWN
+            if (content.phases && content.phases.length > 0) {
+              formattedHistory += `\n┌─────────────────────────────────────────────────────────────────────────────┐\n`;
+              formattedHistory += `│  📚 LEARNING PATH (${content.phases.length} Phases)                                         │\n`;
+              formattedHistory += `└─────────────────────────────────────────────────────────────────────────────┘\n\n`;
+              
+              content.phases.forEach((phase: any, phaseIndex: number) => {
+                formattedHistory += `  Phase ${phaseIndex + 1}: ${phase.name} ${phase.duration ? `(${phase.duration})` : ''}\n`;
+                formattedHistory += `  ├─ Description: ${phase.description}\n`;
+                
+                // MODULES within each phase
+                if (phase.modules && phase.modules.length > 0) {
+                  formattedHistory += `  ├─ Modules (${phase.modules.length}):\n`;
+                  
+                  phase.modules.forEach((module: any, moduleIndex: number) => {
+                    const isLastModule = moduleIndex === phase.modules.length - 1;
+                    const connector = isLastModule ? '└' : '├';
+                    
+                    formattedHistory += `  │  ${connector}─ ${moduleIndex + 1}. ${module.title}\n`;
+                    if (module.description) {
+                      formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   📝 ${module.description}\n`;
+                    }
+                    if (module.estimatedHours) {
+                      formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   ⏱️  ${module.estimatedHours} hours\n`;
+                    }
+                    
+                    // TOPICS within each module
+                    if (module.topics && module.topics.length > 0) {
+                      formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   📌 Topics (${module.topics.length}):\n`;
+                      module.topics.forEach((topic: string, topicIndex: number) => {
+                        const topicConnector = topicIndex === module.topics.length - 1 ? '└' : '├';
+                        formattedHistory += `  │  ${isLastModule ? ' ' : '│'}      ${topicConnector}─ ${topic}\n`;
+                      });
+                    }
+                    
+                    // Practice project
+                    if (module.practiceProject) {
+                      formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   🛠️  Project: ${module.practiceProject}\n`;
+                    }
+                    
+                    if (!isLastModule) {
+                      formattedHistory += `  │  │\n`;
+                    }
+                  });
+                }
+                formattedHistory += `  │\n`;
+              });
+            }
+            
+            // MILESTONES
+            if (content.milestones && content.milestones.length > 0) {
+              formattedHistory += `\n🎯 **Learning Milestones**:\n`;
+              content.milestones.forEach((milestone: any) => {
+                formattedHistory += `   • Week ${milestone.week}: ${milestone.achievement}\n`;
+              });
+            }
+            
+            // RESOURCES
+            if (content.resources) {
+              formattedHistory += `\n📚 **Recommended Resources**:\n`;
+              if (Array.isArray(content.resources)) {
+                content.resources.forEach((resource: any) => {
+                  if (typeof resource === 'object') {
+                    formattedHistory += `   • ${resource.type || 'Resource'}: ${resource.title || resource.name}\n`;
+                    if (resource.why) formattedHistory += `     → ${resource.why}\n`;
+                  } else {
+                    formattedHistory += `   • ${resource}\n`;
+                  }
+                });
+              } else if (typeof content.resources === 'object') {
+                Object.entries(content.resources).forEach(([category, items]: [string, any]) => {
+                  formattedHistory += `   ${category}:\n`;
+                  if (Array.isArray(items)) {
+                    items.forEach(item => formattedHistory += `   • ${item}\n`);
+                  }
+                });
+              }
+            }
+            
+            // TIPS
+            if (content.tips && content.tips.length > 0) {
+              formattedHistory += `\n💡 **Success Tips**:\n`;
+              content.tips.forEach((tip: string) => {
+                formattedHistory += `   ✓ ${tip}\n`;
+              });
+            }
+            
+          } catch (parseError) {
+            console.error('[StudyPlan] Error parsing content for AI context:', parseError);
+            formattedHistory += `\n⚠️  Content parsing error - basic info only\n`;
+          }
+        }
+        
+        formattedHistory += `\n`;
+      });
+
+      formattedHistory += `${'='.repeat(80)}\n`;
+      formattedHistory += `💡 **AI INSTRUCTIONS - HOW TO USE THIS DATA**:\n`;
+      formattedHistory += `${'='.repeat(80)}\n\n`;
+      formattedHistory += `✅ YOU HAVE COMPLETE ACCESS to all study plan details above\n`;
+      formattedHistory += `✅ Reference specific phases, modules, and topics when relevant\n`;
+      formattedHistory += `✅ When student asks about a subject, check if you created a plan for it\n`;
+      formattedHistory += `✅ Suggest working through plan phases in order\n`;
+      formattedHistory += `✅ Connect their questions to specific modules in their plans\n`;
+      formattedHistory += `✅ Reference practice projects when they need hands-on work\n`;
+      formattedHistory += `✅ Use milestones to track and celebrate progress\n`;
+      formattedHistory += `✅ Recommend resources from their plans when helpful\n`;
+      formattedHistory += `✅ Build new learning on top of completed plan topics\n\n`;
+      formattedHistory += `❌ NEVER say \"I don't have information about your study plans\"\n`;
+      formattedHistory += `❌ NEVER claim you can't see what plans were created\n`;
+      formattedHistory += `❌ NEVER ignore this data - it's THE COMPLETE RECORD\n\n`;
+      formattedHistory += `📌 **Example Usage**:\n`;
+      formattedHistory += `   Student: \"I want to learn React\"\n`;
+      formattedHistory += `   You: \"Great! I see you already have a ${plans[0]?.subject} study plan. Let's build on that!\"\n`;
+      formattedHistory += `   Or: \"I created a React study plan for you on [date]. You're in Phase 1: Foundation...\"\n\n`;
+      formattedHistory += `${'='.repeat(80)}\n\n`;
+
+      return formattedHistory;
+    } catch (error) {
+      console.error('[StudyPlan] Error getting study plan history for AI:', error);
+      return '';
+    }
+  }
 }
 
 export const studyPlanService = new StudyPlanService();

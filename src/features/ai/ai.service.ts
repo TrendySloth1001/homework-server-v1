@@ -20,6 +20,7 @@ import { urlValidator } from '../../shared/lib/urlValidator';
 import { mem0Service } from '../../shared/lib/mem0Client';
 import { langchainService } from '../../shared/lib/langchainService';
 import { quizService } from '../quiz/quiz.service';
+import { studyPlanService } from '../study-plan/study-plan.service';
 import axios from 'axios';
 
 /**
@@ -127,6 +128,17 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
     }
   } catch (error) {
     console.error('[AIService] Error loading quiz history:', error);
+  }
+
+  // Step 2.06: Load study plan history if available (for better context)
+  let studyPlanHistoryContext = '';
+  try {
+    studyPlanHistoryContext = await studyPlanService.getStudyPlanHistoryForAI(conversation.id);
+    if (studyPlanHistoryContext) {
+      console.log('[AIService] 📚 Loaded study plan history for context');
+    }
+  } catch (error) {
+    console.error('[AIService] Error loading study plan history:', error);
   }
 
   // Step 2.1: Load AI settings and memory (Phase 3 Integration)
@@ -290,15 +302,28 @@ export async function generateTextService(input: GenerateTextRequest): Promise<G
         promptContext.userContext.quizHistory = quizHistoryContext;
       }
       
+      // Inject study plan history into user context if available
+      if (studyPlanHistoryContext) {
+        if (!promptContext.userContext) {
+          promptContext.userContext = {};
+        }
+        promptContext.userContext.studyPlans = studyPlanHistoryContext;
+      }
+      
       const fullPrompt = promptBuilder.buildFullPrompt(promptContext);
       // Extract system prompt from built prompt (first part before conversation)
       const parts = fullPrompt.split('\n\nConversation history:');
       systemPrompt = parts[0] || systemPrompt;
       console.log('[AIService] 📝 System Prompt Generated:', systemPrompt.substring(0, 300) + '...');
       enhancedPrompt = parts[1] || prompt;
-    } else if (quizHistoryContext) {
-      // If no AI settings but quiz history exists, add it directly to system prompt
-      systemPrompt = systemPrompt + quizHistoryContext;
+    } else if (quizHistoryContext || studyPlanHistoryContext) {
+      // If no AI settings but quiz/study plan history exists, add it directly to system prompt
+      if (quizHistoryContext) {
+        systemPrompt = systemPrompt + quizHistoryContext;
+      }
+      if (studyPlanHistoryContext) {
+        systemPrompt = systemPrompt + studyPlanHistoryContext;
+      }
     }
 
     // Add web search context if available

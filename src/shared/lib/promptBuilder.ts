@@ -2,10 +2,12 @@
  * Dynamic Prompt Builder
  * Constructs personalized prompts based on AI settings, user context, and memory
  * Phase 1: Core Prompt Building with Memory Integration
+ * Phase 3: Integrated with centralized prompt library
  */
 
 import { AISettings, UserContext } from '@prisma/client';
 import { MemoryFact, ConversationSummary } from './memoryManager';
+import { buildBaseSystemPrompt, buildChatPrompt, PromptConfig } from './prompts';
 
 export interface PromptContext {
   userMessage: string;
@@ -20,61 +22,41 @@ export interface PromptContext {
 class PromptBuilder {
   /**
    * Build system prompt with personality and context
+   * Now uses centralized prompt library
    */
   buildSystemPrompt(context: PromptContext): string {
-    const parts: string[] = [];
-
-    // Base identity
-    parts.push('You are Kai, a knowledgeable AI tutor helping students learn.');
+    // Extract quiz history and study plans from userContext if present
+    const quizHistory = (context.userContext as any)?.quizHistory;
+    const studyPlans = (context.userContext as any)?.studyPlans;
     
-    // User personalization - address user by their real name
-    if (context.userName) {
-      parts.push(`When addressing the user directly, use their name: ${context.userName}.`);
-      parts.push(`Your name is ${context.userName} - only mention your own name when the user specifically asks you what your name is or who you are.`);
-    }
-
-    // Apply tone settings
-    if (context.aiSettings) {
-      const tone = this.getToneInstruction(context.aiSettings);
-      parts.push(tone);
-
-      // Custom instructions
-      if (context.aiSettings.customInstructions) {
-        parts.push('\nAdditional Instructions:');
-        parts.push(context.aiSettings.customInstructions);
-      }
-    }
-
-    // Add user context if profile is enabled
-    if (context.aiSettings?.profileEnabled && context.userContext) {
-      const profileInfo = this.buildProfileContext(context.userContext);
-      if (profileInfo) {
-        parts.push('\nAbout the Student:');
-        parts.push(profileInfo);
-      }
-    }
-
-    // Always add quiz history if available (even if profile is disabled)
-    if (!context.aiSettings?.profileEnabled && context.userContext && (context.userContext as any).quizHistory) {
-      parts.push('\nQuiz Performance Data:');
-      parts.push((context.userContext as any).quizHistory);
-    }
-
-    // Add memory facts
+    // Build config for centralized prompt system
+    const promptConfig: PromptConfig = {
+      aiSettings: context.aiSettings || null,
+      userContext: context.userContext || null,
+      userName: context.userName || undefined,
+      conversationHistory: context.conversationHistory || undefined,
+      quizHistory,
+      studyPlans,
+    };
+    
+    // Use centralized base system prompt
+    let systemPrompt = buildBaseSystemPrompt(promptConfig);
+    
+    // Add memory facts if available
     if (context.relevantFacts && context.relevantFacts.length > 0) {
       const memoryInfo = this.buildMemoryContext(context.relevantFacts);
-      parts.push('\nWhat I Remember About You:');
-      parts.push(memoryInfo);
+      systemPrompt += '\n## What I Remember About You:\n';
+      systemPrompt += memoryInfo + '\n\n';
     }
 
     // Add relevant past conversations
     if (context.relevantConversations && context.relevantConversations.length > 0) {
       const convInfo = this.buildConversationContext(context.relevantConversations);
-      parts.push('\nRelated Past Discussions:');
-      parts.push(convInfo);
+      systemPrompt += '\n## Related Past Discussions:\n';
+      systemPrompt += convInfo + '\n\n';
     }
 
-    return parts.join('\n');
+    return systemPrompt;
   }
 
   /**

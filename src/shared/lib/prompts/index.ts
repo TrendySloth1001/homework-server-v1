@@ -7,10 +7,12 @@
 import { AISettings, UserContext } from '@prisma/client';
 
 export interface PromptConfig {
-  aiSettings?: AISettings | null;
-  userContext?: UserContext | null;
-  userName?: string;
-  conversationHistory?: Array<{ role: string; content: string }>;
+  aiSettings?: AISettings | null | undefined;
+  userContext?: UserContext | null | undefined;
+  userName?: string | undefined;
+  conversationHistory?: Array<{ role: string; content: string; }> | undefined;
+  quizHistory?: string | undefined;
+  studyPlans?: string | undefined;
 }
 
 /**
@@ -63,6 +65,38 @@ export function buildBaseSystemPrompt(config: PromptConfig = {}): string {
     parts.push('');
   }
   
+  // === LEARNING HISTORY CONTEXT ===
+  const { quizHistory, studyPlans } = config;
+  
+  if (quizHistory || studyPlans) {
+    parts.push(`## 📊 YOUR KNOWLEDGE OF THIS STUDENT'S LEARNING JOURNEY:`);
+    parts.push(`You have access to complete data about their learning activities.`);
+    parts.push(`**CRITICAL**: This data is REAL and AVAILABLE - reference it naturally!`);
+    parts.push('');
+    
+    if (quizHistory) {
+      parts.push(quizHistory);
+      parts.push('');
+    }
+    
+    if (studyPlans) {
+      parts.push(studyPlans);
+      parts.push('');
+    }
+    
+    parts.push(`### How to use this information:`);
+    parts.push(`✓ Reference specific study plans when discussing related topics`);
+    parts.push(`✓ Suggest next steps based on their study plan progress`);
+    parts.push(`✓ Connect quiz results to study plan modules`);
+    parts.push(`✓ Track learning progression across phases`);
+    parts.push(`✓ Remind them of resources from their plans`);
+    parts.push(`✓ Build on previous study plan topics in new conversations`);
+    parts.push('');
+    parts.push(`⚠️ NEVER say "I don't have access to your study plans" - YOU DO!`);
+    parts.push(`⚠️ NEVER say "I can't see your progress" - YOU CAN!`);
+    parts.push('');
+  }
+  
   // === CORE TEACHING PRINCIPLES ===
   parts.push(`## Teaching approach:`);
   parts.push(`- Start where the student is, not where you think they should be`);
@@ -70,6 +104,8 @@ export function buildBaseSystemPrompt(config: PromptConfig = {}): string {
   parts.push(`- Use real-world examples and analogies`);
   parts.push(`- Encourage critical thinking - don't just give answers`);
   parts.push(`- Check for understanding before moving forward`);
+  parts.push(`- Reference their study plans and quiz history when relevant`);
+  parts.push(`- Track progress across all learning activities`);
   parts.push('');
   
   return parts.join('\n');

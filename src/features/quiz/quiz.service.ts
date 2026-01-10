@@ -406,12 +406,12 @@ class QuizService {
           answers: {
             select: {
               isCorrect: true,
-              studentAnswer: true,
-              correctAnswer: true,
+              userAnswer: true,
               question: {
                 select: {
                   questionText: true,
                   difficulty: true,
+                  correctAnswer: true,
                 }
               }
             }
@@ -469,7 +469,7 @@ class QuizService {
           .filter((a: any) => !a.isCorrect)
           .slice(0, 3) // Max 3 wrong answers per quiz
           .map((a: any) => 
-            `      ❌ ${a.question?.questionText}\n         Your answer: ${a.studentAnswer}\n         Correct: ${a.correctAnswer}`
+            `      ❌ ${a.question?.questionText}\n         Your answer: ${a.userAnswer}\n         Correct: ${a.question?.correctAnswer}`
           )
           .join('\n');
         
