@@ -512,6 +512,8 @@ model Teacher {
 
   // Relations
   followers     TeacherFollower[] @relation("TeacherFollowers")
+  followedByTeachers TeacherToTeacher[] @relation("FollowedTeacher")
+  followingTeachers  TeacherToTeacher[] @relation("FollowerTeacher")
   syllabi       Syllabus[]
   units         Unit[]
   topics        Topic[]
@@ -562,6 +564,21 @@ model TeacherFollower {
   @@index([teacherId])
   @@index([studentId])
   @@index([followedAt]) // For "recent followers" queries
+}
+
+model TeacherToTeacher {
+  id          String   @id @default(uuid())
+  followerId  String   // Teacher who is following
+  follower    Teacher  @relation("FollowerTeacher", fields: [followerId], references: [id], onDelete: Cascade)
+  followedId  String   // Teacher being followed
+  followed    Teacher  @relation("FollowedTeacher", fields: [followedId], references: [id], onDelete: Cascade)
+  followedAt  DateTime @default(now())
+
+  // Prevent duplicate follows and self-follows
+  @@unique([followerId, followedId])
+  @@index([followerId])
+  @@index([followedId])
+  @@index([followedAt])
 }
 
 enum Visibility {
