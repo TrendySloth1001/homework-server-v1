@@ -1,6 +1,17 @@
 import { prisma } from "../../../shared/lib/prisma";
 import { generateConversationId, isUserInConversation } from "./utility_service";
 
+// Simple hash function for generating advisory lock keys
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+}
+
 export const createConversation = async ({
   name,
   creatorId,
@@ -127,30 +138,66 @@ export const checkOrCreateOneToOne = async (userId1: string, userId2: string) =>
     throw new Error("One or both users not found");
   }
 
-  const existingConversation = await prisma.chatConversation.findFirst({
-    where: {
-      isGroup: false,
-      AND: [
-        { members: { some: { userId: userId1 } } },
-        { members: { some: { userId: userId2 } } },
-      ],
-    },
-    include: {
-      members: {
-        include: { user: true },
+  // Sort user IDs to ensure consistent lock order (prevent deadlocks)
+  const [userA, userB] = [userId1, userId2].sort();
+  
+  // Use advisory lock to prevent race conditions
+  // Lock key is a hash of the two user IDs
+  const lockKey = Math.abs(hashCode(`${userA}-${userB}`));
+  
+  return await prisma.$transaction(async (tx) => {
+    // Acquire advisory lock (PostgreSQL specific)
+    await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${lockKey})`);
+    
+    // Check for existing conversation inside transaction
+    const existingConversation = await tx.chatConversation.findFirst({
+      where: {
+        isGroup: false,
+        AND: [
+          { members: { some: { userId: userId1 } } },
+          { members: { some: { userId: userId2 } } },
+        ],
       },
-      creator: true,
-    },
-  });
+      include: {
+        members: {
+          include: { user: true },
+        },
+        creator: true,
+      },
+    });
 
-  if (existingConversation) {
-    return existingConversation;
-  }
+    if (existingConversation) {
+      return existingConversation;
+    }
 
-  return createConversation({
-    creatorId: userId1,
-    memberIds: [userId2],
-    isGroup: false,
+    // Create conversation inside transaction
+    const conversation = await tx.chatConversation.create({
+      data: {
+        name: null,
+        isGroup: false,
+        createdBy: userId1,
+      },
+    });
+
+    // Add both users as members
+    const uniqueMemberIds = Array.from(new Set([userId1, userId2]));
+    await tx.chatConversationMember.createMany({
+      data: uniqueMemberIds.map((userId) => ({
+        conversationId: conversation.id,
+        userId,
+      })),
+    });
+
+    // Return the created conversation with full data
+    return tx.chatConversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: {
+        members: {
+          include: { user: true },
+        },
+        creator: true,
+      },
+    });
   });
 };
 
