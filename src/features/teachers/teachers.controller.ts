@@ -11,6 +11,7 @@ import {
   getTeacherByIdService,
   followTeacherService,
   unfollowTeacherService,
+  getTeacherFollowersService,
 } from './teachers.service';
 
 /**
@@ -86,6 +87,23 @@ export const unfollowTeacherHandler = asyncHandler(
       success: true,
       message: 'Successfully unfollowed teacher',
       data: result,
+    });
+  }
+);
+
+/**
+ * Get followers of a teacher
+ * GET /api/teachers/:id/followers
+ */
+export const getTeacherFollowersHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const teacherId = req.params.id!;
+
+    const followers = await getTeacherFollowersService(teacherId);
+
+    res.json({
+      success: true,
+      data: followers,
     });
   }
 );

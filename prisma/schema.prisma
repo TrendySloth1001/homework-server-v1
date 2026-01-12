@@ -505,6 +505,7 @@ model Teacher {
 
   // Stats (denormalized for performance)
   followersCount Int @default(0)
+  followingCount Int @default(0)
   contentCount   Int @default(0)
 
   createdAt DateTime @default(now())
