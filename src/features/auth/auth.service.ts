@@ -219,6 +219,7 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
       isActive: user.isActive,
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
+      username: user.username, // For chat system
     },
     profile: profileData,
   };

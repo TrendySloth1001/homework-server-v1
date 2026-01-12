@@ -54,6 +54,7 @@ export interface UserProfileResponse {
     isActive: boolean;
     lastLoginAt: Date | null;
     createdAt: Date;
+    username?: string | null; // For chat system
   };
   profile: TeacherProfile | StudentProfile;
 }

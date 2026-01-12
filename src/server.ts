@@ -13,7 +13,9 @@ import signupRoutes from './features/signup/signup.routes';
 import legalRoutes from './features/legal/legal.routes';
 import aiSettingsRoutes from './features/ai-settings/ai-settings.routes';
 import teacherRoutes from './features/teachers/teachers.routes';
+import chatRoutes from './features/chat/routes';
 import { errorHandler } from './shared/middleware/errorHandler';
+import { setupWebSocket } from './shared/websocket/wshandler';
 import { config, logConfig } from './shared/config';
 import { prisma } from './shared/lib/prisma';
 import { embeddingService } from './shared/lib/embeddings';
@@ -72,6 +74,7 @@ app.use('/api/assessment', assessmentRoutes);                               // A
 app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
 app.use('/api', aiSettingsRoutes);                                          // AI customization settings
 app.use('/api/teachers', teacherRoutes);                                    // Teacher discovery and follow system
+app.use('/api/chat', chatRoutes);                                           // Real-time chat and messaging
 
 
 
@@ -213,6 +216,38 @@ app.get('/', (req, res) => {
         delete: 'DELETE /api/notifications/:id',
         deleteAll: 'DELETE /api/notifications'
       },
+      chat: {
+        websocket: 'ws://localhost:3001?userId={userId}',
+        users: {
+          create: 'POST /api/chat/users',
+          list: 'GET /api/chat/users',
+          online: 'GET /api/chat/users/online',
+          byUsername: 'GET /api/chat/users/username/:username',
+          byId: 'GET /api/chat/users/:userId',
+          status: 'GET /api/chat/users/:userId/status',
+          unreadCount: 'GET /api/chat/users/:userId/unread-count',
+          conversations: 'GET /api/chat/users/:userId/conversations'
+        },
+        conversations: {
+          create: 'POST /api/chat/conversations',
+          get: 'GET /api/chat/conversations/:conversationId',
+          oneToOne: 'POST /api/chat/conversations/one-to-one',
+          addMembers: 'POST /api/chat/conversations/:conversationId/members',
+          removeMember: 'DELETE /api/chat/conversations/:conversationId/members/:userId',
+          updateName: 'PATCH /api/chat/conversations/:conversationId/name',
+          getMembers: 'GET /api/chat/conversations/:conversationId/members',
+          clear: 'POST /api/chat/conversations/:conversationId/clear',
+          leave: 'POST /api/chat/conversations/:conversationId/leave',
+          pin: 'PATCH /api/chat/conversations/:conversationId/pin'
+        },
+        messages: {
+          send: 'POST /api/chat/messages',
+          list: 'GET /api/chat/conversations/:conversationId/messages',
+          markSeen: 'POST /api/chat/messages/:messageId/seen',
+          uploadMedia: 'POST /api/chat/media/upload',
+          sendMedia: 'POST /api/chat/messages/media'
+        }
+      }
 
     }
   });
@@ -244,7 +279,8 @@ async function initializeServices() {
   }
 }
 
-app.listen(config.port, async () => {
+// Create HTTP server for WebSocket support
+const server = app.listen(config.port, async () => {
   console.log(`\n:: Server is running at http://localhost:${config.port}\n`);
   logConfig();
   
@@ -253,3 +289,6 @@ app.listen(config.port, async () => {
     console.error(':: Background service initialization error:', err);
   });
 });
+
+// Setup WebSocket for real-time chat
+setupWebSocket(server);
