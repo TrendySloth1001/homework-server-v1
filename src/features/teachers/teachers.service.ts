@@ -55,6 +55,7 @@ export async function getAllTeachersService(
         experience: true,
         bio: true,
         followersCount: true,
+        followingCount: true,
         allowFollowers: true,
         createdAt: true,
         user: {
@@ -134,6 +135,7 @@ export async function getTeacherByIdService(teacherId: string, requestingUserId?
       experience: true,
       bio: true,
       followersCount: true,
+      followingCount: true,
       allowFollowers: true,
       createdAt: true,
       user: {
@@ -302,6 +304,10 @@ export async function followTeacherService(teacherId: string, userId: string) {
         where: { id: teacher.id },
         data: { followersCount: { increment: 1 } },
       }),
+      prisma.teacher.update({
+        where: { id: requestingTeacher.id },
+        data: { followingCount: { increment: 1 } },
+      }),
     ]);
 
     followedAt = result[0].followedAt;
@@ -423,10 +429,101 @@ export async function unfollowTeacherService(teacherId: string, userId: string) 
         where: { id: teacher.id },
         data: { followersCount: { decrement: 1 } },
       }),
+      prisma.teacher.update({
+        where: { id: requestingTeacher.id },
+        data: { followingCount: { decrement: 1 } },
+      }),
     ]);
   } else {
     throw new AppError('Invalid user type', 400);
   }
 
   return { success: true };
+}
+
+/**
+ * Get followers of a teacher (both students and teachers)
+ */
+export async function getTeacherFollowersService(teacherId: string) {
+  // Verify teacher exists
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: { id: true },
+  });
+
+  if (!teacher) {
+    throw new AppError('Teacher not found', 404);
+  }
+
+  // Get student followers
+  const studentFollowers = await prisma.teacherFollower.findMany({
+    where: { teacherId },
+    select: {
+      id: true,
+      followedAt: true,
+      student: {
+        select: {
+          id: true,
+          userId: true,
+          user: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Get teacher followers
+  const teacherFollowers = await prisma.teacherToTeacher.findMany({
+    where: { followedId: teacherId },
+    select: {
+      id: true,
+      followedAt: true,
+      follower: {
+        select: {
+          id: true,
+          userId: true,
+          experience: true,
+          user: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Format student followers
+  const students = studentFollowers.map(sf => ({
+    id: sf.id,
+    followerId: sf.student.userId,
+    followerName: sf.student.user.displayName,
+    followerAvatar: sf.student.user.avatarUrl,
+    followerType: 'STUDENT' as const,
+    followedAt: sf.followedAt,
+  }));
+
+  // Format teacher followers
+  const teachers = teacherFollowers.map(tf => ({
+    id: tf.id,
+    followerId: tf.follower.userId,
+    teacherId: tf.follower.id, // Teacher profile ID for API calls
+    followerName: tf.follower.user.displayName,
+    followerAvatar: tf.follower.user.avatarUrl,
+    followerType: 'TEACHER' as const,
+    experience: tf.follower.experience,
+    followedAt: tf.followedAt,
+  }));
+
+  // Combine and sort by followedAt (most recent first)
+  const allFollowers = [...students, ...teachers].sort(
+    (a, b) => b.followedAt.getTime() - a.followedAt.getTime()
+  );
+
+  return allFollowers;
 }
