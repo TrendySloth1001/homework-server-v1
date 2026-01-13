@@ -465,3 +465,171 @@ export const pinConversation = async (conversationId: string, userId: string, is
     },
   });
 };
+
+export const deleteConversation = async (conversationId: string, userId: string) => {
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      members: true,
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  const isMember = conversation.members.some(m => m.userId === userId);
+  if (!isMember) {
+    throw new Error("User is not a member of this conversation");
+  }
+
+  // For one-to-one chats, only the creator or allow anyone to delete
+  // For groups, only creator can delete the entire conversation
+  if (conversation.isGroup && conversation.createdBy !== userId) {
+    throw new Error("Only the group creator can delete the conversation");
+  }
+
+  // Delete the entire conversation and all related data
+  await prisma.chatConversation.delete({
+    where: { id: conversationId },
+  });
+
+  return { success: true, message: "Conversation deleted successfully" };
+};
+
+export const createGroupConversation = async ({
+  name,
+  creatorId,
+  memberIds,
+}: {
+  name: string;
+  creatorId: string;
+  memberIds: string[];
+}) => {
+  // Verify creator exists
+  const creator = await prisma.user.findUnique({ where: { id: creatorId } });
+  if (!creator) {
+    throw new Error("Creator not found");
+  }
+
+  // Verify all members exist
+  const members = await prisma.user.findMany({
+    where: { id: { in: memberIds } },
+  });
+  if (members.length !== memberIds.length) {
+    throw new Error("One or more members not found");
+  }
+
+  // Check if creator is a teacher or student
+  const creatorTeacher = await prisma.teacher.findUnique({
+    where: { userId: creatorId },
+    select: { id: true },
+  });
+
+  const creatorStudent = !creatorTeacher ? await prisma.student.findUnique({
+    where: { userId: creatorId },
+    select: { id: true },
+  }) : null;
+
+  if (!creatorTeacher && !creatorStudent) {
+    throw new Error("Creator must be a teacher or student");
+  }
+
+  // Verify mutual following relationships
+  for (const memberId of memberIds) {
+    if (memberId === creatorId) continue; // Skip creator
+
+    const memberTeacher = await prisma.teacher.findUnique({
+      where: { userId: memberId },
+      select: { id: true },
+    });
+
+    const memberStudent = !memberTeacher ? await prisma.student.findUnique({
+      where: { userId: memberId },
+      select: { id: true },
+    }) : null;
+
+    if (!memberTeacher && !memberStudent) {
+      throw new Error(`User ${memberId} must be a teacher or student`);
+    }
+
+    // Check mutual following
+    let areMutualFollowers = false;
+
+    if (creatorStudent && memberTeacher) {
+      // Student creator and teacher member
+      const follow = await prisma.teacherFollower.findUnique({
+        where: {
+          teacherId_studentId: {
+            teacherId: memberTeacher.id,
+            studentId: creatorStudent.id,
+          },
+        },
+      });
+      areMutualFollowers = !!follow;
+    } else if (creatorTeacher && memberStudent) {
+      // Teacher creator and student member
+      const follow = await prisma.teacherFollower.findUnique({
+        where: {
+          teacherId_studentId: {
+            teacherId: creatorTeacher.id,
+            studentId: memberStudent.id,
+          },
+        },
+      });
+      areMutualFollowers = !!follow;
+    } else if (creatorTeacher && memberTeacher) {
+      // Both are teachers - check TeacherToTeacher table for mutual following
+      const creatorFollowsMember = await prisma.teacherToTeacher.findFirst({
+        where: {
+          followerId: creatorTeacher.id,
+          followedId: memberTeacher.id,
+        },
+      });
+      const memberFollowsCreator = await prisma.teacherToTeacher.findFirst({
+        where: {
+          followerId: memberTeacher.id,
+          followedId: creatorTeacher.id,
+        },
+      });
+      areMutualFollowers = !!creatorFollowsMember || !!memberFollowsCreator; // Allow if either follows the other
+    } else if (creatorStudent && memberStudent) {
+      // Both are students - need to check if they follow common teachers
+      // For simplicity, we'll allow any students to create groups together
+      // You can add more complex logic here if needed
+      areMutualFollowers = true;
+    }
+
+    if (!areMutualFollowers) {
+      throw new Error(`You must be following each other to add ${memberId} to the group`);
+    }
+  }
+
+  // Create the group conversation
+  const conversation = await prisma.chatConversation.create({
+    data: {
+      name: name.trim(),
+      isGroup: true,
+      createdBy: creatorId,
+    },
+  });
+
+  // Add all members including creator
+  const uniqueMemberIds = Array.from(new Set([creatorId, ...memberIds]));
+  await prisma.chatConversationMember.createMany({
+    data: uniqueMemberIds.map((userId) => ({
+      conversationId: conversation.id,
+      userId,
+    })),
+  });
+
+  return prisma.chatConversation.findUniqueOrThrow({
+    where: { id: conversation.id },
+    include: {
+      members: {
+        include: { user: true },
+      },
+      creator: true,
+    },
+  });
+};

@@ -244,3 +244,54 @@ export const pinConversation = async (req: Request, res: Response) => {
     return res.status(status).json({ error: message });
   }
 };
+
+export const deleteConversation = async (req: Request, res: Response) => {
+  try {
+    const conversationId = req.params.conversationId!;
+    const { userId } = req.body as { userId: string };
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    const result = await conversationService.deleteConversation(conversationId, userId);
+    return res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete conversation";
+    const status = message.includes("not found") ? 404 : 
+                   message.includes("not a member") || message.includes("Only the") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};
+
+export const createGroupConversation = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId; // Current user from JWT
+    const { name, memberIds } = req.body as { name: string; memberIds: string[] };
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "Group name is required" });
+    }
+
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({ error: "At least one member is required" });
+    }
+
+    const conversation = await conversationService.createGroupConversation({
+      name: name.trim(),
+      creatorId: userId,
+      memberIds,
+    });
+
+    return res.status(201).json(conversation);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to create group conversation";
+    const status = message.includes("not found") ? 404 :
+                   message.includes("must be") || message.includes("following") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};

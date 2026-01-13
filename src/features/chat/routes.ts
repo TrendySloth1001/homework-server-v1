@@ -43,6 +43,26 @@ app.get("/users", async (req, res) => {
   }
 });
 
+app.get("/users/mutual-followers", async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId; // From JWT token
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    console.log('[Chat API] Getting mutual followers for user:', userId);
+    const mutualUsers = await utilityService.getMutualFollowers(userId);
+    console.log('[Chat API] Found mutual followers:', mutualUsers.length, 'users');
+    console.log('[Chat API] Sample user:', mutualUsers[0]);
+    return res.json(mutualUsers);
+  } catch (error) {
+    console.error('[Chat] Failed to fetch mutual followers:', error);
+    return res.status(500).json({ error: "Failed to fetch mutual followers" });
+  }
+});
+
+
 app.get("/users/online", presenceController.getOnlineUsers);
 
 app.get("/users/username/:username", async (req, res) => {
@@ -84,6 +104,10 @@ app.post("/conversations", conversationController.createConversation);
 app.get("/conversations/:conversationId", conversationController.getConversationById);
 
 app.post("/conversations/one-to-one", conversationController.checkOrCreateOneToOne);
+
+app.post("/conversations/group", conversationController.createGroupConversation);
+
+app.delete("/conversations/:conversationId", conversationController.deleteConversation);
 
 app.post("/conversations/:conversationId/members", conversationController.addMembers);
 
