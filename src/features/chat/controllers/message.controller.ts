@@ -73,6 +73,17 @@ export const markMessageSeen = async (req: Request, res: Response) => {
     }
 
     const result = await messageService.markMessageSeen(messageId, userId);
+    
+    // Broadcast message_seen event to all users in the conversation
+    if (!result.alreadySeen && result.conversationId) {
+      wsManager.emitSeenUpdate(
+        result.conversationId,
+        result.messageId,
+        result.userId,
+        result.username
+      );
+    }
+    
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to mark message as seen";

@@ -8,6 +8,70 @@ import type {
   DeleteNotificationInput,
 } from './notifications.types';
 
+// Track pending notifications for offline users
+const pendingNotifications = new Map<string, { title: string; count: number }>();
+
+/**
+ * Smart notification sender - prevents flooding for offline users
+ * Only sends one notification until user comes online
+ */
+export async function sendChatNotification(
+  userId: string,
+  senderName: string,
+  messagePreview: string,
+  conversationId: string
+) {
+  // Check if user is online
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isOnline: true }
+  });
+
+  if (!user) return;
+
+  // If user is online, don't send notification (they'll see it in real-time)
+  if (user.isOnline) {
+    // Clear any pending notifications for this user
+    pendingNotifications.delete(userId);
+    return;
+  }
+
+  // User is offline - check if we already have a pending notification
+  const key = `${userId}-${conversationId}`;
+  const pending = pendingNotifications.get(key);
+
+  if (pending) {
+    // Update count but don't send another notification
+    pending.count++;
+    pending.title = `${pending.count} new messages from ${senderName}`;
+    return;
+  }
+
+  // First message while offline - send notification
+  pendingNotifications.set(key, {
+    title: `New message from ${senderName}`,
+    count: 1
+  });
+
+  await createNotificationService({
+    userId,
+    title: `New message from ${senderName}`,
+    message: messagePreview
+  });
+}
+
+/**
+ * Clear pending notifications when user comes online
+ */
+export function clearPendingNotifications(userId: string) {
+  // Remove all pending notifications for this user
+  for (const [key, value] of pendingNotifications.entries()) {
+    if (key.startsWith(userId + '-')) {
+      pendingNotifications.delete(key);
+    }
+  }
+}
+
 /**
  * Create a new notification
  */

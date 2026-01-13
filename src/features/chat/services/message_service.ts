@@ -1,5 +1,6 @@
 import { prisma } from "../../../shared/lib/prisma";
 import { isUserInConversation } from "./utility_service";
+import { sendChatNotification } from '../../notifications/notifications.service';
 
 export const sendMessage = async ({
   conversationId,
@@ -31,6 +32,39 @@ export const sendMessage = async ({
     where: { id: conversationId },
     data: { updatedAt: new Date() },
   });
+
+  // Get all conversation members except the sender to send notifications
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      members: {
+        where: {
+          userId: { not: userId }
+        },
+        select: { userId: true }
+      }
+    }
+  });
+
+  // Send smart notifications to all other members (only one if offline)
+  if (conversation?.members && conversation.members.length > 0) {
+    const messagePreview = content.trim().length > 50 
+      ? content.trim().substring(0, 50) + '...' 
+      : content.trim();
+    const senderName = message.user.displayName;
+    
+    // Send notification to each member using smart helper
+    for (const member of conversation.members) {
+      sendChatNotification(
+        member.userId,
+        senderName,
+        messagePreview,
+        conversationId
+      ).catch(error => {
+        console.error('Failed to send notification:', error);
+      });
+    }
+  }
 
   return {
     id: message.id,
@@ -189,7 +223,21 @@ export const markMessageSeen = async (messageId: string, userId: string) => {
     },
   });
 
-  return { success: true, alreadySeen: false };
+  // Get user info for the broadcast
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, displayName: true }
+  });
+
+  return { 
+    success: true, 
+    alreadySeen: false,
+    conversationId: message.conversationId,
+    messageId,
+    userId,
+    username: user?.displayName || user?.username || 'Unknown',
+    seenAt: new Date().toISOString()
+  };
 };
 
 export const uploadMedia = async (file: {

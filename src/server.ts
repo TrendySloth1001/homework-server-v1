@@ -25,10 +25,21 @@ import { configurePassport } from './shared/lib/passport';
 
 const app = express();
 
+// Trust the first proxy (needed for tunnels / reverse proxies so rate limiting sees real IP)
+const trustProxy = process.env.TRUST_PROXY === 'true' || !!process.env.PORT_FORWARDING;
+if (trustProxy) {
+  app.set('trust proxy', 1);
+}
+
 // Configure Passport for Google OAuth
 configurePassport();
 
 // Middleware
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const baseAllowedOrigins = config.isDevelopment
   ? ['http://localhost:3000', 'http://localhost:3001']
   : (() => {
@@ -38,6 +49,8 @@ const baseAllowedOrigins = config.isDevelopment
       return configuredOrigins ?? [];
     })();
 
+const allowedOrigins = [...baseAllowedOrigins, ...extraOrigins];
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no Origin header (e.g., curl, server-to-server)
@@ -45,7 +58,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (baseAllowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 

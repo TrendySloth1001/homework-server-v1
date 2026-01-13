@@ -1,5 +1,6 @@
 import { WebSocket } from "ws";
 import { prisma } from "../../../shared/lib/prisma";
+import { clearPendingNotifications } from "../../notifications/notifications.service";
 
 type ConversationId = string;
 
@@ -15,6 +16,9 @@ const addClient = async (ws: WebSocket, userId: string) => {
 
   await setUserOnline(userId);
   await broadcastUserStatus(userId, true);
+  
+  // Clear any pending notifications when user comes online
+  clearPendingNotifications(userId);
 };
 
 const removeClient = async (ws: WebSocket) => {
