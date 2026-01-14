@@ -69,13 +69,14 @@ class S3Service {
   /**
    * Upload a file to S3/MinIO
    * @param file File buffer and metadata
+   * @param folder Optional folder path (default: 'media')
    * @returns Object with URL and media type
    */
   async uploadFile(file: {
     buffer: Buffer;
     mimetype: string;
     originalname: string;
-  }): Promise<{ url: string; type: string }> {
+  }, folder: string = 'media'): Promise<{ url: string; type: string }> {
     if (!this.client) {
       throw new Error('S3 client not initialized. Check S3 configuration.');
     }
@@ -85,7 +86,7 @@ class S3Service {
     // Generate unique filename
     const ext = file.originalname.split('.').pop() || '';
     const filename = `${uuidv4()}.${ext}`;
-    const key = `media/${filename}`;
+    const key = `${folder}/${filename}`;
     const mediaType = file.mimetype.split('/')[0]; // image, video, audio, etc.
 
     try {
