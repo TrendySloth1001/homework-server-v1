@@ -70,6 +70,11 @@ export const sendMessage = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    isEdited: message.isEdited,
+    editedAt: message.editedAt?.toISOString(),
+    deletedForEveryone: message.deletedForEveryone,
+    isStarred: false,
+    reactions: [],
     createdAt: message.createdAt.toISOString(),
     replyToId: message.replyToId,
     replyToMessage: message.replyToMessage ? {
@@ -125,6 +130,22 @@ export const getMessages = async ({
           user: true,
         },
       },
+      reactions: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
+      starredBy: {
+        where: {
+          userId: userId,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -163,8 +184,34 @@ export const getMessages = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
-    mediaUrls: message.mediaUrls as string[] | undefined, // Include multiple media URLs
-    mediaTypes: message.mediaTypes as string[] | undefined, // Include multiple media types
+    mediaUrls: message.mediaUrls as string[] | undefined,
+    mediaTypes: message.mediaTypes as string[] | undefined,
+    isEdited: message.isEdited,
+    editedAt: message.editedAt?.toISOString(),
+    deletedForEveryone: message.deletedForEveryone,
+    isStarred: message.starredBy.length > 0,
+    reactions: Object.values(
+      message.reactions.reduce((acc: any, reaction: any) => {
+        if (!acc[reaction.emoji]) {
+          acc[reaction.emoji] = {
+            emoji: reaction.emoji,
+            count: 0,
+            users: [],
+            userReacted: false,
+          };
+        }
+        acc[reaction.emoji].count++;
+        acc[reaction.emoji].users.push({
+          id: reaction.user.id,
+          displayName: reaction.user.displayName,
+          avatarUrl: reaction.user.avatarUrl,
+        });
+        if (reaction.userId === userId) {
+          acc[reaction.emoji].userReacted = true;
+        }
+        return acc;
+      }, {})
+    ),
     seenBy: seenByMap.get(message.id) || [],
     createdAt: message.createdAt.toISOString(),
     replyToId: message.replyToId,
@@ -357,6 +404,11 @@ export const sendMediaMessage = async ({
     mediaType: message.mediaType,
     mediaUrls: message.mediaUrls as string[] | undefined,
     mediaTypes: message.mediaTypes as string[] | undefined,
+    isEdited: message.isEdited,
+    editedAt: message.editedAt?.toISOString(),
+    deletedForEveryone: message.deletedForEveryone,
+    isStarred: false,
+    reactions: [],
     createdAt: message.createdAt.toISOString(),
     replyToId: message.replyToId,
     replyToMessage: message.replyToMessage ? {

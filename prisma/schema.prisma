@@ -487,6 +487,8 @@ model User {
   messages      Message[]
   conversationsCreated ChatConversation[] @relation("ConversationsCreated")
   messagesSeen  MessageSeen[]          @relation("UserSeenMessages")
+  messageReactions MessageReaction[]  @relation("UserMessageReactions")
+  starredMessages StarredMessage[]   @relation("UserStarredMessages")
 
   // Indexes for performance
   @@index([email])
@@ -882,13 +884,60 @@ model Message {
   mediaUrls       Json?        // Array of media URLs for multiple attachments
   mediaTypes      Json?        // Array of media types corresponding to mediaUrls
   replyToId       String?      @map("reply_to_id")
+  
+  // Message enhancements
+  isEdited        Boolean      @default(false)
+  editedAt        DateTime?
+  deletedFor      Json?        // Array of userIds who deleted this message for themselves
+  deletedForEveryone Boolean   @default(false)
+  mentions        Json?        // Array of userIds mentioned in this message
+  
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id])
   seenBy          MessageSeen[]
+  reactions       MessageReaction[]
+  edits           MessageEdit[]
+  starredBy       StarredMessage[]
   replyToMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String   // Emoji character (e.g., "👍", "❤️", "😂")
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserMessageReactions", fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model MessageEdit {
+  id           String   @id @default(uuid())
+  messageId    String
+  previousContent String
+  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  editedAt     DateTime @default(now())
+
+  @@index([messageId])
+}
+
+model StarredMessage {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserStarredMessages", fields: [userId], references: [id])
+  starredAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
 }
 
 model MessageSeen {

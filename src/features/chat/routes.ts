@@ -3,6 +3,7 @@ import multer from "multer";
 import * as conversationController from "./controllers/conversation.controller";
 import * as messageController from "./controllers/message.controller";
 import * as presenceController from "./controllers/presence.controller";
+import * as messageActionsController from "./controllers/message_actions.controller";
 import * as utilityService from "./services/utility_service";
 import { authenticateToken } from "../auth/middleware/auth.middleware";
 
@@ -162,5 +163,31 @@ app.get("/conversations/:conversationId/messages/search", messageController.sear
 app.post("/users/status/batch", presenceController.getBatchUserStatus);
 
 app.get("/conversations/:conversationId/members/status", presenceController.getConversationMembersStatus);
+
+
+// Reactions
+app.post("/messages/:messageId/reactions", messageActionsController.addReaction);
+app.delete("/messages/:messageId/reactions/:emoji", messageActionsController.removeReaction);
+app.get("/messages/:messageId/reactions", messageActionsController.getReactions);
+
+// Edit message
+app.patch("/messages/:messageId", messageActionsController.editMessage);
+app.get("/messages/:messageId/history", messageActionsController.getEditHistory);
+
+// Delete message
+app.delete("/messages/:messageId/for-me", messageActionsController.deleteForMe);
+app.delete("/messages/:messageId/for-everyone", messageActionsController.deleteForEveryone);
+
+// Star message
+app.post("/messages/:messageId/star", messageActionsController.starMessage);
+app.delete("/messages/:messageId/star", messageActionsController.unstarMessage);
+app.get("/conversations/:conversationId/starred", messageActionsController.getStarredMessages);
+app.get("/starred", messageActionsController.getStarredMessages); // All starred messages
+
+// Forward message
+app.post("/messages/:messageId/forward", messageActionsController.forwardMessage);
+
+// Search messages
+app.get("/conversations/:conversationId/messages/search", messageActionsController.searchMessages);
 
 export default app;
