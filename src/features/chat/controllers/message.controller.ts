@@ -120,7 +120,7 @@ export const uploadMedia = async (req: Request, res: Response) => {
 export const sendMediaMessage = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId; // From JWT token
-    const { conversationId, content, mediaUrl, mediaType, replyToId } = req.body;
+    const { conversationId, content, mediaUrl, mediaType, mediaUrls, mediaTypes, replyToId } = req.body;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -130,12 +130,16 @@ export const sendMediaMessage = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "conversationId is required" });
     }
 
-    if (!mediaUrl || typeof mediaUrl !== "string") {
-      return res.status(400).json({ error: "mediaUrl is required" });
+    // Support both single and multiple media
+    const hasSingleMedia = mediaUrl && mediaType;
+    const hasMultipleMedia = mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0;
+
+    if (!hasSingleMedia && !hasMultipleMedia) {
+      return res.status(400).json({ error: "Either mediaUrl/mediaType or mediaUrls/mediaTypes is required" });
     }
 
-    if (!mediaType || typeof mediaType !== "string") {
-      return res.status(400).json({ error: "mediaType is required" });
+    if (hasMultipleMedia && (!mediaTypes || !Array.isArray(mediaTypes) || mediaUrls.length !== mediaTypes.length)) {
+      return res.status(400).json({ error: "mediaUrls and mediaTypes must be arrays of the same length" });
     }
 
     const message = await messageService.sendMediaMessage({
@@ -144,6 +148,8 @@ export const sendMediaMessage = async (req: Request, res: Response) => {
       content,
       mediaUrl,
       mediaType,
+      mediaUrls,
+      mediaTypes,
       replyToId,
     });
 

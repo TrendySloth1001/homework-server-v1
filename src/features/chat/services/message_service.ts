@@ -163,6 +163,8 @@ export const getMessages = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    mediaUrls: message.mediaUrls as string[] | undefined, // Include multiple media URLs
+    mediaTypes: message.mediaTypes as string[] | undefined, // Include multiple media types
     seenBy: seenByMap.get(message.id) || [],
     createdAt: message.createdAt.toISOString(),
     replyToId: message.replyToId,
@@ -282,13 +284,17 @@ export const sendMediaMessage = async ({
   content,
   mediaUrl,
   mediaType,
+  mediaUrls,
+  mediaTypes,
   replyToId,
 }: {
   conversationId: string;
   userId: string;
   content?: string;
-  mediaUrl: string;
-  mediaType: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaUrls?: string[];
+  mediaTypes?: string[];
   replyToId?: string;
 }) => {
   
@@ -297,15 +303,28 @@ export const sendMediaMessage = async ({
     throw new Error("User is not a member of this conversation");
   }
 
+  // Support both single media (backward compatibility) and multiple media
+  const hasMultipleMedia = mediaUrls && mediaUrls.length > 0;
+  const hasSingleMedia = mediaUrl && mediaType;
+
+  // Build data object properly to avoid type issues
+  const createData: any = {
+    conversationId,
+    userId,
+    content: content?.trim() || "",
+    mediaUrl: hasSingleMedia ? mediaUrl : (hasMultipleMedia ? mediaUrls[0] : null),
+    mediaType: hasSingleMedia ? mediaType : (hasMultipleMedia ? (mediaTypes?.[0] ?? null) : null),
+    replyToId: replyToId || null,
+  };
+
+  // Only add these fields if we have multiple media
+  if (hasMultipleMedia) {
+    createData.mediaUrls = mediaUrls;
+    createData.mediaTypes = mediaTypes;
+  }
+
   const message = await prisma.message.create({
-    data: {
-      conversationId,
-      userId,
-      content: content?.trim() || "",
-      mediaUrl,
-      mediaType,
-      replyToId: replyToId || null,
-    },
+    data: createData,
     include: {
       user: true,
       replyToMessage: {
@@ -336,6 +355,8 @@ export const sendMediaMessage = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    mediaUrls: message.mediaUrls as string[] | undefined,
+    mediaTypes: message.mediaTypes as string[] | undefined,
     createdAt: message.createdAt.toISOString(),
     replyToId: message.replyToId,
     replyToMessage: message.replyToMessage ? {

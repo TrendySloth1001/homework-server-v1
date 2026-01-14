@@ -98,6 +98,7 @@ export const getUserConversations = async (userId: string) => {
       return {
         id: conv.id,
         name: conv.name,
+        avatarUrl: conv.avatarUrl, // Include group avatar
         isGroup: conv.isGroup,
         createdBy: conv.createdBy,
         creator: conv.creator,
@@ -356,6 +357,37 @@ export const updateGroupName = async (conversationId: string, newName: string, r
   return prisma.chatConversation.update({
     where: { id: conversationId },
     data: { name: newName },
+    include: {
+      members: {
+        include: { user: true },
+      },
+      creator: true,
+    },
+  });
+};
+
+export const updateGroupAvatar = async (conversationId: string, avatarUrl: string, requesterId: string) => {
+  
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (!conversation.isGroup) {
+    throw new Error("Cannot update avatar of one-to-one conversation");
+  }
+
+  // Only the creator can update group avatar
+  if (requesterId !== conversation.createdBy) {
+    throw new Error("Only the group creator can update the group avatar");
+  }
+
+  return prisma.chatConversation.update({
+    where: { id: conversationId },
+    data: { avatarUrl },
     include: {
       members: {
         include: { user: true },

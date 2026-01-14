@@ -846,6 +846,7 @@ model ConversationQuizAnswer {
 model ChatConversation {
   id          String                @id @default(uuid())
   name        String?
+  avatarUrl   String?               // Group avatar image URL
   isGroup     Boolean               @default(false)
   createdBy   String
   creator     User                  @relation("ConversationsCreated", fields: [createdBy], references: [id])
@@ -876,8 +877,10 @@ model Message {
   userId          String
   content         String
   messageType     String?      @default("user") // user, system_user_joined, system_user_left, system_group_created
-  mediaUrl        String?
-  mediaType       String?
+  mediaUrl        String?      // Deprecated: kept for backward compatibility, use mediaUrls
+  mediaType       String?      // Deprecated: kept for backward compatibility, use mediaTypes
+  mediaUrls       Json?        // Array of media URLs for multiple attachments
+  mediaTypes      Json?        // Array of media types corresponding to mediaUrls
   replyToId       String?      @map("reply_to_id")
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id])

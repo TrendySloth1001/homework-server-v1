@@ -135,6 +135,8 @@ app.delete("/conversations/:conversationId/members/:userId", conversationControl
 
 app.patch("/conversations/:conversationId/name", conversationController.updateGroupName);
 
+app.patch("/conversations/:conversationId/avatar", conversationController.updateGroupAvatar);
+
 app.get("/conversations/:conversationId/members", conversationController.getConversationMembers);
 
 app.post("/conversations/:conversationId/clear", conversationController.clearConversation);
@@ -150,6 +152,8 @@ app.get("/conversations/:conversationId/messages", messageController.getMessages
 app.post("/messages/:messageId/seen", messageController.markMessageSeen);
 
 app.post("/media/upload", upload.single('media'), messageController.uploadMedia);
+
+app.post("/conversations/:conversationId/avatar/upload", upload.single('avatar'), conversationController.uploadGroupAvatar);
 
 app.post("/messages/media", messageController.sendMediaMessage);
 

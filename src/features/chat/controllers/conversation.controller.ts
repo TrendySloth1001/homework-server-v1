@@ -157,6 +157,29 @@ export const updateGroupName = async (req: Request, res: Response) => {
   }
 };
 
+export const updateGroupAvatar = async (req: Request, res: Response) => {
+  try {
+    const conversationId = req.params.conversationId!;
+    const { avatarUrl, requesterId } = req.body as { avatarUrl: string; requesterId: string };
+
+    if (!avatarUrl || typeof avatarUrl !== "string") {
+      return res.status(400).json({ error: "avatarUrl is required" });
+    }
+
+    if (!requesterId || typeof requesterId !== "string") {
+      return res.status(400).json({ error: "requesterId is required" });
+    }
+
+    const conversation = await conversationService.updateGroupAvatar(conversationId, avatarUrl, requesterId);
+    return res.json(conversation);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update group avatar";
+    const status = message.includes("not found") ? 404 : 
+                   message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};
+
 export const getConversationMembers = async (req: Request, res: Response) => {
   try {
     const conversationId = req.params.conversationId!;
@@ -306,6 +329,57 @@ export const createGroupConversation = async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : "Failed to create group conversation";
     const status = message.includes("not found") ? 404 :
                    message.includes("must be") || message.includes("following") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};
+
+export const uploadGroupAvatar = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+    const conversationId = req.params.conversationId!;
+    const file = req.file;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!file) {
+      return res.status(400).json({ error: "Avatar file is required" });
+    }
+
+    // Verify user is the group creator
+    const conversation = await conversationService.getConversationById(conversationId, userId);
+    if (!conversation.isGroup) {
+      return res.status(400).json({ error: "Cannot set avatar for one-to-one conversation" });
+    }
+    if (conversation.createdBy !== userId) {
+      return res.status(403).json({ error: "Only the group creator can update the avatar" });
+    }
+
+    // Upload to S3 with proper path: group-avatars/{conversationId}/
+    const { s3Service } = require("../../../shared/lib/s3");
+    const timestamp = Date.now();
+    const filename = `${timestamp}-${file.originalname}`;
+    
+    const uploadResult = await s3Service.uploadFile(
+      {
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+        originalname: filename,
+      },
+      `group-avatars/${conversationId}`
+    );
+
+    const avatarUrl = uploadResult.url;
+
+    // Update conversation with new avatar URL
+    const updatedConversation = await conversationService.updateGroupAvatar(conversationId, avatarUrl, userId);
+
+    return res.json({ url: avatarUrl, conversation: updatedConversation });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to upload group avatar";
+    const status = message.includes("not found") ? 404 :
+                   message.includes("Only the") || message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
