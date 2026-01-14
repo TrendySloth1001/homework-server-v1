@@ -267,6 +267,18 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
     },
   });
 
+  // Create system messages for each added member
+  for (const member of newMembers) {
+    await prisma.message.create({
+      data: {
+        conversationId,
+        userId: member.userId,
+        content: `${member.user.displayName} joined the group`,
+        messageType: 'system_user_joined',
+      },
+    });
+  }
+
   return newMembers;
 };
 
@@ -290,6 +302,12 @@ export const removeMember = async (conversationId: string, userId: string, reque
     throw new Error("Cannot remove the group creator");
   }
 
+  // Get user details before deleting for the system message
+  const memberToRemove = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true },
+  });
+
   const deleted = await prisma.chatConversationMember.deleteMany({
     where: {
       conversationId,
@@ -299,6 +317,18 @@ export const removeMember = async (conversationId: string, userId: string, reque
 
   if (deleted.count === 0) {
     throw new Error("Member not found in conversation");
+  }
+
+  // Create system message for member removal
+  if (memberToRemove) {
+    await prisma.message.create({
+      data: {
+        conversationId,
+        userId: userId, // The user who left
+        content: `${memberToRemove.displayName} left the group`,
+        messageType: 'system_user_left',
+      },
+    });
   }
 
   return { success: true, userId };

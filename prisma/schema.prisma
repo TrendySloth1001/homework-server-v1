@@ -875,6 +875,7 @@ model Message {
   conversationId  String
   userId          String
   content         String
+  messageType     String?      @default("user") // user, system_user_joined, system_user_left, system_group_created
   mediaUrl        String?
   mediaType       String?
   replyToId       String?      @map("reply_to_id")
