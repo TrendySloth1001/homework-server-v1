@@ -23,6 +23,7 @@ export const onSendMessage = async (ws: WebSocket, data: {
   conversationId: string;
   userId?: string;
   content: string;
+  replyToId?: string;
 }) => {
   try {
     const userId = data.userId || wsManager.getUserId(ws);
@@ -30,7 +31,7 @@ export const onSendMessage = async (ws: WebSocket, data: {
       throw new Error("User ID not found");
     }
 
-    const { conversationId, content } = data;
+    const { conversationId, content, replyToId } = data;
 
     if (!content || content.length === 0) {
       throw new Error("Message content cannot be empty");
@@ -42,6 +43,7 @@ export const onSendMessage = async (ws: WebSocket, data: {
       conversationId,
       userId,
       content,
+      ...(replyToId && { replyToId }),
     });
 
     console.log(`Message saved with ID ${message.id}, broadcasting to conversation`);
@@ -73,7 +75,7 @@ export const onTyping = async (ws: WebSocket, data: {
       throw new Error("User not found");
     }
 
-    wsManager.emitTyping(conversationId, userId, user.username, isTyping);
+    wsManager.emitTyping(conversationId, userId, user.username || userId, isTyping);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Failed to process typing indicator";
     wsManager.sendToClient(ws, {
@@ -102,7 +104,7 @@ export const onSeen = async (ws: WebSocket, data: {
         throw new Error("User not found");
       }
 
-      wsManager.emitSeenUpdate(conversationId, messageId, userId, user.username);
+      wsManager.emitSeenUpdate(conversationId, messageId, userId, user.username || userId);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Failed to mark message as seen";

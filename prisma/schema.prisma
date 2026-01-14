@@ -421,6 +421,11 @@ model ConversationMessage {
   quizSessionId String? // Link to quiz if messageType is 'quiz'
   studyPlanId   String? // Link to study plan if messageType is 'study-plan'
 
+  // Reply functionality
+  replyToId      String?               @map("reply_to_id") // ID of message being replied to
+  replyToMessage ConversationMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        ConversationMessage[] @relation("MessageReplies")
+
   // AI reasoning (DeepSeek-R1 thinking process)
   thinking String? @db.Text // Reasoning chain for models like DeepSeek-R1
 
@@ -872,9 +877,12 @@ model Message {
   content         String
   mediaUrl        String?
   mediaType       String?
+  replyToId       String?      @map("reply_to_id")
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id])
   seenBy          MessageSeen[]
+  replyToMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }

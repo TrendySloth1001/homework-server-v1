@@ -70,13 +70,15 @@ class S3Service {
    * Upload a file to S3/MinIO
    * @param file File buffer and metadata
    * @param folder Optional folder path (default: 'media')
+   * @param conversationId Optional conversation ID for organized storage
+   * @param messageId Optional message ID for organized storage
    * @returns Object with URL and media type
    */
   async uploadFile(file: {
     buffer: Buffer;
     mimetype: string;
     originalname: string;
-  }, folder: string = 'media'): Promise<{ url: string; type: string }> {
+  }, folder: string = 'media', conversationId?: string, messageId?: string): Promise<{ url: string; type: string }> {
     if (!this.client) {
       throw new Error('S3 client not initialized. Check S3 configuration.');
     }
@@ -85,8 +87,14 @@ class S3Service {
 
     // Generate unique filename
     const ext = file.originalname.split('.').pop() || '';
-    const filename = `${uuidv4()}.${ext}`;
-    const key = `${folder}/${filename}`;
+    const fileId = uuidv4();
+    const filename = `${fileId}.${ext}`;
+    
+    // Use new storage structure if conversationId and messageId are provided
+    const key = conversationId && messageId 
+      ? `conversations/${conversationId}/messages/${messageId}/${filename}`
+      : `${folder}/${filename}`;
+    
     const mediaType = file.mimetype.split('/')[0]; // image, video, audio, etc.
 
     try {

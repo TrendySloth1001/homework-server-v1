@@ -83,7 +83,7 @@ export const getConversationMembersStatus = async (req: Request, res: Response) 
       return;
     }
 
-    const members = await prisma.conversationMember.findMany({
+    const members = await prisma.chatConversationMember.findMany({
       where: { conversationId },
       include: {
         user: {
@@ -97,7 +97,7 @@ export const getConversationMembersStatus = async (req: Request, res: Response) 
       },
     });
 
-    const membersStatus = members.map((m) => m.user);
+    const membersStatus = members.map((m: { user: { id: string; username: string | null; isOnline: boolean; lastActiveAt: Date | null; } }) => m.user);
     res.json(membersStatus);
   } catch (error) {
     console.error("Get conversation members status error:", error);

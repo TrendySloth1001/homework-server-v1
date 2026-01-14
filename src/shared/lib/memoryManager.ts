@@ -288,8 +288,6 @@ Return only the JSON array, e.g., ["physics", "motion", "newton's laws"]`;
           conversationId,
           summary,
           topics,
-          embedding: JSON.stringify(embedding),
-          messageCount: messages.length,
         },
       });
 

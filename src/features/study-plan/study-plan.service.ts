@@ -291,8 +291,9 @@ export class StudyPlanService {
    * Get plan by conversation ID
    */
   async getByConversation(conversationId: string) {
-    return prisma.studyPlan.findUnique({
-      where: { conversationId }
+    return prisma.studyPlan.findFirst({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' }
     });
   }
   

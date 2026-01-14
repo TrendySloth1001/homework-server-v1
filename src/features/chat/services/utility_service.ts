@@ -23,9 +23,9 @@ export const generateConversationId = (userId1: string, userId2: string): string
     .substring(0, 16);
 };
 
-export const createUser = async (username: string) => {
+export const createUser = async (username: string, email: string, displayName: string, role: 'TEACHER' | 'STUDENT' = 'STUDENT') => {
   return prisma.user.create({
-    data: { username },
+    data: { username, email, displayName, role },
   });
 };
 

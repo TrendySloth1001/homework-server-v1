@@ -52,7 +52,7 @@ export async function gradeAnswerService(input: GradeAnswerInput): Promise<any> 
   // Enrich question with topic keywords if not present
   const questionWithKeywords = {
     ...question,
-    keywords: question.topic.keywords || undefined
+    keywords: question.topic?.keywords || undefined
   };
   
   // Grade the answer using consolidated grading engine
@@ -77,7 +77,7 @@ export async function gradeAnswerService(input: GradeAnswerInput): Promise<any> 
   });
   
   // Invalidate cache
-  await cacheService.delete(CacheKeys.questionsByTopic(question.topicId, ''));
+  await cacheService.delete(CacheKeys.questionsByTopic(question.topicId || '', ''));
   
   // Return enriched response with question details (frontend-friendly)
   return {
@@ -103,7 +103,7 @@ export async function gradeAnswerService(input: GradeAnswerInput): Promise<any> 
       questionType: question.questionType,
       difficulty: question.difficulty,
       points: question.points,
-      topicName: question.topic.topicName,
+      topicName: question.topic?.topicName || 'Unknown',
       explanation: question.explanation || undefined
     }
   };
@@ -185,7 +185,7 @@ export async function getAnswerHistoryService(query: GetAnswersQuery): Promise<A
     percentage: (answer.score / answer.maxScore) * 100,
     question: {
       ...answer.question,
-      topicName: answer.question.topic.topicName
+      topicName: answer.question.topic?.topicName || 'Unknown'
     }
   }));
   
@@ -257,11 +257,11 @@ export async function getAnswerService(questionId: string, studentId: string) {
     question: {
       ...answer.question,
       topic: undefined, // Remove nested topic
-      topicName: answer.question.topic.topicName,
-      topicDescription: answer.question.topic.description,
-      unitTitle: answer.question.topic.unit.title,
-      subjectName: answer.question.topic.unit.syllabus.subjectName,
-      className: answer.question.topic.unit.syllabus.className
+      topicName: answer.question.topic?.topicName || 'Unknown',
+      topicDescription: answer.question.topic?.description || '',
+      unitTitle: answer.question.topic?.unit?.title || 'Unknown',
+      subjectName: answer.question.topic?.unit?.syllabus?.subjectName || 'Unknown',
+      className: answer.question.topic?.unit?.syllabus?.className || 'Unknown'
     }
   };
 }
@@ -337,8 +337,8 @@ export async function getStudentPerformanceService(studentId: string, teacherId?
   answers.forEach(answer => {
     const qType = answer.question.questionType;
     const difficulty = answer.question.difficulty;
-    const topicId = answer.question.topicId;
-    const topicName = answer.question.topic.topicName;
+    const topicId = answer.question.topicId || 'unknown';
+    const topicName = answer.question.topic?.topicName || 'Unknown';
     const level = answer.correctnessLevel || 'incorrect';
     const percentage = (answer.score / answer.maxScore) * 100;
     
@@ -444,7 +444,7 @@ export async function getStudentPerformanceService(studentId: string, teacherId?
       questionText: answer.question.questionText,
       questionType: answer.question.questionType,
       difficulty: answer.question.difficulty,
-      topicName: answer.question.topic.topicName
+      topicName: answer.question.topic?.topicName || 'Unknown'
     }
   }));
   
@@ -498,7 +498,7 @@ export async function regradeAnswerService(questionId: string, studentId: string
   // Enrich question with topic keywords
   const questionWithKeywords = {
     ...existingAnswer.question,
-    keywords: existingAnswer.question.topic.keywords || undefined
+    keywords: existingAnswer.question.topic?.keywords || undefined
   };
   
   // Regrade using consolidated grading engine
@@ -610,7 +610,7 @@ export async function getQuestionAnswersService(questionId: string, teacherId?: 
   return {
     question: {
       ...question,
-      topicName: question.topic.topicName
+      topicName: question.topic?.topicName || 'Unknown'
     },
     statistics: {
       totalAttempts,
@@ -705,7 +705,7 @@ export async function getAssessmentStatsService(teacherId: string) {
     .map(answer => ({
       studentId: answer.studentId,
       questionId: answer.questionId,
-      topicName: answer.question.topic.topicName,
+      topicName: answer.question.topic?.topicName || 'Unknown',
       score: answer.score,
       maxScore: answer.maxScore,
       percentage: Math.round((answer.score / answer.maxScore) * 100 * 10) / 10,

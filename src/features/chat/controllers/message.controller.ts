@@ -5,7 +5,7 @@ import { wsManager } from "../services/websocket_service";
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId; // From JWT token
-    const { conversationId, content } = req.body;
+    const { conversationId, content, replyToId } = req.body;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -23,6 +23,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       conversationId,
       userId,
       content,
+      replyToId,
     });
 
     console.log(` Broadcasting message ${message.id} to conversation ${conversationId}`);
@@ -100,12 +101,14 @@ export const uploadMedia = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    const { conversationId, messageId } = req.body;
+
     const result = await messageService.uploadMedia({
       buffer: file.buffer,
       mimetype: file.mimetype,
       originalname: file.originalname,
       size: file.size,
-    });
+    }, conversationId, messageId);
 
     return res.json(result);
   } catch (error) {
@@ -117,7 +120,7 @@ export const uploadMedia = async (req: Request, res: Response) => {
 export const sendMediaMessage = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId; // From JWT token
-    const { conversationId, content, mediaUrl, mediaType } = req.body;
+    const { conversationId, content, mediaUrl, mediaType, replyToId } = req.body;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -141,6 +144,7 @@ export const sendMediaMessage = async (req: Request, res: Response) => {
       content,
       mediaUrl,
       mediaType,
+      replyToId,
     });
 
     console.log(`📤 Broadcasting media message ${message.id} to conversation ${conversationId}`);

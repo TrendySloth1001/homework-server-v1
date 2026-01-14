@@ -7,10 +7,12 @@ export const sendMessage = async ({
   conversationId,
   userId,
   content,
+  replyToId,
 }: {
   conversationId: string;
   userId: string;
   content: string;
+  replyToId?: string;
 }) => {
   
   const isMember = await isUserInConversation(conversationId, userId);
@@ -23,9 +25,15 @@ export const sendMessage = async ({
       conversationId,
       userId,
       content: content.trim(),
+      replyToId: replyToId || null,
     },
     include: {
       user: true,
+      replyToMessage: {
+        include: {
+          user: true,
+        },
+      },
     },
   });
 
@@ -47,26 +55,6 @@ export const sendMessage = async ({
     }
   });
 
-  // Send smart notifications to all other members (only one if offline)
-  if (conversation?.members && conversation.members.length > 0) {
-    const messagePreview = content.trim().length > 50 
-      ? content.trim().substring(0, 50) + '...' 
-      : content.trim();
-    const senderName = message.user.displayName;
-    
-    // Send notification to each member using smart helper
-    for (const member of conversation.members) {
-      sendChatNotification(
-        member.userId,
-        senderName,
-        messagePreview,
-        conversationId
-      ).catch(error => {
-        console.error('Failed to send notification:', error);
-      });
-    }
-  }
-
   return {
     id: message.id,
     conversationId: message.conversationId,
@@ -83,6 +71,16 @@ export const sendMessage = async ({
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
     createdAt: message.createdAt.toISOString(),
+    replyToId: message.replyToId,
+    replyToMessage: message.replyToMessage ? {
+      id: message.replyToMessage.id,
+      content: message.replyToMessage.content,
+      userId: message.replyToMessage.userId,
+      user: {
+        id: message.replyToMessage.user.id,
+        displayName: message.replyToMessage.user.displayName,
+      },
+    } : null,
   };
 };
 
@@ -122,6 +120,11 @@ export const getMessages = async ({
     include: {
       user: true,
       seenBy: true,
+      replyToMessage: {
+        include: {
+          user: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -162,6 +165,16 @@ export const getMessages = async ({
     mediaType: message.mediaType,
     seenBy: seenByMap.get(message.id) || [],
     createdAt: message.createdAt.toISOString(),
+    replyToId: message.replyToId,
+    replyToMessage: message.replyToMessage ? {
+      id: message.replyToMessage.id,
+      content: message.replyToMessage.content,
+      userId: message.replyToMessage.userId,
+      user: {
+        id: message.replyToMessage.user.id,
+        displayName: message.replyToMessage.user.displayName,
+      },
+    } : null,
   }));
 };
 
@@ -246,10 +259,10 @@ export const uploadMedia = async (file: {
   mimetype: string;
   originalname: string;
   size: number;
-}) => {
+}, conversationId?: string, messageId?: string) => {
   try {
-    // Upload to S3/MinIO
-    const result = await s3Service.uploadFile(file);
+    // Upload to S3/MinIO with organized structure
+    const result = await s3Service.uploadFile(file, 'media', conversationId, messageId);
     
     return {
       url: result.url,
@@ -269,12 +282,14 @@ export const sendMediaMessage = async ({
   content,
   mediaUrl,
   mediaType,
+  replyToId,
 }: {
   conversationId: string;
   userId: string;
   content?: string;
   mediaUrl: string;
   mediaType: string;
+  replyToId?: string;
 }) => {
   
   const isMember = await isUserInConversation(conversationId, userId);
@@ -289,9 +304,15 @@ export const sendMediaMessage = async ({
       content: content?.trim() || "",
       mediaUrl,
       mediaType,
+      replyToId: replyToId || null,
     },
     include: {
       user: true,
+      replyToMessage: {
+        include: {
+          user: true,
+        },
+      },
     },
   });
 
@@ -316,6 +337,16 @@ export const sendMediaMessage = async ({
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
     createdAt: message.createdAt.toISOString(),
+    replyToId: message.replyToId,
+    replyToMessage: message.replyToMessage ? {
+      id: message.replyToMessage.id,
+      content: message.replyToMessage.content,
+      userId: message.replyToMessage.userId,
+      user: {
+        id: message.replyToMessage.user.id,
+        displayName: message.replyToMessage.user.displayName,
+      },
+    } : null,
   };
 };
 

@@ -548,7 +548,7 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
   if (status.state === 'completed' && status.result && aiGeneration && !aiGeneration.jobNotified ) {
     // Create notification
     await createNotificationService({
-      teacherId: teacherId,
+      userId: teacherId,
       title: `AI Question Generation Complete`,
       message: `Your request to generate ${status.result.questionCount} questions has completed successfully.`,
     });
@@ -563,7 +563,7 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
   }else if (status.state === 'failed' && status.failedReason && aiGeneration && !aiGeneration.jobNotified) {
     // Create failure notification
     await createNotificationService({
-      teacherId: teacherId,
+      userId: teacherId,
       title: `AI Question Generation Failed`,
       message: `Your request to generate questions has failed. Please try again.`,
     });
