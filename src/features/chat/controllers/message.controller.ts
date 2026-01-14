@@ -104,6 +104,7 @@ export const uploadMedia = async (req: Request, res: Response) => {
       buffer: file.buffer,
       mimetype: file.mimetype,
       originalname: file.originalname,
+      size: file.size,
     });
 
     return res.json(result);
@@ -141,6 +142,9 @@ export const sendMediaMessage = async (req: Request, res: Response) => {
       mediaUrl,
       mediaType,
     });
+
+    console.log(`📤 Broadcasting media message ${message.id} to conversation ${conversationId}`);
+    wsManager.emitNewMessage(conversationId, message);
 
     return res.status(201).json(message);
   } catch (error) {

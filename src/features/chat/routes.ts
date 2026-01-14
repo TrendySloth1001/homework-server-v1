@@ -1,9 +1,29 @@
 import { Router } from "express";
+import multer from "multer";
 import * as conversationController from "./controllers/conversation.controller";
 import * as messageController from "./controllers/message.controller";
 import * as presenceController from "./controllers/presence.controller";
 import * as utilityService from "./services/utility_service";
 import { authenticateToken } from "../auth/middleware/auth.middleware";
+
+// Configure multer for memory storage (files stored in memory as Buffer)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images, videos, audio, and documents
+    const allowedTypes = /image|video|audio|application\/pdf|application\/msword|application\/vnd/;
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images, videos, audio, and documents are allowed.'));
+    }
+  },
+});
 
 const app = Router();
 
@@ -129,7 +149,7 @@ app.get("/conversations/:conversationId/messages", messageController.getMessages
 
 app.post("/messages/:messageId/seen", messageController.markMessageSeen);
 
-app.post("/media/upload", messageController.uploadMedia);
+app.post("/media/upload", upload.single('media'), messageController.uploadMedia);
 
 app.post("/messages/media", messageController.sendMediaMessage);
 

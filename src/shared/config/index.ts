@@ -47,6 +47,15 @@ interface Config {
     enabled: boolean;
   };
 
+  // S3/MinIO Storage
+  s3?: {
+    endpoint: string;
+    accessKey: string;
+    secretKey: string;
+    bucket: string;
+    region: string;
+  };
+
   // API Configuration
   api: {
     rateLimit: {
@@ -116,6 +125,16 @@ function validateConfig(): Config {
       tavily: {
         apiKey: process.env.TAVILY_API_KEY,
         enabled: true,
+      },
+    } : {}),
+
+    ...(process.env.S3_ENDPOINT ? {
+      s3: {
+        endpoint: process.env.S3_ENDPOINT,
+        accessKey: process.env.S3_ACCESS_KEY || 'minioadmin',
+        secretKey: process.env.S3_SECRET_KEY || 'minioadmin123',
+        bucket: process.env.S3_BUCKET || 'homework-media',
+        region: process.env.S3_REGION || 'us-east-1',
       },
     } : {}),
 

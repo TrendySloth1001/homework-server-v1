@@ -1,6 +1,7 @@
 import { prisma } from "../../../shared/lib/prisma";
 import { isUserInConversation } from "./utility_service";
 import { sendChatNotification } from '../../notifications/notifications.service';
+import { s3Service } from "../../../shared/lib/s3";
 
 export const sendMessage = async ({
   conversationId,
@@ -244,15 +245,22 @@ export const uploadMedia = async (file: {
   buffer: Buffer;
   mimetype: string;
   originalname: string;
+  size: number;
 }) => {
-
-  const mediaType = file.mimetype.split("/")[0]; 
-  const mockUrl = `/uploads/${Date.now()}-${file.originalname}`;
-
-  return {
-    url: mockUrl,
-    type: mediaType,
-  };
+  try {
+    // Upload to S3/MinIO
+    const result = await s3Service.uploadFile(file);
+    
+    return {
+      url: result.url,
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+    };
+  } catch (error) {
+    console.error('[MessageService] Media upload failed:', error);
+    throw new Error('Failed to upload media file');
+  }
 };
 
 export const sendMediaMessage = async ({
