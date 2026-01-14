@@ -79,6 +79,11 @@ export const checkOrCreateOneToOne = async (req: Request, res: Response) => {
     }
 
     const conversation = await conversationService.checkOrCreateOneToOne(userId1, otherUserId);
+    
+    // Broadcast new conversation to other user via WebSocket
+    const { wsManager } = require("../services/websocket_service");
+    wsManager.broadcastNewConversation(conversation, otherUserId);
+    
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to get or create conversation";
@@ -104,7 +109,7 @@ export const addMembers = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to add members";
     const status = message.includes("not found") ? 404 : 
-                   message.includes("Unauthorized") || message.includes("Cannot add") ? 403 : 500;
+                   message.includes("Only the") || message.includes("Cannot add") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -124,7 +129,7 @@ export const removeMember = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to remove member";
     const status = message.includes("not found") ? 404 : 
-                   message.includes("Unauthorized") ? 403 : 500;
+                   message.includes("Only the") || message.includes("Cannot remove") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -147,7 +152,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update group name";
     const status = message.includes("not found") ? 404 : 
-                   message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
+                   message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -285,6 +290,15 @@ export const createGroupConversation = async (req: Request, res: Response) => {
       name: name.trim(),
       creatorId: userId,
       memberIds,
+    });
+
+    // Broadcast new group conversation to all members via WebSocket
+    const { wsManager } = require("../services/websocket_service");
+    const allMemberIds = [userId, ...memberIds];
+    allMemberIds.forEach(memberId => {
+      if (memberId !== userId) {
+        wsManager.broadcastNewConversation(conversation, memberId);
+      }
     });
 
     return res.status(201).json(conversation);

@@ -229,14 +229,14 @@ export const markMessageSeen = async (messageId: string, userId: string) => {
     select: { username: true, displayName: true }
   });
 
-  return { 
-    success: true, 
+  return {
+    success: true,
     alreadySeen: false,
-    conversationId: message.conversationId,
     messageId,
     userId,
     username: user?.displayName || user?.username || 'Unknown',
-    seenAt: new Date().toISOString()
+    conversationId: message.conversationId,
+    seenAt: new Date().toISOString(),
   };
 };
 

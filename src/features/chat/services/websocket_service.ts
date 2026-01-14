@@ -60,8 +60,36 @@ const leaveConversation = (ws: WebSocket, conversationId: string) => {
   clientConversations.get(ws)?.delete(conversationId);
 };
 
-const emitNewMessage = (conversationId: string, message: any) => {
-  broadcastToConversation(conversationId, { type: "new_message", data: message });
+const emitNewMessage = async (conversationId: string, message: any) => {
+  // Get all members of the conversation
+  const { prisma } = require("../../../shared/lib/prisma");
+  const members = await prisma.chatConversationMember.findMany({
+    where: { conversationId },
+    select: { userId: true },
+  });
+
+  // Send message with unread count to each member
+  for (const member of members) {
+    if (member.userId === message.userId) {
+      // Sender gets the message without unread count change
+      sendToUser(member.userId, {
+        type: "new_message",
+        data: message,
+      });
+    } else {
+      // Calculate unread count for this specific user
+      const { getUnreadCount } = require("./conversation_service");
+      const unreadCount = await getUnreadCount(member.userId, conversationId);
+      
+      sendToUser(member.userId, {
+        type: "new_message",
+        data: {
+          ...message,
+          unreadCount, // Include unread count for this conversation
+        },
+      });
+    }
+  }
 };
 
 const emitTyping = (
@@ -76,25 +104,53 @@ const emitTyping = (
   });
 };
 
-const emitSeenUpdate = (
+const emitSeenUpdate = async (
   conversationId: string,
   messageId: string,
   userId: string,
   username: string
 ) => {
-  broadcastToConversation(conversationId, {
-    type: "message_seen",
-    data: {
-      conversationId,
-      messageId,
-      userId,
-      username,
-      seenAt: new Date().toISOString(),
-    },
+  // Get all members of the conversation
+  const { prisma } = require("../../../shared/lib/prisma");
+  const members = await prisma.chatConversationMember.findMany({
+    where: { conversationId },
+    select: { userId: true },
   });
+
+  // Calculate and send updated unread count to each member
+  const { getUnreadCount } = require("./conversation_service");
+  
+  for (const member of members) {
+    const unreadCount = await getUnreadCount(member.userId, conversationId);
+    
+    sendToUser(member.userId, {
+      type: "message_seen",
+      data: {
+        conversationId,
+        messageId,
+        userId,
+        username,
+        seenAt: new Date().toISOString(),
+        unreadCount, // Include updated unread count
+      },
+    });
+  }
 };
 
 const getUserId = (ws: WebSocket) => clientUserMap.get(ws);
+
+const sendToUser = (userId: string, message: any) => {
+  const userClients = Array.from(clientUserMap.entries())
+    .filter(([_, uid]) => uid === userId)
+    .map(([ws, _]) => ws);
+
+  const packet = JSON.stringify(message);
+  userClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(packet);
+    }
+  });
+};
 
 const send = (ws: WebSocket, message: any) => {
   if (ws.readyState === WebSocket.OPEN) {
@@ -115,6 +171,24 @@ const broadcastToConversation = (
   const packet = JSON.stringify(event);
   members.forEach((client) => {
     if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
+      client.send(packet);
+    }
+  });
+};
+
+const broadcastNewConversation = (conversation: any, targetUserId: string) => {
+  // Find all WebSocket connections for the target user
+  const userClients = Array.from(clientUserMap.entries())
+    .filter(([_, userId]) => userId === targetUserId)
+    .map(([ws, _]) => ws);
+
+  const packet = JSON.stringify({
+    type: 'conversation_created',
+    data: conversation
+  });
+
+  userClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(packet);
     }
   });
@@ -222,7 +296,9 @@ export const wsManager = {
   emitSeenUpdate,
   getUserId,
   sendToClient,
+  sendToUser,
   broadcastToConversation,
+  broadcastNewConversation,
   isUserOnline,
   getOnlineUsers,
   getUsersOnlineStatus,

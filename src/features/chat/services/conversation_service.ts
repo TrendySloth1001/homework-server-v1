@@ -86,23 +86,32 @@ export const getUserConversations = async (userId: string) => {
     orderBy: { updatedAt: "desc" },
   });
 
-  // Get the current user's membership info for isPinned status
-  return conversations.map((conv) => {
-    const currentUserMember = conv.members.find(m => m.userId === userId);
-    
-    return {
-      id: conv.id,
-      name: conv.name,
-      isGroup: conv.isGroup,
-      createdBy: conv.createdBy,
-      creator: conv.creator,
-      members: conv.members,
-      lastMessage: conv.messages[0] || null,
-      isPinned: currentUserMember?.isPinned || false,
-      createdAt: conv.createdAt,
-      updatedAt: conv.updatedAt,
-    };
-  });
+  // Get the current user's membership info and calculate unread count for each conversation
+  const conversationsWithUnread = await Promise.all(
+    conversations.map(async (conv) => {
+      const currentUserMember = conv.members.find(m => m.userId === userId);
+      
+      // Calculate unread count for this conversation
+      const unreadCount = await getUnreadCount(userId, conv.id);
+      console.log('[getUserConversations] Conversation:', conv.id, 'Unread:', unreadCount);
+      
+      return {
+        id: conv.id,
+        name: conv.name,
+        isGroup: conv.isGroup,
+        createdBy: conv.createdBy,
+        creator: conv.creator,
+        members: conv.members,
+        lastMessage: conv.messages[0] || null,
+        isPinned: currentUserMember?.isPinned || false,
+        unreadCount, // Include unread count
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+      };
+    })
+  );
+
+  return conversationsWithUnread;
 };
 
 export const getConversationById = async (conversationId: string, userId: string) => {
@@ -215,9 +224,9 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
     throw new Error("Cannot add members to one-to-one conversation"); 
   }
 
-  const isMember = await isUserInConversation(conversationId, requesterId);
-  if (!isMember) {
-    throw new Error("Only members can add other members");
+  // Only the creator can add members
+  if (requesterId !== conversation.createdBy) {
+    throw new Error("Only the group creator can add members");
   }
 
   const users = await prisma.user.findMany({
@@ -271,9 +280,14 @@ export const removeMember = async (conversationId: string, userId: string, reque
     throw new Error("Conversation not found");
   }
 
-  const isMember = await isUserInConversation(conversationId, requesterId);
-  if (!isMember && requesterId !== conversation.createdBy) {
-    throw new Error("Unauthorized to remove members");
+  // Only the creator can remove members
+  if (requesterId !== conversation.createdBy) {
+    throw new Error("Only the group creator can remove members");
+  }
+
+  // Cannot remove the creator
+  if (userId === conversation.createdBy) {
+    throw new Error("Cannot remove the group creator");
   }
 
   const deleted = await prisma.chatConversationMember.deleteMany({
@@ -304,9 +318,9 @@ export const updateGroupName = async (conversationId: string, newName: string, r
     throw new Error("Cannot update name of one-to-one conversation");
   }
 
-  const isMember = await isUserInConversation(conversationId, requesterId);
-  if (!isMember) {
-    throw new Error("Only members can update group name");
+  // Only the creator can update group name
+  if (requesterId !== conversation.createdBy) {
+    throw new Error("Only the group creator can update the group name");
   }
 
   return prisma.chatConversation.update({
@@ -345,6 +359,8 @@ export const getConversationMembers = async (conversationId: string, requesterId
 };
 
 export const getUnreadCount = async (userId: string, conversationId?: string) => {
+  console.log('[getUnreadCount] Called with:', { userId, conversationId });
+  
   const where: any = {
     conversation: {
       members: {
@@ -369,6 +385,8 @@ export const getUnreadCount = async (userId: string, conversationId?: string) =>
     },
   });
 
+  console.log('[getUnreadCount] Member data:', memberData);
+
   let totalUnread = 0;
 
   for (const member of memberData) {
@@ -379,9 +397,11 @@ export const getUnreadCount = async (userId: string, conversationId?: string) =>
         ...(member.lastRead ? { createdAt: { gt: member.lastRead } } : {}),
       },
     });
+    console.log('[getUnreadCount] Conversation', member.conversationId, 'unread:', unreadCount);
     totalUnread += unreadCount;
   }
 
+  console.log('[getUnreadCount] Total unread:', totalUnread);
   return totalUnread;
 };
 
