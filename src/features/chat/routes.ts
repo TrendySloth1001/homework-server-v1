@@ -4,6 +4,8 @@ import * as conversationController from "./controllers/conversation.controller";
 import * as messageController from "./controllers/message.controller";
 import * as presenceController from "./controllers/presence.controller";
 import * as messageActionsController from "./controllers/message_actions.controller";
+import * as groupManagementController from "./controllers/group_management.controller";
+import * as groupDiscoveryController from "./controllers/group_discovery_controller";
 import * as utilityService from "./services/utility_service";
 import { authenticateToken } from "../auth/middleware/auth.middleware";
 
@@ -189,5 +191,49 @@ app.post("/messages/:messageId/forward", messageActionsController.forwardMessage
 
 // Search messages
 app.get("/conversations/:conversationId/messages/search", messageActionsController.searchMessages);
+
+
+
+
+// Admin Roles & Permissions
+app.patch("/conversations/:conversationId/members/:targetUserId/role", groupManagementController.updateMemberRole);
+
+// Group Settings
+app.patch("/conversations/:conversationId/settings", groupManagementController.updateGroupSettings);
+
+// Kick & Ban Members
+app.delete("/conversations/:conversationId/members/:targetUserId/kick", groupManagementController.kickMember);
+app.post("/conversations/:conversationId/members/:targetUserId/ban", groupManagementController.banMember);
+app.delete("/conversations/:conversationId/members/:targetUserId/ban", groupManagementController.unbanMember);
+
+// Invite Links
+app.post("/conversations/:conversationId/invite-links", groupManagementController.createInviteLink);
+app.get("/conversations/:conversationId/invite-links", groupManagementController.getInviteLinks);
+app.delete("/invite-links/:linkId", groupManagementController.revokeInviteLink);
+app.post("/join-via-invite", groupManagementController.joinViaInviteLink);
+
+// Join Requests
+app.post("/conversations/:conversationId/join-requests", groupManagementController.createJoinRequest);
+app.get("/conversations/:conversationId/join-requests", groupManagementController.getJoinRequests);
+app.post("/join-requests/:requestId/respond", groupManagementController.respondToJoinRequest);
+
+// Pinned Messages
+app.post("/conversations/:conversationId/messages/:messageId/pin", groupManagementController.pinMessage);
+app.delete("/conversations/:conversationId/messages/:messageId/pin", groupManagementController.unpinMessage);
+app.get("/conversations/:conversationId/pinned-messages", groupManagementController.getPinnedMessages);
+
+// Announcements
+app.post("/conversations/:conversationId/announcements", groupManagementController.sendAnnouncement);
+app.get("/conversations/:conversationId/announcements", groupManagementController.getAnnouncements);
+
+// Member List
+app.get("/conversations/:conversationId/members", groupManagementController.getGroupMembers);
+app.get("/conversations/:conversationId/banned-members", groupManagementController.getBannedMembers);
+
+// ==================== GROUP DISCOVERY ====================
+
+// Discover Groups
+app.get("/groups/discover", groupDiscoveryController.discoverGroupsHandler);
+app.get("/groups/search", groupDiscoveryController.searchGroupsHandler);
 
 export default app;

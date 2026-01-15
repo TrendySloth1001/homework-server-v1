@@ -489,6 +489,15 @@ model User {
   messagesSeen  MessageSeen[]          @relation("UserSeenMessages")
   messageReactions MessageReaction[]  @relation("UserMessageReactions")
   starredMessages StarredMessage[]   @relation("UserStarredMessages")
+  pollsCreated  Poll[]         @relation("PollCreator")
+  pollVotes     PollVote[]     @relation("UserPollVotes")
+  stickerPacks  StickerPack[]  @relation("StickerPackCreator")
+  sharedContacts SharedContact[] @relation("SharedContactUser")
+  inviteLinksCreated GroupInviteLink[] @relation("InviteLinksCreated")
+  joinRequestsSent GroupJoinRequest[] @relation("JoinRequestsSent")
+  joinRequestsResponded GroupJoinRequest[] @relation("JoinRequestsResponded")
+  pinnedMessages PinnedMessage[] @relation("PinnedMessagesBy")
+  bannedMembers ChatConversationMember[] @relation("BannedBy")
 
   // Indexes for performance
   @@index([email])
@@ -849,28 +858,99 @@ model ChatConversation {
   id          String                @id @default(uuid())
   name        String?
   avatarUrl   String?               // Group avatar image URL
+  description String?               // Group description
+  rules       String?               // Group rules
   isGroup     Boolean               @default(false)
   createdBy   String
+  
+  // Group settings
+  adminOnlyMessaging Boolean       @default(false)  // Only admins can send messages
+  approvalRequired   Boolean       @default(false)  // Require approval to join
+  allowMemberInvite  Boolean       @default(true)   // Members can invite others
+  allowMemberSettings Boolean      @default(false)  // Members can change group settings
+  
   creator     User                  @relation("ConversationsCreated", fields: [createdBy], references: [id])
   members     ChatConversationMember[]
   messages    Message[]
+  pinnedMessages PinnedMessage[]
+  inviteLinks GroupInviteLink[]
+  joinRequests GroupJoinRequest[]
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
   
   @@index([isGroup, createdBy])
 }
 
+model GroupInviteLink {
+  id             String           @id @default(uuid())
+  conversationId String
+  code           String           @unique  // Invite code
+  createdBy      String
+  maxUses        Int?             // Null = unlimited
+  usedCount      Int              @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean          @default(true)
+  
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  creator        User             @relation("InviteLinksCreated", fields: [createdBy], references: [id])
+  createdAt      DateTime         @default(now())
+  
+  @@index([code])
+  @@index([conversationId])
+}
+
+model GroupJoinRequest {
+  id             String           @id @default(uuid())
+  conversationId String
+  userId         String
+  status         String           @default("pending")  // pending, approved, rejected
+  message        String?          // Optional message from user
+  respondedBy    String?
+  respondedAt    DateTime?
+  
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation("JoinRequestsSent", fields: [userId], references: [id])
+  responder      User?            @relation("JoinRequestsResponded", fields: [respondedBy], references: [id])
+  createdAt      DateTime         @default(now())
+  
+  @@unique([conversationId, userId])
+  @@index([conversationId, status])
+}
+
+model PinnedMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  messageId      String
+  pinnedBy       String
+  
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user           User             @relation("PinnedMessagesBy", fields: [pinnedBy], references: [id])
+  pinnedAt       DateTime         @default(now())
+  
+  @@unique([conversationId, messageId])
+  @@index([conversationId])
+}
+
 model ChatConversationMember {
   id              String       @id @default(uuid())
   conversationId  String
   userId          String
+  role            String       @default("member")  // admin, moderator, member
+  isBanned        Boolean      @default(false)
+  bannedAt        DateTime?
+  bannedBy        String?
+  banReason       String?
+  
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id])
+  banner          User?        @relation("BannedBy", fields: [bannedBy], references: [id])
   joinedAt        DateTime     @default(now())
   isPinned        Boolean      @default(false)
   lastRead        DateTime?
 
   @@unique([conversationId, userId])
+  @@index([conversationId, role])
 }
 
 model Message {
@@ -878,7 +958,7 @@ model Message {
   conversationId  String
   userId          String
   content         String
-  messageType     String?      @default("user") // user, system_user_joined, system_user_left, system_group_created
+  messageType     String?      @default("user") // user, system_user_joined, system_user_left, system_group_created, announcement
   mediaUrl        String?      // Deprecated: kept for backward compatibility, use mediaUrls
   mediaType       String?      // Deprecated: kept for backward compatibility, use mediaTypes
   mediaUrls       Json?        // Array of media URLs for multiple attachments
@@ -891,6 +971,7 @@ model Message {
   deletedFor      Json?        // Array of userIds who deleted this message for themselves
   deletedForEveryone Boolean   @default(false)
   mentions        Json?        // Array of userIds mentioned in this message
+  isAnnouncement  Boolean      @default(false)  // Mark as announcement
   
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id])
@@ -898,10 +979,102 @@ model Message {
   reactions       MessageReaction[]
   edits           MessageEdit[]
   starredBy       StarredMessage[]
+  pinnedIn        PinnedMessage[]
   replyToMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies         Message[]    @relation("MessageReplies")
+  linkPreview     LinkPreview?
+  poll            Poll?
+  sharedContact   SharedContact?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  
+  @@index([conversationId, isAnnouncement])
+}
+
+// ==================== ADVANCED FEATURES ====================
+
+model LinkPreview {
+  id          String   @id @default(uuid())
+  messageId   String   @unique
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  url         String
+  title       String?
+  description String?  @db.Text
+  image       String?
+  siteName    String?
+  createdAt   DateTime @default(now())
+
+  @@index([messageId])
+}
+
+model Poll {
+  id             String     @id @default(uuid())
+  messageId      String     @unique
+  message        Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  question       String
+  options        String[]   // Array of option texts
+  allowMultiple  Boolean    @default(false)
+  createdBy      String
+  creator        User       @relation("PollCreator", fields: [createdBy], references: [id])
+  expiresAt      DateTime?
+  votes          PollVote[]
+  createdAt      DateTime   @default(now())
+
+  @@index([messageId])
+  @@index([createdBy])
+}
+
+model PollVote {
+  id          String   @id @default(uuid())
+  pollId      String
+  poll        Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("UserPollVotes", fields: [userId], references: [id])
+  optionIndex Int      // Index of the selected option
+  votedAt     DateTime @default(now())
+
+  @@unique([pollId, userId, optionIndex])  // Prevent duplicate votes on same option
+  @@index([pollId])
+  @@index([userId])
+}
+
+model StickerPack {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  emoji       String?   // Emoji representation of the pack
+  isPublic    Boolean   @default(true)
+  createdBy   String
+  creator     User      @relation("StickerPackCreator", fields: [createdBy], references: [id])
+  stickers    Sticker[]
+  createdAt   DateTime  @default(now())
+
+  @@index([createdBy])
+  @@index([isPublic])
+}
+
+model Sticker {
+  id        String      @id @default(uuid())
+  packId    String
+  pack      StickerPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  imageUrl  String      // URL to the sticker image
+  emoji     String?     // Emoji tag for search
+  tags      String[]    // Search tags
+  createdAt DateTime    @default(now())
+
+  @@index([packId])
+}
+
+model SharedContact {
+  id            String   @id @default(uuid())
+  messageId     String   @unique
+  message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  contactUserId String
+  contact       User     @relation("SharedContactUser", fields: [contactUserId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([messageId])
+  @@index([contactUserId])
 }
 
 model MessageReaction {
