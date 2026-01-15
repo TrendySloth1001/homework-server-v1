@@ -14,7 +14,7 @@ export const sendMessage = async ({
   content: string;
   replyToId?: string;
 }) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -70,6 +70,8 @@ export const sendMessage = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    messageType: message.messageType,
+    isAnnouncement: message.isAnnouncement,
     isEdited: message.isEdited,
     editedAt: message.editedAt?.toISOString(),
     deletedForEveryone: message.deletedForEveryone,
@@ -98,9 +100,9 @@ export const getMessages = async ({
   conversationId: string;
   userId: string;
   limit?: number;
-  before?: string; 
+  before?: string;
 }) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -187,6 +189,8 @@ export const getMessages = async ({
     seenByMap.get(seen.messageId)!.push({
       userId: seen.userId,
       username: seen.user.username,
+      displayName: seen.user.displayName,
+      avatarUrl: seen.user.avatarUrl,
       seenAt: seen.seenAt.toISOString(),
     });
   });
@@ -206,6 +210,8 @@ export const getMessages = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    messageType: message.messageType,
+    isAnnouncement: message.isAnnouncement,
     mediaUrls: message.mediaUrls as string[] | undefined,
     mediaTypes: message.mediaTypes as string[] | undefined,
     isEdited: message.isEdited,
@@ -269,7 +275,7 @@ export const getMessages = async ({
 };
 
 export const markMessageSeen = async (messageId: string, userId: string) => {
-  
+
   const message = await prisma.message.findUnique({
     where: { id: messageId },
     include: {
@@ -361,7 +367,7 @@ export const uploadMedia = async (file: {
   try {
     // Upload to S3/MinIO with organized structure
     const result = await s3Service.uploadFile(file, 'media', conversationId, messageId);
-    
+
     return {
       url: result.url,
       filename: file.originalname,
@@ -393,7 +399,7 @@ export const sendMediaMessage = async ({
   mediaTypes?: string[];
   replyToId?: string;
 }) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -451,6 +457,8 @@ export const sendMediaMessage = async ({
     content: message.content,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
+    messageType: message.messageType,
+    isAnnouncement: message.isAnnouncement,
     mediaUrls: message.mediaUrls as string[] | undefined,
     mediaTypes: message.mediaTypes as string[] | undefined,
     isEdited: message.isEdited,
@@ -483,7 +491,7 @@ export const searchMessages = async ({
   query: string;
   limit?: number;
 }) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -491,7 +499,7 @@ export const searchMessages = async ({
 
   const messages = await prisma.message.findMany({
     where: {
-      conversationId, 
+      conversationId,
       content: {
         contains: query,
       },

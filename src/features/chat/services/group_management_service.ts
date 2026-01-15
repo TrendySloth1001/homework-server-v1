@@ -470,7 +470,7 @@ export const createJoinRequest = async (
   // If user is the creator, add them directly as admin
   if (conversation.createdBy === userId) {
     console.log('[createJoinRequest] User is the creator - adding as admin directly');
-    
+
     const existingMember = await prisma.chatConversationMember.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
@@ -500,7 +500,7 @@ export const createJoinRequest = async (
     });
 
     console.log('[createJoinRequest] Creator added as admin successfully');
-    
+
     // Fetch full conversation details to broadcast via WebSocket
     const fullConversation = await prisma.chatConversation.findUnique({
       where: { id: conversationId },
@@ -533,7 +533,7 @@ export const createJoinRequest = async (
     if (fullConversation) {
       wsManager.broadcastNewConversation(fullConversation, userId);
     }
-    
+
     return {
       id: 'creator-join',
       conversationId,
@@ -549,7 +549,7 @@ export const createJoinRequest = async (
   // If group doesn't require approval, directly add user as member
   if (!conversation.approvalRequired) {
     console.log('[createJoinRequest] Public group detected - adding user as member directly');
-    
+
     const existingMember = await prisma.chatConversationMember.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
@@ -578,7 +578,7 @@ export const createJoinRequest = async (
     });
 
     console.log('[createJoinRequest] User added to public group successfully');
-    
+
     // Fetch full conversation details to broadcast via WebSocket
     const fullConversation = await prisma.chatConversation.findUnique({
       where: { id: conversationId },
@@ -611,7 +611,7 @@ export const createJoinRequest = async (
     if (fullConversation) {
       wsManager.broadcastNewConversation(fullConversation, userId);
     }
-    
+
     return {
       id: 'direct-join',
       conversationId,
@@ -698,7 +698,7 @@ export const createJoinRequest = async (
 
 export const getJoinRequests = async (conversationId: string, userId: string) => {
   console.log("🔍 getJoinRequests called with:", { conversationId, userId });
-  
+
   // Check if user is creator
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
@@ -948,12 +948,19 @@ export const sendAnnouncement = async (
   userId: string,
   content: string
 ) => {
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: { createdBy: true },
+  });
+
+  const isCreator = conversation?.createdBy === userId;
+
   const member = await prisma.chatConversationMember.findUnique({
     where: { conversationId_userId: { conversationId, userId } },
   });
 
-  if (!member || (member.role !== "admin" && member.role !== "moderator")) {
-    throw new Error("Only admins and moderators can send announcements");
+  if (!isCreator && (!member || (member.role !== "admin" && member.role !== "moderator"))) {
+    throw new Error("Only the creator, admins and moderators can send announcements");
   }
 
   const announcement = await prisma.message.create({
