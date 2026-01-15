@@ -498,12 +498,32 @@ export const createJoinRequest = async (
 };
 
 export const getJoinRequests = async (conversationId: string, userId: string) => {
-  const member = await prisma.chatConversationMember.findUnique({
-    where: { conversationId_userId: { conversationId, userId } },
+  console.log("🔍 getJoinRequests called with:", { conversationId, userId });
+  
+  // Check if user is creator
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: { createdBy: true },
   });
 
-  if (!member || (member.role !== "admin" && member.role !== "moderator")) {
-    throw new Error("Only admins and moderators can view join requests");
+  console.log("📌 Conversation found:", conversation);
+  const isCreator = conversation?.createdBy === userId;
+  console.log("👤 Is creator?", isCreator);
+
+  if (!isCreator) {
+    const member = await prisma.chatConversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    });
+
+    console.log("👥 Member record:", member);
+
+    if (!member || (member.role !== "admin" && member.role !== "moderator")) {
+      console.log("❌ Permission denied - not creator, admin, or moderator");
+      throw new Error("Only the creator, admins and moderators can view join requests");
+    }
+    console.log("✅ Permission granted - user is admin/moderator");
+  } else {
+    console.log("✅ Permission granted - user is creator");
   }
 
   const requests = await prisma.groupJoinRequest.findMany({
@@ -537,17 +557,27 @@ export const respondToJoinRequest = async (
     throw new Error("This request has already been responded to");
   }
 
-  const member = await prisma.chatConversationMember.findUnique({
-    where: {
-      conversationId_userId: {
-        conversationId: request.conversationId,
-        userId: respondedBy,
-      },
-    },
+  // Check if user is creator
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: request.conversationId },
+    select: { createdBy: true },
   });
 
-  if (!member || (member.role !== "admin" && member.role !== "moderator")) {
-    throw new Error("Only admins and moderators can respond to join requests");
+  const isCreator = conversation?.createdBy === respondedBy;
+
+  if (!isCreator) {
+    const member = await prisma.chatConversationMember.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId: request.conversationId,
+          userId: respondedBy,
+        },
+      },
+    });
+
+    if (!member || (member.role !== "admin" && member.role !== "moderator")) {
+      throw new Error("Only the creator, admins and moderators can respond to join requests");
+    }
   }
 
   const updatedRequest = await prisma.groupJoinRequest.update({
@@ -591,12 +621,22 @@ export const pinMessage = async (
   messageId: string,
   pinnedBy: string
 ) => {
-  const member = await prisma.chatConversationMember.findUnique({
-    where: { conversationId_userId: { conversationId, userId: pinnedBy } },
+  // Check if user is creator
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: { createdBy: true },
   });
 
-  if (!member || (member.role !== "admin" && member.role !== "moderator")) {
-    throw new Error("Only admins and moderators can pin messages");
+  const isCreator = conversation?.createdBy === pinnedBy;
+
+  if (!isCreator) {
+    const member = await prisma.chatConversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId: pinnedBy } },
+    });
+
+    if (!member || (member.role !== "admin" && member.role !== "moderator")) {
+      throw new Error("Only the creator, admins and moderators can pin messages");
+    }
   }
 
   const message = await prisma.message.findUnique({
@@ -640,12 +680,22 @@ export const unpinMessage = async (
   messageId: string,
   userId: string
 ) => {
-  const member = await prisma.chatConversationMember.findUnique({
-    where: { conversationId_userId: { conversationId, userId } },
+  // Check if user is creator
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: { createdBy: true },
   });
 
-  if (!member || (member.role !== "admin" && member.role !== "moderator")) {
-    throw new Error("Only admins and moderators can unpin messages");
+  const isCreator = conversation?.createdBy === userId;
+
+  if (!isCreator) {
+    const member = await prisma.chatConversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    });
+
+    if (!member || (member.role !== "admin" && member.role !== "moderator")) {
+      throw new Error("Only the creator, admins and moderators can unpin messages");
+    }
   }
 
   const pinnedMessage = await prisma.pinnedMessage.findUnique({

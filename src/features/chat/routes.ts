@@ -6,6 +6,7 @@ import * as presenceController from "./controllers/presence.controller";
 import * as messageActionsController from "./controllers/message_actions.controller";
 import * as groupManagementController from "./controllers/group_management.controller";
 import * as groupDiscoveryController from "./controllers/group_discovery_controller";
+import * as pollController from "./controllers/poll.controller";
 import * as utilityService from "./services/utility_service";
 import { authenticateToken } from "../auth/middleware/auth.middleware";
 
@@ -226,11 +227,16 @@ app.get("/conversations/:conversationId/pinned-messages", groupManagementControl
 app.post("/conversations/:conversationId/announcements", groupManagementController.sendAnnouncement);
 app.get("/conversations/:conversationId/announcements", groupManagementController.getAnnouncements);
 
+// Polls
+app.post("/polls", pollController.createPoll);
+app.get("/polls/:pollId", pollController.getPoll);
+app.post("/polls/:pollId/vote", pollController.votePoll);
+app.delete("/polls/:pollId", pollController.deletePoll);
+
 // Member List
 app.get("/conversations/:conversationId/members", groupManagementController.getGroupMembers);
 app.get("/conversations/:conversationId/banned-members", groupManagementController.getBannedMembers);
 
-// ==================== GROUP DISCOVERY ====================
 
 // Discover Groups
 app.get("/groups/discover", groupDiscoveryController.discoverGroupsHandler);

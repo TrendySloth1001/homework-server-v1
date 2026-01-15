@@ -27,12 +27,7 @@ export const discoverGroups = async (
 ): Promise<DiscoverableGroup[]> => {
   // Build where clause
   const whereClause: any = {
-    isGroup: true,
-    // Only show groups that don't require approval OR are public
-    OR: [
-      { approvalRequired: false },
-      { approvalRequired: true } // We'll filter by membership later
-    ]
+    isGroup: true
   };
 
   // Add search filter
@@ -46,6 +41,9 @@ export const discoverGroups = async (
       }
     ];
   }
+
+  console.log('[discoverGroups] WHERE clause:', JSON.stringify(whereClause, null, 2));
+  console.log('[discoverGroups] Category filter:', category);
 
   // Fetch groups with member count
   const groups = await prisma.chatConversation.findMany({
@@ -84,16 +82,22 @@ export const discoverGroups = async (
     ]
   });
 
+  console.log('[discoverGroups] Found', groups.length, 'total groups in database');
+
   // Filter by category if specified
   let filteredGroups = groups;
   if (category === 'teachers') {
     // Filter groups created by teachers
-    const teacherIds = await prisma.teacherProfile.findMany({
+    const teacherIds = await prisma.teacher.findMany({
       select: { userId: true }
     });
+    console.log('[discoverGroups] Found', teacherIds.length, 'teachers');
     const teacherUserIds = new Set(teacherIds.map(t => t.userId));
     filteredGroups = groups.filter(g => teacherUserIds.has(g.createdBy));
+    console.log('[discoverGroups] After teacher filter:', filteredGroups.length, 'groups');
   }
+
+  console.log('[discoverGroups] Returning', filteredGroups.length, 'groups');
 
   // Map to discoverable format
   return filteredGroups.map(group => {

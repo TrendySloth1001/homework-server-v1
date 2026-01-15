@@ -696,12 +696,13 @@ export const createGroupConversation = async ({
     },
   });
 
-  // Add all members including creator
+  // Add all members including creator (creator gets admin role)
   const uniqueMemberIds = Array.from(new Set([creatorId, ...memberIds]));
   await prisma.chatConversationMember.createMany({
     data: uniqueMemberIds.map((userId) => ({
       conversationId: conversation.id,
       userId,
+      role: userId === creatorId ? "admin" : "member",
     })),
   });
 

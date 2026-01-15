@@ -146,6 +146,28 @@ export const getMessages = async ({
           userId: userId,
         },
       },
+      poll: {
+        include: {
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+          votes: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -224,6 +246,25 @@ export const getMessages = async ({
         displayName: message.replyToMessage.user.displayName,
       },
     } : null,
+    poll: message.poll ? {
+      id: message.poll.id,
+      messageId: message.poll.messageId,
+      question: message.poll.question,
+      options: message.poll.options,
+      allowMultiple: message.poll.allowMultiple,
+      createdBy: message.poll.createdBy,
+      creator: message.poll.creator,
+      expiresAt: message.poll.expiresAt?.toISOString(),
+      votes: message.poll.votes.map(v => ({
+        id: v.id,
+        pollId: v.pollId,
+        userId: v.userId,
+        user: v.user,
+        optionIndex: v.optionIndex,
+        votedAt: v.votedAt.toISOString(),
+      })),
+      createdAt: message.poll.createdAt.toISOString(),
+    } : undefined,
   }));
 };
 
@@ -267,8 +308,16 @@ export const markMessageSeen = async (messageId: string, userId: string) => {
     return { success: true, alreadySeen: true };
   }
 
-  await prisma.messageSeen.create({
-    data: {
+  // Use upsert to avoid unique constraint errors in race conditions
+  await prisma.messageSeen.upsert({
+    where: {
+      messageId_userId: {
+        messageId,
+        userId,
+      },
+    },
+    update: {},
+    create: {
       messageId,
       userId,
     },

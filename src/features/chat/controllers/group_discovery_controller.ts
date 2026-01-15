@@ -7,6 +7,9 @@ export const discoverGroupsHandler = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const { category, search, limit = 20, offset = 0 } = req.query;
 
+    console.log('[discoverGroups] Request from userId:', userId);
+    console.log('[discoverGroups] Query params:', { category, search, limit, offset });
+
     const groups = await discoverGroups(
       userId,
       category as string | undefined,
@@ -15,6 +18,7 @@ export const discoverGroupsHandler = async (req: Request, res: Response) => {
       parseInt(offset as string)
     );
 
+    console.log('[discoverGroups] Found', groups.length, 'groups');
     res.json(groups);
   } catch (error: any) {
     console.error('[discoverGroups] Error:', error);
