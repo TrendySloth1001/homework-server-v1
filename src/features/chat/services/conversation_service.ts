@@ -23,7 +23,7 @@ export const createConversation = async ({
   memberIds: string[];
   isGroup?: boolean;
 }) => {
-  
+
   const creator = await prisma.user.findUnique({ where: { id: creatorId } });
   if (!creator) {
     throw new Error("Creator not found");
@@ -49,6 +49,7 @@ export const createConversation = async ({
     data: uniqueMemberIds.map((userId) => ({
       conversationId: conversation.id,
       userId,
+      role: isGroup && userId === creatorId ? 'admin' : 'member',
     })),
   });
 
@@ -90,11 +91,11 @@ export const getUserConversations = async (userId: string) => {
   const conversationsWithUnread = await Promise.all(
     conversations.map(async (conv) => {
       const currentUserMember = conv.members.find(m => m.userId === userId);
-      
+
       // Calculate unread count for this conversation
       const unreadCount = await getUnreadCount(userId, conv.id);
       console.log('[getUserConversations] Conversation:', conv.id, 'Unread:', unreadCount);
-      
+
       return {
         id: conv.id,
         name: conv.name,
@@ -116,7 +117,7 @@ export const getUserConversations = async (userId: string) => {
 };
 
 export const getConversationById = async (conversationId: string, userId: string) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -182,7 +183,7 @@ export const getPublicGroupInfo = async (conversationId: string) => {
 };
 
 export const checkOrCreateOneToOne = async (userId1: string, userId2: string) => {
-  
+
   const users = await prisma.user.findMany({
     where: { id: { in: [userId1, userId2] } },
   });
@@ -192,15 +193,15 @@ export const checkOrCreateOneToOne = async (userId1: string, userId2: string) =>
 
   // Sort user IDs to ensure consistent lock order (prevent deadlocks)
   const [userA, userB] = [userId1, userId2].sort();
-  
+
   // Use advisory lock to prevent race conditions
   // Lock key is a hash of the two user IDs
   const lockKey = Math.abs(hashCode(`${userA}-${userB}`));
-  
+
   return await prisma.$transaction(async (tx) => {
     // Acquire advisory lock (PostgreSQL specific)
     await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${lockKey})`);
-    
+
     // Check for existing conversation inside transaction
     const existingConversation = await tx.chatConversation.findFirst({
       where: {
@@ -254,7 +255,7 @@ export const checkOrCreateOneToOne = async (userId1: string, userId2: string) =>
 };
 
 export const addMembers = async (conversationId: string, userIds: string[], requesterId: string) => {
-  
+
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
   });
@@ -264,7 +265,7 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
   }
 
   if (!conversation.isGroup) {
-    throw new Error("Cannot add members to one-to-one conversation"); 
+    throw new Error("Cannot add members to one-to-one conversation");
   }
 
   // Only the creator can add members
@@ -290,7 +291,7 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
   const newUserIds = userIds.filter((id) => !existingUserIds.has(id));
 
   if (newUserIds.length === 0) {
-    return []; 
+    return [];
   }
 
   const added = await prisma.chatConversationMember.createMany({
@@ -326,7 +327,7 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
 };
 
 export const removeMember = async (conversationId: string, userId: string, requesterId: string) => {
-  
+
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
   });
@@ -378,7 +379,7 @@ export const removeMember = async (conversationId: string, userId: string, reque
 };
 
 export const updateGroupName = async (conversationId: string, newName: string, requesterId: string) => {
-  
+
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
   });
@@ -409,7 +410,7 @@ export const updateGroupName = async (conversationId: string, newName: string, r
 };
 
 export const updateGroupAvatar = async (conversationId: string, avatarUrl: string, requesterId: string) => {
-  
+
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
   });
@@ -440,14 +441,14 @@ export const updateGroupAvatar = async (conversationId: string, avatarUrl: strin
 };
 
 export const getConversationMembers = async (conversationId: string, requesterId: string) => {
-  
+
   const isMember = await isUserInConversation(conversationId, requesterId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
   }
 
   const members = await prisma.chatConversationMember.findMany({
-    where: { 
+    where: {
       conversationId,
       isBanned: false  // Don't show banned members in mentions
     },
@@ -470,14 +471,14 @@ export const getConversationMembers = async (conversationId: string, requesterId
 
 export const getUnreadCount = async (userId: string, conversationId?: string) => {
   console.log('[getUnreadCount] Called with:', { userId, conversationId });
-  
+
   const where: any = {
     conversation: {
       members: {
         some: { userId },
       },
     },
-    userId: { not: userId }, 
+    userId: { not: userId },
   };
 
   if (conversationId) {
@@ -516,7 +517,7 @@ export const getUnreadCount = async (userId: string, conversationId?: string) =>
 };
 
 export const clearConversation = async (conversationId: string, userId: string) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");
@@ -537,47 +538,47 @@ export const clearConversation = async (conversationId: string, userId: string) 
   return { success: true };
 };
 
-  export const leaveGroup = async (conversationId: string, userId: string) => {
-    
-    const conversation = await prisma.chatConversation.findUnique({
+export const leaveGroup = async (conversationId: string, userId: string) => {
+
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      members: true,
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (!conversation.isGroup) {
+    throw new Error("Cannot leave one-to-one conversation");
+  }
+
+  await prisma.chatConversationMember.delete({
+    where: {
+      conversationId_userId: {
+        conversationId,
+        userId,
+      },
+    },
+  });
+
+  const remainingMembers = await prisma.chatConversationMember.count({
+    where: { conversationId },
+  });
+
+  if (remainingMembers === 0) {
+    await prisma.chatConversation.delete({
       where: { id: conversationId },
-      include: {
-        members: true,
-      },
     });
-  
-    if (!conversation) {
-      throw new Error("Conversation not found");
-    }
-  
-    if (!conversation.isGroup) {
-      throw new Error("Cannot leave one-to-one conversation");
-    }
+  }
 
-    await prisma.chatConversationMember.delete({
-      where: {
-        conversationId_userId: {
-          conversationId,
-          userId,
-        },
-      },
-    });
-
-    const remainingMembers = await prisma.chatConversationMember.count({
-      where: { conversationId },
-    });
-  
-    if (remainingMembers === 0) {
-      await prisma.chatConversation.delete({
-        where: { id: conversationId },
-      });
-    }
-  
-    return { success: true };
-  };
+  return { success: true };
+};
 
 export const pinConversation = async (conversationId: string, userId: string, isPinned: boolean) => {
-  
+
   const isMember = await isUserInConversation(conversationId, userId);
   if (!isMember) {
     throw new Error("User is not a member of this conversation");

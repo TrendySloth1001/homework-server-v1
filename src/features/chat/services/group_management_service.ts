@@ -10,13 +10,16 @@ export const updateMemberRole = async (
   newRole: "admin" | "moderator" | "member",
   requestingUserId: string
 ) => {
-  // Check if requesting user is admin
+  // Check if requesting user is admin OR creator
   const requestingMember = await prisma.chatConversationMember.findUnique({
     where: { conversationId_userId: { conversationId, userId: requestingUserId } },
+    include: { conversation: true },
   });
 
-  if (!requestingMember || requestingMember.role !== "admin") {
-    throw new Error("Only admins can change member roles");
+  // Verify group exists (implicitly done via member check, but good to be safe)
+  // If member not found, check if they are creator (though unlikely to not be member)
+  if (!requestingMember || (requestingMember.role !== "admin" && requestingMember.conversation.createdBy !== requestingUserId)) {
+    throw new Error("Only admins or the group creator can change member roles");
   }
 
   // Check conversation exists and is a group
