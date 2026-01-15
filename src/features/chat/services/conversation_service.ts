@@ -447,7 +447,10 @@ export const getConversationMembers = async (conversationId: string, requesterId
   }
 
   const members = await prisma.chatConversationMember.findMany({
-    where: { conversationId },
+    where: { 
+      conversationId,
+      isBanned: false  // Don't show banned members in mentions
+    },
     include: {
       user: true,
     },
@@ -458,6 +461,9 @@ export const getConversationMembers = async (conversationId: string, requesterId
     id: member.id,
     userId: member.userId,
     username: member.user.username,
+    displayName: member.user.displayName,
+    avatarUrl: member.user.avatarUrl,
+    role: member.role,
     joinedAt: member.joinedAt.toISOString(),
   }));
 };

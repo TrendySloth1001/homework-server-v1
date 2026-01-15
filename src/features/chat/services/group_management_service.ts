@@ -1,5 +1,6 @@
 import { prisma } from "../../../shared/lib/prisma";
 import crypto from "crypto";
+import { wsManager } from './websocket_service';
 
 // ==================== ADMIN ROLES & PERMISSIONS ====================
 
@@ -457,12 +458,92 @@ export const createJoinRequest = async (
   console.log('[createJoinRequest] Conversation settings:', {
     id: conversationId,
     isGroup: conversation?.isGroup,
-    approvalRequired: conversation?.approvalRequired
+    approvalRequired: conversation?.approvalRequired,
+    createdBy: conversation?.createdBy
   });
 
   if (!conversation || !conversation.isGroup) {
     console.log('[createJoinRequest] ERROR: Group not found');
     throw new Error("Group not found");
+  }
+
+  // If user is the creator, add them directly as admin
+  if (conversation.createdBy === userId) {
+    console.log('[createJoinRequest] User is the creator - adding as admin directly');
+    
+    const existingMember = await prisma.chatConversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    });
+
+    if (existingMember) {
+      console.log('[createJoinRequest] Creator is already a member');
+      throw new Error("You are already a member");
+    }
+
+    // Delete any existing join requests (shouldn't exist, but clean up if they do)
+    await prisma.groupJoinRequest.deleteMany({
+      where: { conversationId, userId }
+    });
+
+    // Add creator as admin member
+    const newMember = await prisma.chatConversationMember.create({
+      data: {
+        conversationId,
+        userId,
+        role: 'admin'
+      },
+      include: {
+        user: {
+          select: { id: true, displayName: true, avatarUrl: true, username: true }
+        }
+      }
+    });
+
+    console.log('[createJoinRequest] Creator added as admin successfully');
+    
+    // Fetch full conversation details to broadcast via WebSocket
+    const fullConversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                avatarUrl: true,
+                username: true,
+                isOnline: true,
+                lastActiveAt: true
+              }
+            }
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+
+    // Broadcast new conversation to the creator via WebSocket
+    if (fullConversation) {
+      wsManager.broadcastNewConversation(fullConversation, userId);
+    }
+    
+    return {
+      id: 'creator-join',
+      conversationId,
+      userId,
+      status: 'approved',
+      requiresApproval: false,
+      message: 'Creator added as admin',
+      user: newMember.user,
+      createdAt: new Date()
+    };
   }
 
   // If group doesn't require approval, directly add user as member
@@ -497,11 +578,46 @@ export const createJoinRequest = async (
     });
 
     console.log('[createJoinRequest] User added to public group successfully');
+    
+    // Fetch full conversation details to broadcast via WebSocket
+    const fullConversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                avatarUrl: true,
+                username: true,
+                isOnline: true,
+                lastActiveAt: true
+              }
+            }
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+
+    // Broadcast new conversation to the user who joined via WebSocket
+    if (fullConversation) {
+      wsManager.broadcastNewConversation(fullConversation, userId);
+    }
+    
     return {
       id: 'direct-join',
       conversationId,
       userId,
       status: 'approved',
+      requiresApproval: false,
       message: 'Joined public group directly',
       user: newMember.user,
       createdAt: new Date()
@@ -573,7 +689,11 @@ export const createJoinRequest = async (
     },
   });
 
-  return request;
+  console.log('[createJoinRequest] Join request created successfully, requires approval');
+  return {
+    ...request,
+    requiresApproval: true
+  };
 };
 
 export const getJoinRequests = async (conversationId: string, userId: string) => {
