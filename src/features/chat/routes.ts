@@ -125,6 +125,8 @@ app.get("/users/:userId", async (req, res) => {
 
 app.post("/conversations", conversationController.createConversation);
 
+app.get("/conversations/:conversationId/public", conversationController.getPublicGroupInfo);
+
 app.get("/conversations/:conversationId", conversationController.getConversationById);
 
 app.post("/conversations/one-to-one", conversationController.checkOrCreateOneToOne);

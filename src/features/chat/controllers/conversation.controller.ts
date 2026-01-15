@@ -65,6 +65,19 @@ export const getConversationById = async (req: Request, res: Response) => {
   }
 };
 
+export const getPublicGroupInfo = async (req: Request, res: Response) => {
+  try {
+    console.log('[getPublicGroupInfo Controller] Hit! conversationId:', req.params.conversationId);
+    const conversationId = req.params.conversationId!;
+    const groupInfo = await conversationService.getPublicGroupInfo(conversationId);
+    console.log('[getPublicGroupInfo Controller] Success:', groupInfo);
+    return res.json(groupInfo);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch group info";
+    return res.status(404).json({ error: message });
+  }
+};
+
 export const checkOrCreateOneToOne = async (req: Request, res: Response) => {
   try {
     const userId1 = (req as any).user?.userId; // Current user from JWT

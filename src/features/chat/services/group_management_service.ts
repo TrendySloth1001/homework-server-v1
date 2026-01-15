@@ -454,32 +454,111 @@ export const createJoinRequest = async (
     where: { id: conversationId },
   });
 
+  console.log('[createJoinRequest] Conversation settings:', {
+    id: conversationId,
+    isGroup: conversation?.isGroup,
+    approvalRequired: conversation?.approvalRequired
+  });
+
   if (!conversation || !conversation.isGroup) {
+    console.log('[createJoinRequest] ERROR: Group not found');
     throw new Error("Group not found");
   }
 
+  // If group doesn't require approval, directly add user as member
   if (!conversation.approvalRequired) {
-    throw new Error("This group does not require approval to join");
+    console.log('[createJoinRequest] Public group detected - adding user as member directly');
+    
+    const existingMember = await prisma.chatConversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    });
+
+    if (existingMember) {
+      if (existingMember.isBanned) {
+        console.log('[createJoinRequest] ERROR: User is banned');
+        throw new Error("You are banned from this group");
+      }
+      console.log('[createJoinRequest] User already a member');
+      throw new Error("You are already a member");
+    }
+
+    // Add user directly to group
+    const newMember = await prisma.chatConversationMember.create({
+      data: {
+        conversationId,
+        userId,
+        role: 'member'
+      },
+      include: {
+        user: {
+          select: { id: true, displayName: true, avatarUrl: true, username: true }
+        }
+      }
+    });
+
+    console.log('[createJoinRequest] User added to public group successfully');
+    return {
+      id: 'direct-join',
+      conversationId,
+      userId,
+      status: 'approved',
+      message: 'Joined public group directly',
+      user: newMember.user,
+      createdAt: new Date()
+    };
   }
 
+  console.log('[createJoinRequest] Checking existing membership for userId:', userId);
   const existingMember = await prisma.chatConversationMember.findUnique({
     where: { conversationId_userId: { conversationId, userId } },
   });
 
+  console.log('[createJoinRequest] Existing member check result:', existingMember);
+
   if (existingMember) {
     if (existingMember.isBanned) {
+      console.log('[createJoinRequest] ERROR: User is banned');
       throw new Error("You are banned from this group");
     }
+    console.log('[createJoinRequest] ERROR: User is already a member');
     throw new Error("You are already a member");
   }
 
+  console.log('[createJoinRequest] Checking existing join request');
   const existingRequest = await prisma.groupJoinRequest.findUnique({
     where: { conversationId_userId: { conversationId, userId } },
   });
 
-  if (existingRequest && existingRequest.status === "pending") {
-    throw new Error("You already have a pending join request");
+  console.log('[createJoinRequest] Existing request check result:', existingRequest);
+
+  if (existingRequest) {
+    if (existingRequest.status === "pending") {
+      console.log('[createJoinRequest] ERROR: Pending join request already exists');
+      throw new Error("You already have a pending join request");
+    } else if (existingRequest.status === "approved") {
+      // If approved, user should be a member - delete stale request and add member
+      console.log('[createJoinRequest] Found approved request but user not a member - fixing data inconsistency');
+      await prisma.groupJoinRequest.delete({
+        where: { id: existingRequest.id }
+      });
+      await prisma.chatConversationMember.create({
+        data: {
+          conversationId,
+          userId,
+          role: 'member'
+        }
+      });
+      throw new Error("You are already a member");
+    } else if (existingRequest.status === "rejected") {
+      // Delete old rejected request and allow creating new one
+      console.log('[createJoinRequest] Deleting old rejected request');
+      await prisma.groupJoinRequest.delete({
+        where: { id: existingRequest.id }
+      });
+    }
   }
+
+  console.log('[createJoinRequest] All checks passed, creating join request');
 
   const request = await prisma.groupJoinRequest.create({
     data: {

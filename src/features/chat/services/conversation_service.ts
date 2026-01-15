@@ -139,6 +139,48 @@ export const getConversationById = async (conversationId: string, userId: string
   return conversation;
 };
 
+// Get public group info (for share previews) - no membership required
+export const getPublicGroupInfo = async (conversationId: string) => {
+  console.log('[getPublicGroupInfo] Called with conversationId:', conversationId);
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      members: {
+        select: {
+          userId: true,
+        },
+      },
+      creator: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (!conversation.isGroup) {
+    throw new Error("This endpoint is only for group conversations");
+  }
+
+  // Return basic group info without sensitive data
+  return {
+    id: conversation.id,
+    name: conversation.name,
+    isGroup: conversation.isGroup,
+    groupAvatar: conversation.avatarUrl,
+    memberCount: conversation.members.length,
+    createdBy: conversation.createdBy,
+    creator: conversation.creator,
+    createdAt: conversation.createdAt,
+  };
+};
+
 export const checkOrCreateOneToOne = async (userId1: string, userId2: string) => {
   
   const users = await prisma.user.findMany({

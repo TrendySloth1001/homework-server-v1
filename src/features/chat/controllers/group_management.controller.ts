@@ -277,8 +277,10 @@ export const createJoinRequest = async (req: Request, res: Response) => {
     return res.json(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create join request";
+    console.error('[createJoinRequest Controller] Error:', message);
     const status = message.includes("banned") || message.includes("already") ? 403 : 
                    message.includes("not found") || message.includes("does not require") ? 400 : 500;
+    console.log('[createJoinRequest Controller] Returning status:', status);
     return res.status(status).json({ error: message });
   }
 };
