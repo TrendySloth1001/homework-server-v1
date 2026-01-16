@@ -50,7 +50,7 @@ class QuizService {
       // Get conversation messages (last 20 for context)
       const allMessages = await conversationService.allMessages(conversationId);
       const messages = allMessages.slice(-20);
-      
+
       if (messages.length < 3) {
         throw new Error('Not enough conversation context to generate quiz');
       }
@@ -103,7 +103,7 @@ class QuizService {
 
       // Save questions to database
       const savedQuestions = await Promise.all(
-        questions.map(q => 
+        questions.map(q =>
           prisma.question.create({
             data: {
               questionText: q.questionText,
@@ -150,9 +150,9 @@ class QuizService {
         where: { id: conversationId },
         select: { teacherId: true, userId: true, studentId: true }
       });
-      
+
       const notificationUserId = conversation?.userId || conversation?.teacherId || conversation?.studentId;
-      
+
       // Fire notification if user exists
       if (notificationUserId) {
         try {
@@ -160,7 +160,10 @@ class QuizService {
           const notification = await createNotificationService({
             userId: notificationUserId,
             title: 'Quiz Ready!',
-            message: `Your ${topic} quiz with ${savedQuestions.length} questions is ready`
+            message: `Your ${topic} quiz with ${savedQuestions.length} questions is ready`,
+            type: 'success',
+            actionLabel: 'take Quiz',
+            actionLink: `/messages/${conversationId}`
           });
           console.log('[QuizService] ✅ Notification created successfully:', notification.id);
         } catch (error: any) {
@@ -431,7 +434,7 @@ class QuizService {
       const totalQuestions = quizzes.reduce((sum, q) => sum + q.totalQuestions, 0);
       const averageScore = quizzes.reduce((sum, q) => sum + (q.score || 0), 0) / totalQuizzes;
       const accuracyRate = Math.round((totalCorrect / totalQuestions) * 100);
-      
+
       // Performance trend (last 5 vs first 5)
       const recentScores = quizzes.slice(0, Math.min(5, totalQuizzes)).map(q => q.score || 0);
       const olderScores = quizzes.slice(-Math.min(5, totalQuizzes)).map(q => q.score || 0);
@@ -463,20 +466,20 @@ class QuizService {
         const totalQuestions = quiz.totalQuestions;
         const score = quiz.score || 0;
         const date = new Date(quiz.createdAt).toLocaleDateString();
-        
+
         // Show wrong answers with corrections
         const wrongAnswers = quiz.answers
           .filter((a: any) => !a.isCorrect)
           .slice(0, 3) // Max 3 wrong answers per quiz
-          .map((a: any) => 
+          .map((a: any) =>
             `      ❌ ${a.question?.questionText}\n         Your answer: ${a.userAnswer}\n         Correct: ${a.question?.correctAnswer}`
           )
           .join('\n');
-        
+
         return `  ${idx + 1}. Quiz: "${quiz.topic}" (${date})\n     Score: ${score}% (${correctCount}/${totalQuestions} correct)${wrongAnswers ? '\n     Mistakes:\n' + wrongAnswers : ''}`;
       }).join('\n\n');
 
-      return `\n\n╔══════════════════════════════════════════════════════════════╗\n║              COMPREHENSIVE QUIZ PERFORMANCE DATA             ║\n╚══════════════════════════════════════════════════════════════╝\n\n📊 OVERALL STATISTICS:\n  • Total Quizzes Taken: ${totalQuizzes}\n  • Total Questions Answered: ${totalQuestions}\n  • Overall Accuracy: ${accuracyRate}%\n  • Average Score: ${Math.round(averageScore)}%\n  • Performance Trend: ${trend}\n\n📈 DIFFICULTY BREAKDOWN:\n${difficultyBreakdown}\n\n📝 RECENT QUIZ HISTORY (Last 5):\n${quizSummaries}\n\n⚠️ CRITICAL INSTRUCTIONS FOR YOU:\n1. When asked about quiz performance, scores, or progress - YOU HAVE THIS EXACT DATA\n2. DO NOT say "I can't see your scores" or "I don't have access" - YOU DO!\n3. Reference specific numbers: "You've taken ${totalQuizzes} quizzes with ${accuracyRate}% accuracy"\n4. Mention the trend: "Your performance is ${trend.toLowerCase()}"\n5. Point out patterns: strengths in ${Object.entries(difficultyStats).sort((a, b) => (b[1].correct/b[1].total) - (a[1].correct/a[1].total))[0]?.[0] || 'certain areas'} difficulty\n6. For recent mistakes, give targeted advice based on the wrong answers shown above\n\n════════════════════════════════════════════════════════════════\n`;
+      return `\n\n╔══════════════════════════════════════════════════════════════╗\n║              COMPREHENSIVE QUIZ PERFORMANCE DATA             ║\n╚══════════════════════════════════════════════════════════════╝\n\n📊 OVERALL STATISTICS:\n  • Total Quizzes Taken: ${totalQuizzes}\n  • Total Questions Answered: ${totalQuestions}\n  • Overall Accuracy: ${accuracyRate}%\n  • Average Score: ${Math.round(averageScore)}%\n  • Performance Trend: ${trend}\n\n📈 DIFFICULTY BREAKDOWN:\n${difficultyBreakdown}\n\n📝 RECENT QUIZ HISTORY (Last 5):\n${quizSummaries}\n\n⚠️ CRITICAL INSTRUCTIONS FOR YOU:\n1. When asked about quiz performance, scores, or progress - YOU HAVE THIS EXACT DATA\n2. DO NOT say "I can't see your scores" or "I don't have access" - YOU DO!\n3. Reference specific numbers: "You've taken ${totalQuizzes} quizzes with ${accuracyRate}% accuracy"\n4. Mention the trend: "Your performance is ${trend.toLowerCase()}"\n5. Point out patterns: strengths in ${Object.entries(difficultyStats).sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total))[0]?.[0] || 'certain areas'} difficulty\n6. For recent mistakes, give targeted advice based on the wrong answers shown above\n\n════════════════════════════════════════════════════════════════\n`;
     } catch (error) {
       console.error('[QuizService] Error getting quiz history:', error);
       return '';
@@ -511,14 +514,14 @@ class QuizService {
     // Simple extraction: look for questions in recent messages
     const recentMessages = messages.slice(-5);
     const userMessages = recentMessages.filter(m => m.role === 'user');
-    
+
     if (userMessages.length > 0) {
       const lastUserMessage = userMessages[userMessages.length - 1].content;
       // Extract first few words as topic
       const words = lastUserMessage.split(' ').slice(0, 5).join(' ');
       return words.length > 50 ? words.substring(0, 50) + '...' : words;
     }
-    
+
     return 'General Knowledge';
   }
 
@@ -562,12 +565,12 @@ Return ONLY a valid JSON array of questions. No markdown, no extra text.`;
 
       // Parse AI response
       let jsonText = response.response.trim();
-      
+
       // Remove markdown code blocks if present
       jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      
+
       const questions = JSON.parse(jsonText);
-      
+
       if (!Array.isArray(questions)) {
         throw new Error('AI response is not an array');
       }
@@ -622,13 +625,13 @@ Return ONLY a valid JSON array of questions. No markdown, no extra text.`;
       case 'mcq':
       case 'true-false':
         return normalize(userAnswer) === normalize(correctAnswer);
-      
+
       case 'short-answer':
         // Simple keyword matching (can be improved with AI)
         const keywords = normalize(correctAnswer).split(' ');
         const answer = normalize(userAnswer);
         return keywords.some(keyword => answer.includes(keyword));
-      
+
       default:
         return false;
     }

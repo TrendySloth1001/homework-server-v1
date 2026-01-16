@@ -2,8 +2,12 @@
 
 export interface CreateNotificationInput {
   userId: string;  // Changed from teacherId to support all user types
+  type?: 'success' | 'warning' | 'info' | 'mention' | 'default';
   title: string;
   message: string;
+  actionLabel?: string | null;
+  actionLink?: string | null;
+  metadata?: any;
 }
 
 export interface GetNotificationsQuery {

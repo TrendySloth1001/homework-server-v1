@@ -181,18 +181,18 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
   const questions = [];
   const errors = [];
   const sessionQuestions: Array<{ text: string; embedding: number[] }> = []; // Track questions in current session
-  
+
   let successCount = 0;
   let attemptCount = 0;
   const maxAttempts = count * 5; // Allow up to 5x attempts to handle duplicates
 
   while (successCount < count && attemptCount < maxAttempts) {
     attemptCount++;
-    
+
     try {
       // Add attempt number to prompt for variation (prevents cache hits)
       const prompt = await buildQuestionPrompt(topic, questionType, difficulty, attemptCount);
-      
+
       // IMPORTANT: Don't cache question generation to ensure unique questions
       // Each generation should be fresh to avoid duplicates
       const response = await ollamaService.generate(prompt, {
@@ -202,7 +202,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
 
       // Parse and save question
       const parsed = parseQuestionResponse(response.response, questionType);
-      
+
       // Check for duplicate ONLY against current session (not historical questions)
       console.log(`[Attempt ${attemptCount}/${maxAttempts}, Success ${successCount}/${count}] Checking: "${parsed.question.substring(0, 60)}..."`);
       // Generate embedding for this question
@@ -212,7 +212,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
       } catch (error) {
         console.error('Error generating embedding:', error);
       }
-      
+
       // DUPLICATE CHECK 1: Within current session (85% threshold)
       let isDuplicate = false;
       if (questionEmbedding) {
@@ -225,10 +225,10 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
             break;
           }
         }
-        
+
         if (!isDuplicate) {
           console.log(`Unique within current session!`);
-          
+
           // DUPLICATE CHECK 2: Against database (65% threshold)
           console.log(`Checking against existing questions in database...`);
           try {
@@ -237,7 +237,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
               topicId,
               0.65 // 65% threshold for database check
             );
-            
+
             if (dbDuplicateCheck.isDuplicate) {
               console.warn(`Similar to existing question in database (${(dbDuplicateCheck.similarQuestion!.similarity * 100).toFixed(1)}% similar) - regenerating...`);
               console.warn(`   Similar to: "${dbDuplicateCheck.similarQuestion!.questionText.substring(0, 60)}..."`);
@@ -281,7 +281,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
           console.error('Error generating embedding:', error);
         }
       }
-      
+
       const question = await prisma.question.create({
         data: {
           topicId,
@@ -346,7 +346,7 @@ export async function generateQuestionsService(input: GenerateQuestionsInput) {
       console.error(`Error in attempt ${attemptCount}:`, error);
     }
   }
-  
+
   // Log summary
   if (successCount < count) {
     console.warn(` Only generated ${successCount}/${count} questions after ${attemptCount} attempts`);
@@ -482,7 +482,7 @@ export async function updateQuestionService(questionId: string, updateData: Upda
   }
 
   const { options, ...restUpdateData } = updateData;
-  
+
   const question = await prisma.question.update({
     where: { id: questionId },
     data: {
@@ -545,12 +545,15 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
   });
 
   // Send notification only once when job completes
-  if (status.state === 'completed' && status.result && aiGeneration && !aiGeneration.jobNotified ) {
+  if (status.state === 'completed' && status.result && aiGeneration && !aiGeneration.jobNotified) {
     // Create notification
     await createNotificationService({
       userId: teacherId,
       title: `AI Question Generation Complete`,
       message: `Your request to generate ${status.result.questionCount} questions has completed successfully.`,
+      type: 'success',
+      actionLabel: 'View Dashboard',
+      actionLink: '/dashboard'
     });
     // Mark as notified to prevent duplicate notifications
     await prisma.aIGeneration.update({
@@ -560,12 +563,13 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
         jobStatus: 'completed',
       },
     });
-  }else if (status.state === 'failed' && status.failedReason && aiGeneration && !aiGeneration.jobNotified) {
+  } else if (status.state === 'failed' && status.failedReason && aiGeneration && !aiGeneration.jobNotified) {
     // Create failure notification
     await createNotificationService({
       userId: teacherId,
       title: `AI Question Generation Failed`,
       message: `Your request to generate questions has failed. Please try again.`,
+      type: 'warning'
     });
 
     // Mark as notified to prevent duplicate notifications
@@ -573,7 +577,7 @@ export async function getGenerationJobStatusService(jobId: string, teacherId: st
       where: { id: aiGeneration.id },
       data: {
         jobNotified: true,
-        jobStatus: 'failed',  
+        jobStatus: 'failed',
         status: 'failed',
         jobError: status.failedReason || 'Job failed',
       },
@@ -588,12 +592,12 @@ async function buildQuestionPrompt(topic: any, questionType: string, difficulty:
   try {
     // Build enhanced context using RAG
     const context = await contextBuilderService.buildEnhancedContext(topic.id);
-    
+
     // Add variation instruction based on attempt number to ensure unique questions
-    const variationHint = attemptNumber > 1 
-      ? `\n\nIMPORTANT: This is attempt #${attemptNumber}. Generate a DIFFERENT question than previous attempts. Use different concepts, wording, and approach.` 
+    const variationHint = attemptNumber > 1
+      ? `\n\nIMPORTANT: This is attempt #${attemptNumber}. Generate a DIFFERENT question than previous attempts. Use different concepts, wording, and approach.`
       : '';
-    
+
     // Build enhanced prompt with context
     const basePrompt = `Generate ONE unique ${difficulty} difficulty ${questionType} question.${variationHint}
 
@@ -617,12 +621,12 @@ Format your response as valid JSON (no markdown, no code blocks):
     });
   } catch (error) {
     console.error('Error building enhanced prompt, falling back to simple prompt:', error);
-    
+
     // Fallback to simple prompt if context building fails
-    const variationHint = attemptNumber > 1 
-      ? `\n\nIMPORTANT: Attempt #${attemptNumber} - Generate a DIFFERENT question than before.` 
+    const variationHint = attemptNumber > 1
+      ? `\n\nIMPORTANT: Attempt #${attemptNumber} - Generate a DIFFERENT question than before.`
       : '';
-    
+
     return `Generate a ${difficulty} difficulty ${questionType} question for the following topic:${variationHint}
 
 Subject: ${topic.unit.syllabus.subjectName}
@@ -652,41 +656,41 @@ function parseQuestionResponse(response: string, questionType: string): any {
   try {
     // Try to extract JSON from response
     let jsonText = response.match(/\{[\s\S]*\}/)?.[0] || response;
-    
+
     // Fix common AI JSON mistakes
     // 1. Fix unquoted single letters for answer (e.g., "answer": C -> "answer": "C")
     jsonText = jsonText.replace(/"answer":\s*([A-D])\s*,/g, '"answer": "$1",');
     jsonText = jsonText.replace(/"answer":\s*([A-D])\s*\}/g, '"answer": "$1"}');
-    
+
     // 2. Fix trailing commas
     jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
-    
+
     // 3. Try parsing
     const parsed = JSON.parse(jsonText);
-    
+
     // Validate required fields
     if (!parsed.question || typeof parsed.question !== 'string') {
       throw new Error('Missing or invalid question field');
     }
-    
+
     return parsed;
   } catch (error) {
     console.error('JSON parsing failed:', error);
     console.log('Raw response:', response.substring(0, 200));
-    
+
     // Try manual extraction as fallback
     try {
       const questionMatch = response.match(/"question":\s*"([^"]+)"/);
       const answerMatch = response.match(/"answer":\s*"?([^",}]+)"?/);
       const explanationMatch = response.match(/"explanation":\s*"([^"]+)"/);
       const optionsMatch = response.match(/"options":\s*\[(.*?)\]/s);
-      
+
       const result: any = {
         question: questionMatch?.[1] || response.substring(0, 200),
         answer: answerMatch?.[1]?.trim() || '',
         explanation: explanationMatch?.[1] || 'Unable to parse explanation',
       };
-      
+
       if (questionType === 'mcq' && optionsMatch && optionsMatch[1]) {
         const optionsText = optionsMatch[1];
         result.options = optionsText
@@ -694,7 +698,7 @@ function parseQuestionResponse(response: string, questionType: string): any {
           .map((opt: string) => opt.trim().replace(/^"|"$/g, ''))
           .filter((opt: string) => opt.length > 0);
       }
-      
+
       return result;
     } catch (fallbackError) {
       // Final fallback

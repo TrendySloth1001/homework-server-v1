@@ -125,7 +125,8 @@ export async function getAllTeachersService(
  * Get single teacher profile by ID
  */
 export async function getTeacherByIdService(teacherId: string, requestingUserId?: string | undefined) {
-  const teacher = await prisma.teacher.findUnique({
+  // Try to find by teacher.id first, then by userId
+  let teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     select: {
       id: true,
@@ -149,6 +150,34 @@ export async function getTeacherByIdService(teacherId: string, requestingUserId?
       },
     },
   });
+
+  // If not found by teacher.id, try by userId
+  if (!teacher) {
+    teacher = await prisma.teacher.findUnique({
+      where: { userId: teacherId },
+      select: {
+        id: true,
+        userId: true,
+        specialization: true,
+        qualification: true,
+        experience: true,
+        bio: true,
+        followersCount: true,
+        followingCount: true,
+        allowFollowers: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            avatarUrl: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+  }
 
   if (!teacher) {
     throw new AppError('Teacher not found', 404);
@@ -327,6 +356,9 @@ export async function followTeacherService(teacherId: string, userId: string) {
       userId: teacher.userId,
       title: 'New Follower',
       message: `${followerUser?.displayName || 'Someone'} started following you`,
+      type: 'mention',
+      actionLabel: requestingTeacher ? 'View Profile' : null,
+      actionLink: requestingTeacher ? `/teacher/${userId}` : null,
     });
   } catch (error) {
     console.error('Failed to create follow notification:', error);

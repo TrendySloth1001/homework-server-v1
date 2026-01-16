@@ -228,9 +228,13 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String   // Changed from teacherId to userId to support all user types
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("info") // 'success', 'warning', 'info', 'mention', 'default'
   title     String
   message   String
   isRead    Boolean  @default(false)
+  actionLabel String?
+  actionLink  String?
+  metadata    Json?
   createdAt DateTime @default(now())
 
   @@index([userId])

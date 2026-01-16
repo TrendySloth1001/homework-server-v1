@@ -76,8 +76,8 @@ export function clearPendingNotifications(userId: string) {
  * Create a new notification
  */
 export async function createNotificationService(data: CreateNotificationInput) {
-  const { userId, title, message } = data;
-    
+  const { userId, type = 'info', title, message, actionLabel = null, actionLink = null, metadata = null } = data;
+
   if (!(userId && title && message)) {
     throw new ValidationError(`userId, title, and message are required {data: ${JSON.stringify(data)}}`);
   }
@@ -85,8 +85,12 @@ export async function createNotificationService(data: CreateNotificationInput) {
   const notification = await prisma.notification.create({
     data: {
       userId,
+      type,
       title,
       message,
+      actionLabel: actionLabel ?? null,
+      actionLink: actionLink ?? null,
+      metadata: metadata ?? null,
     },
   });
 
@@ -104,7 +108,7 @@ export async function getNotificationsService(query: GetNotificationsQuery) {
   }
 
   const where: any = { userId };
-  
+
   if (isRead !== undefined) {
     where.isRead = isRead;
   }
@@ -267,10 +271,15 @@ export async function notifyAIGenerationComplete(
   const title = success
     ? ` AI Generation Complete`
     : ` AI Generation Failed`;
-  
+
   const message = success
     ? `${type} generation completed successfully for "${itemName}"`
     : `${type} generation failed for "${itemName}". Please try again.`;
 
-  return createNotificationService({ userId, title, message });
+  return createNotificationService({
+    userId,
+    title,
+    message,
+    type: success ? 'success' : 'warning'
+  });
 }

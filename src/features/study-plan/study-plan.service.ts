@@ -5,7 +5,7 @@ import { createNotificationService } from '../notifications/notifications.servic
 import { addAIJob } from '../../shared/queues/ai.queue';
 
 export class StudyPlanService {
-  
+
   /**
    * Generate study plan (async via queue)
    */
@@ -23,24 +23,24 @@ export class StudyPlanService {
         status: 'generating'
       }
     });
-    
+
     if (existingGenerating) {
-      return { 
-        id: existingGenerating.id, 
+      return {
+        id: existingGenerating.id,
         status: existingGenerating.status,
         content: null,
         message: 'A plan with the same subject and goal is already being generated'
       };
     }
-    
+
     // Get user from conversation
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { userId: true, teacherId: true, studentId: true }
     });
-    
+
     const userId = conversation?.userId || conversation?.teacherId || conversation?.studentId;
-    
+
     // Create placeholder record (allows multiple plans per conversation)
     const plan = await prisma.studyPlan.create({
       data: {
@@ -50,7 +50,7 @@ export class StudyPlanService {
         status: 'generating'
       }
     });
-    
+
     // Queue the generation job with lower priority (5) since it's a background task
     await addAIJob(
       {
@@ -63,20 +63,20 @@ export class StudyPlanService {
       } as any,
       5 // Lower priority - chat messages are served first
     );
-    
+
     return {
       id: plan.id,
       status: 'generating',
       message: 'Study plan generation started'
     };
   }
-  
+
   /**
    * Process generation (queue worker calls this)
    */
   async processGeneration(planId: string) {
     const startTime = Date.now();
-    
+
     try {
       const plan = await prisma.studyPlan.findUnique({
         where: { id: planId }
@@ -85,13 +85,13 @@ export class StudyPlanService {
       if (!plan) {
         throw new Error(`Study plan ${planId} not found`);
       }
-      
+
       // Skip if already completed or failed (prevents duplicate execution)
       if (plan.status === 'completed') {
         console.log('[StudyPlan] Plan already completed, skipping generation');
         return { success: true, message: 'Plan already completed' };
       }
-      
+
       if (plan.status === 'failed') {
         console.log('[StudyPlan] Plan previously failed, skipping');
         return { success: false, message: 'Plan previously failed' };
@@ -99,20 +99,20 @@ export class StudyPlanService {
 
       // AI prompt to generate study plan
       const prompt = this.buildGenerationPrompt(plan.subject, plan.goal);
-      
+
       console.log('[StudyPlan] Generating plan with AI...');
-      
+
       const aiResponse = await ollamaService.generate(prompt, {
         temperature: 0.3,
         num_predict: 8000  // Large output for detailed plan
       }, 'deepseek-r1:14b');
-      
+
       console.log('[StudyPlan] AI response token usage:', {
         promptTokens: aiResponse.promptTokens,
         completionTokens: aiResponse.completionTokens,
         totalTokens: aiResponse.totalTokens
       });
-      
+
       // Clean response (remove markdown code blocks if present)
       let cleanedResponse = aiResponse.response.trim();
       if (cleanedResponse.startsWith('```json')) {
@@ -120,10 +120,10 @@ export class StudyPlanService {
       } else if (cleanedResponse.startsWith('```')) {
         cleanedResponse = cleanedResponse.replace(/```\n?/, '').replace(/```$/, '').trim();
       }
-      
+
       // Parse AI response
       const content = JSON.parse(cleanedResponse);
-      
+
       // Update database
       const updated = await prisma.studyPlan.update({
         where: { id: planId },
@@ -134,7 +134,7 @@ export class StudyPlanService {
           generationTime: Math.floor((Date.now() - startTime) / 1000)
         }
       });
-      
+
       // Check if message already exists for this study plan
       const existingMessage = await prisma.conversationMessage.findFirst({
         where: {
@@ -142,7 +142,7 @@ export class StudyPlanService {
           messageType: 'study-plan'
         }
       });
-      
+
       // Only create message if it doesn't exist
       if (!existingMessage) {
         // Create a message in the conversation to display the study plan
@@ -167,15 +167,15 @@ export class StudyPlanService {
       } else {
         console.log('[StudyPlan] ℹ️ Message already exists for this study plan, skipping creation');
       }
-      
+
       // Get conversation to find user for notification
       const conversation = await prisma.conversation.findUnique({
         where: { id: plan.conversationId },
         select: { teacherId: true, userId: true, studentId: true }
       });
-      
+
       const userId = conversation?.userId || conversation?.teacherId || conversation?.studentId;
-      
+
       // Fire notification if user exists
       if (userId) {
         try {
@@ -183,7 +183,10 @@ export class StudyPlanService {
           const notification = await createNotificationService({
             userId,
             title: 'Study Plan Ready!',
-            message: `Your ${plan.subject} study plan is ready to view`
+            message: `Your ${plan.subject} study plan is ready to view`,
+            type: 'success',
+            actionLabel: 'View Plan',
+            actionLink: `/messages/${plan.conversationId}`
           });
           console.log('[StudyPlan] ✅ Notification created successfully:', notification.id);
         } catch (error: any) {
@@ -198,27 +201,27 @@ export class StudyPlanService {
       } else {
         console.warn('[StudyPlan] ⚠️ No userId found, skipping notification');
       }
-      
+
       console.log('[StudyPlan] Generation completed successfully');
-      
+
       return { success: true, planId, content: updated.content };
-      
+
     } catch (error: any) {
       console.error('[StudyPlan] Generation failed:', error);
-      
+
       // Mark as failed
       await prisma.studyPlan.update({
         where: { id: planId },
-        data: { 
+        data: {
           status: 'failed',
           errorMessage: error.message || 'Unknown error'
         }
       });
-      
+
       throw error;
     }
   }
-  
+
   /**
    * Build AI prompt for study plan generation
    */
@@ -286,7 +289,7 @@ export class StudyPlanService {
 
 **CRITICAL:** Return ONLY the JSON object, no explanations, no markdown code blocks, no additional text.`;
   }
-  
+
   /**
    * Get plan by conversation ID
    */
@@ -296,7 +299,7 @@ export class StudyPlanService {
       orderBy: { createdAt: 'desc' }
     });
   }
-  
+
   /**
    * Check generation status (for polling)
    */
@@ -312,11 +315,11 @@ export class StudyPlanService {
         errorMessage: true
       }
     });
-    
+
     if (!plan) {
       return { status: 'not_found', plan: null, error: null };
     }
-    
+
     return {
       status: plan.status,
       plan: plan.status === 'completed' ? {
@@ -335,7 +338,7 @@ export class StudyPlanService {
    */
   async getStudyPlanHistoryForAI(conversationId: string): Promise<string> {
     if (!conversationId) return '';
-    
+
     try {
       // Get all completed study plans for this conversation
       const plans = await prisma.studyPlan.findMany({
@@ -367,12 +370,12 @@ export class StudyPlanService {
         formattedHistory += `🎯 **Learning Goal**: ${plan.goal}\n`;
         formattedHistory += `📅 **Created**: ${plan.createdAt.toLocaleDateString()}\n`;
         formattedHistory += `🆔 **Plan ID**: ${plan.id}\n`;
-        
+
         // Parse and extract FULL details from content
         if (plan.content) {
           try {
             const content = typeof plan.content === 'string' ? JSON.parse(plan.content) : plan.content;
-            
+
             // Overview and metadata
             if (content.overview) {
               formattedHistory += `\n📋 **Overview**: ${content.overview}\n`;
@@ -383,25 +386,25 @@ export class StudyPlanService {
             if (content.targetAudience) {
               formattedHistory += `🎓 **Level**: ${content.targetAudience}\n`;
             }
-            
+
             // DETAILED PHASE BREAKDOWN
             if (content.phases && content.phases.length > 0) {
               formattedHistory += `\n┌─────────────────────────────────────────────────────────────────────────────┐\n`;
               formattedHistory += `│  📚 LEARNING PATH (${content.phases.length} Phases)                                         │\n`;
               formattedHistory += `└─────────────────────────────────────────────────────────────────────────────┘\n\n`;
-              
+
               content.phases.forEach((phase: any, phaseIndex: number) => {
                 formattedHistory += `  Phase ${phaseIndex + 1}: ${phase.name} ${phase.duration ? `(${phase.duration})` : ''}\n`;
                 formattedHistory += `  ├─ Description: ${phase.description}\n`;
-                
+
                 // MODULES within each phase
                 if (phase.modules && phase.modules.length > 0) {
                   formattedHistory += `  ├─ Modules (${phase.modules.length}):\n`;
-                  
+
                   phase.modules.forEach((module: any, moduleIndex: number) => {
                     const isLastModule = moduleIndex === phase.modules.length - 1;
                     const connector = isLastModule ? '└' : '├';
-                    
+
                     formattedHistory += `  │  ${connector}─ ${moduleIndex + 1}. ${module.title}\n`;
                     if (module.description) {
                       formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   📝 ${module.description}\n`;
@@ -409,7 +412,7 @@ export class StudyPlanService {
                     if (module.estimatedHours) {
                       formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   ⏱️  ${module.estimatedHours} hours\n`;
                     }
-                    
+
                     // TOPICS within each module
                     if (module.topics && module.topics.length > 0) {
                       formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   📌 Topics (${module.topics.length}):\n`;
@@ -418,12 +421,12 @@ export class StudyPlanService {
                         formattedHistory += `  │  ${isLastModule ? ' ' : '│'}      ${topicConnector}─ ${topic}\n`;
                       });
                     }
-                    
+
                     // Practice project
                     if (module.practiceProject) {
                       formattedHistory += `  │  ${isLastModule ? ' ' : '│'}   🛠️  Project: ${module.practiceProject}\n`;
                     }
-                    
+
                     if (!isLastModule) {
                       formattedHistory += `  │  │\n`;
                     }
@@ -432,7 +435,7 @@ export class StudyPlanService {
                 formattedHistory += `  │\n`;
               });
             }
-            
+
             // MILESTONES
             if (content.milestones && content.milestones.length > 0) {
               formattedHistory += `\n🎯 **Learning Milestones**:\n`;
@@ -440,7 +443,7 @@ export class StudyPlanService {
                 formattedHistory += `   • Week ${milestone.week}: ${milestone.achievement}\n`;
               });
             }
-            
+
             // RESOURCES
             if (content.resources) {
               formattedHistory += `\n📚 **Recommended Resources**:\n`;
@@ -462,7 +465,7 @@ export class StudyPlanService {
                 });
               }
             }
-            
+
             // TIPS
             if (content.tips && content.tips.length > 0) {
               formattedHistory += `\n💡 **Success Tips**:\n`;
@@ -470,13 +473,13 @@ export class StudyPlanService {
                 formattedHistory += `   ✓ ${tip}\n`;
               });
             }
-            
+
           } catch (parseError) {
             console.error('[StudyPlan] Error parsing content for AI context:', parseError);
             formattedHistory += `\n⚠️  Content parsing error - basic info only\n`;
           }
         }
-        
+
         formattedHistory += `\n`;
       });
 
