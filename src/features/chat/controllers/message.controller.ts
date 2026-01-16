@@ -194,3 +194,25 @@ export const searchMessages = async (req: Request, res: Response) => {
     return res.status(status).json({ error: message });
   }
 };
+
+export const getSharedMedia = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId; // From JWT token
+    const conversationId = req.params.conversationId!;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const media = await messageService.getSharedMedia({
+      conversationId,
+      userId,
+    });
+
+    return res.json(media);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch shared media";
+    const status = message.includes("not a member") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};

@@ -194,8 +194,8 @@ app.get("/starred", messageActionsController.getStarredMessages); // All starred
 // Forward message
 app.post("/messages/:messageId/forward", messageActionsController.forwardMessage);
 
-// Search messages
-app.get("/conversations/:conversationId/messages/search", messageActionsController.searchMessages);
+// Shared Media (moved before duplicate search route)
+app.get("/conversations/:conversationId/media", messageController.getSharedMedia);
 
 
 

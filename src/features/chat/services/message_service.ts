@@ -529,3 +529,67 @@ export const searchMessages = async ({
     createdAt: message.createdAt.toISOString(),
   }));
 };
+
+export const getSharedMedia = async ({
+  conversationId,
+  userId,
+}: {
+  conversationId: string;
+  userId: string;
+}) => {
+  const isMember = await isUserInConversation(conversationId, userId);
+  if (!isMember) {
+    throw new Error("User is not a member of this conversation");
+  }
+
+  // Find messages with media
+  const messages = await prisma.message.findMany({
+    where: {
+      conversationId,
+      OR: [
+        { mediaUrl: { not: null } },
+        { NOT: { mediaUrls: { equals: [] } } }
+      ]
+    },
+    select: {
+      id: true,
+      mediaUrl: true,
+      mediaType: true,
+      mediaUrls: true,
+      mediaTypes: true,
+      content: true,
+      createdAt: true,
+      user: {
+        select: {
+          displayName: true,
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  return messages.map(msg => {
+    // Normalize to array
+    let urls: string[] = [];
+    let types: string[] = [];
+
+    if (msg.mediaUrls && Array.isArray(msg.mediaUrls) && msg.mediaUrls.length > 0) {
+      urls = msg.mediaUrls as string[];
+      types = (Array.isArray(msg.mediaTypes) ? msg.mediaTypes : []) as string[];
+    } else if (msg.mediaUrl) {
+      urls = [msg.mediaUrl];
+      types = [msg.mediaType || ''];
+    }
+
+    return {
+      messageId: msg.id,
+      senderName: msg.user.displayName,
+      createdAt: msg.createdAt.toISOString(),
+      content: msg.content,
+      media: urls.map((url, i) => ({
+        url,
+        type: types[i] || '',
+      }))
+    };
+  });
+};
