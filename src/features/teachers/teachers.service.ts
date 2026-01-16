@@ -344,10 +344,10 @@ export async function followTeacherService(teacherId: string, userId: string) {
     throw new AppError('Invalid user type', 400);
   }
 
-  // Get user name for notification
+  // Get user name and avatar for notification
   const followerUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { displayName: true },
+    select: { displayName: true, avatarUrl: true },
   });
 
   // Create notification for teacher
@@ -359,6 +359,10 @@ export async function followTeacherService(teacherId: string, userId: string) {
       type: 'mention',
       actionLabel: requestingTeacher ? 'View Profile' : null,
       actionLink: requestingTeacher ? `/teacher/${userId}` : null,
+      metadata: {
+        fromUserAvatar: followerUser?.avatarUrl,
+        fromUserName: followerUser?.displayName,
+      },
     });
   } catch (error) {
     console.error('Failed to create follow notification:', error);
