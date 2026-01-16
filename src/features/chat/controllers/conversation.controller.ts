@@ -92,11 +92,11 @@ export const checkOrCreateOneToOne = async (req: Request, res: Response) => {
     }
 
     const conversation = await conversationService.checkOrCreateOneToOne(userId1, otherUserId);
-    
+
     // Broadcast new conversation to other user via WebSocket
     const { wsManager } = require("../services/websocket_service");
     wsManager.broadcastNewConversation(conversation, otherUserId);
-    
+
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to get or create conversation";
@@ -121,8 +121,8 @@ export const addMembers = async (req: Request, res: Response) => {
     return res.status(201).json(members);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to add members";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Only the") || message.includes("Cannot add") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Only the") || message.includes("Cannot add") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -141,8 +141,8 @@ export const removeMember = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to remove member";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Only the") || message.includes("Cannot remove") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Only the") || message.includes("Cannot remove") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -164,8 +164,8 @@ export const updateGroupName = async (req: Request, res: Response) => {
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update group name";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -187,8 +187,8 @@ export const updateGroupAvatar = async (req: Request, res: Response) => {
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update group avatar";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Only the") || message.includes("not a member") || message.includes("Cannot update") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -258,8 +258,8 @@ export const leaveGroup = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to leave group";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Cannot leave") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Cannot leave") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -299,8 +299,8 @@ export const deleteConversation = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete conversation";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("not a member") || message.includes("Only the") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("not a member") || message.includes("Only the") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -341,10 +341,11 @@ export const createGroupConversation = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create group conversation";
     const status = message.includes("not found") ? 404 :
-                   message.includes("must be") || message.includes("following") ? 403 : 500;
+      message.includes("must be") || message.includes("following") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
+
 
 export const uploadGroupAvatar = async (req: Request, res: Response) => {
   try {
@@ -373,7 +374,7 @@ export const uploadGroupAvatar = async (req: Request, res: Response) => {
     const { s3Service } = require("../../../shared/lib/s3");
     const timestamp = Date.now();
     const filename = `${timestamp}-${file.originalname}`;
-    
+
     const uploadResult = await s3Service.uploadFile(
       {
         buffer: file.buffer,
@@ -392,7 +393,25 @@ export const uploadGroupAvatar = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to upload group avatar";
     const status = message.includes("not found") ? 404 :
-                   message.includes("Only the") || message.includes("not a member") ? 403 : 500;
+      message.includes("Only the") || message.includes("not a member") ? 403 : 500;
+    return res.status(status).json({ error: message });
+  }
+};
+
+export const saveDraft = async (req: Request, res: Response) => {
+  try {
+    const conversationId = req.params.conversationId!;
+    const { userId, draft } = req.body;
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    const result = await conversationService.saveDraft(conversationId, userId, draft || "");
+    return res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save draft";
+    const status = message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };

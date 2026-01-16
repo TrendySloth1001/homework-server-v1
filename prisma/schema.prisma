@@ -952,6 +952,7 @@ model ChatConversationMember {
   joinedAt        DateTime     @default(now())
   isPinned        Boolean      @default(false)
   lastRead        DateTime?
+  draft           String?      @db.Text
 
   @@unique([conversationId, userId])
   @@index([conversationId, role])

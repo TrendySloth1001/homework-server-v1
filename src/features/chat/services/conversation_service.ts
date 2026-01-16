@@ -103,7 +103,21 @@ export const getUserConversations = async (userId: string) => {
         isGroup: conv.isGroup,
         createdBy: conv.createdBy,
         creator: conv.creator,
-        members: conv.members,
+        members: conv.members.map(m => ({
+          id: m.id,
+          conversationId: m.conversationId,
+          userId: m.userId,
+          user: m.user,
+          role: m.role,
+          isBanned: m.isBanned,
+          bannedAt: m.bannedAt,
+          bannedBy: m.bannedBy,
+          banReason: m.banReason,
+          joinedAt: m.joinedAt,
+          isPinned: m.isPinned,
+          lastRead: m.lastRead,
+          draft: m.userId === userId ? m.draft : null, // Only include draft for current user
+        })),
         lastMessage: conv.messages[0] || null,
         isPinned: currentUserMember?.isPinned || false,
         unreadCount, // Include unread count
@@ -137,7 +151,24 @@ export const getConversationById = async (conversationId: string, userId: string
     throw new Error("Conversation not found");
   }
 
-  return conversation;
+  return {
+    ...conversation,
+    members: conversation.members.map(m => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      userId: m.userId,
+      user: m.user,
+      role: m.role,
+      isBanned: m.isBanned,
+      bannedAt: m.bannedAt,
+      bannedBy: m.bannedBy,
+      banReason: m.banReason,
+      joinedAt: m.joinedAt,
+      isPinned: m.isPinned,
+      lastRead: m.lastRead,
+      draft: m.userId === userId ? m.draft : null, // Only include draft for current user
+    })),
+  };
 };
 
 // Get public group info (for share previews) - no membership required
@@ -762,6 +793,25 @@ export const createGroupConversation = async ({
         include: { user: true },
       },
       creator: true,
+    },
+  });
+};
+
+export const saveDraft = async (conversationId: string, userId: string, draft: string) => {
+  const isMember = await isUserInConversation(conversationId, userId);
+  if (!isMember) {
+    throw new Error("User is not a member of this conversation");
+  }
+
+  return prisma.chatConversationMember.update({
+    where: {
+      conversationId_userId: {
+        conversationId,
+        userId,
+      },
+    },
+    data: {
+      draft,
     },
   });
 };

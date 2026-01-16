@@ -20,7 +20,7 @@ const upload = multer({
     // Accept images, videos, audio, and documents
     const allowedTypes = /image|video|audio|application\/pdf|application\/msword|application\/vnd/;
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype) {
       cb(null, true);
     } else {
@@ -70,7 +70,7 @@ app.get("/users", async (req, res) => {
 app.get("/users/mutual-followers", async (req, res) => {
   try {
     const userId = (req as any).user?.userId; // From JWT token
-    
+
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -148,6 +148,8 @@ app.get("/conversations/:conversationId/members", conversationController.getConv
 app.post("/conversations/:conversationId/clear", conversationController.clearConversation);
 
 app.post("/conversations/:conversationId/leave", conversationController.leaveGroup);
+
+app.patch("/conversations/:conversationId/draft", conversationController.saveDraft);
 
 app.patch("/conversations/:conversationId/pin", conversationController.pinConversation);
 
