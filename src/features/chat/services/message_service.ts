@@ -170,6 +170,31 @@ export const getMessages = async ({
           },
         },
       },
+      sharedDiscovery: {
+        include: {
+          post: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  avatarUrl: true,
+                  username: true,
+                }
+              },
+              community: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true,
+                }
+              },
+              media: true
+            }
+          },
+          community: true
+        }
+      }
     },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -271,6 +296,10 @@ export const getMessages = async ({
       })),
       createdAt: message.poll.createdAt.toISOString(),
     } : undefined,
+    sharedPost: message.sharedDiscovery?.post,
+    sharedCommunity: message.sharedDiscovery?.community,
+    sharedPostId: message.sharedDiscovery?.postId,
+    sharedCommunityId: message.sharedDiscovery?.communityId,
   }));
 };
 

@@ -513,6 +513,7 @@ model User {
   commentReports     CommentReport[]     @relation("CommentReports")
   communitiesCreated Community[]         @relation("CommunityCreator")
   communityMemberships CommunityMember[] @relation("CommunityMemberships")
+  discoveryShares    SharedDiscoveryContent[] @relation("DiscoverySharer")
 
   // Indexes for performance
   @@index([email])
@@ -1001,6 +1002,7 @@ model Message {
   linkPreview     LinkPreview?
   poll            Poll?
   sharedContact   SharedContact?
+  sharedDiscovery SharedDiscoveryContent?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   
@@ -1091,6 +1093,40 @@ model SharedContact {
 
   @@index([messageId])
   @@index([contactUserId])
+}
+
+model SharedDiscoveryContent {
+  id              String   @id @default(uuid())
+  messageId       String   @unique
+  message         Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  // What is being shared
+  contentType     SharedContentType // POST or COMMUNITY
+  postId          String?
+  communityId     String?
+  
+  // Who shared it
+  sharedBy        String
+  sharer          User     @relation("DiscoverySharer", fields: [sharedBy], references: [id], onDelete: Cascade)
+  
+  // Optional message from sharer
+  shareMessage    String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+
+  // Relations
+  post            Post?      @relation("SharedPosts", fields: [postId], references: [id], onDelete: Cascade)
+  community       Community? @relation("SharedCommunities", fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([postId])
+  @@index([communityId])
+  @@index([sharedBy])
+}
+
+enum SharedContentType {
+  POST
+  COMMUNITY
 }
 
 model MessageReaction {
@@ -1199,6 +1235,7 @@ model Community {
   creator User               @relation("CommunityCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   members CommunityMember[]
   posts   Post[]
+  sharedIn SharedDiscoveryContent[] @relation("SharedCommunities")
 
   @@index([creatorId])
   @@index([visibility])
@@ -1254,6 +1291,7 @@ model Post {
   comments  Comment[]
   reports   PostReport[]
   saves     SavedPost[]
+  sharedIn  SharedDiscoveryContent[] @relation("SharedPosts")
 
   @@index([authorId])
   @@index([communityId])

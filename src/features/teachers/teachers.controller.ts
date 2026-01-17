@@ -9,6 +9,8 @@ import { asyncHandler } from '../../shared/lib/errors';
 import {
   getAllTeachersService,
   getTeacherByIdService,
+  getTeacherByUserIdService,
+  getStudentByUserIdService,
   followTeacherService,
   unfollowTeacherService,
   getTeacherFollowersService,
@@ -104,6 +106,42 @@ export const getTeacherFollowersHandler = asyncHandler(
     res.json({
       success: true,
       data: followers,
+    });
+  }
+);
+
+/**
+ * Get teacher profile by user ID
+ * GET /api/teachers/user/:userId
+ */
+export const getTeacherByUserIdHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.params.userId!;
+    const requestingUserId = (req as any).user?.userId || undefined;
+
+    const teacher = await getTeacherByUserIdService(userId, requestingUserId);
+
+    res.json({
+      success: true,
+      data: teacher,
+    });
+  }
+);
+
+/**
+ * Get student profile by user ID
+ * GET /api/students/user/:userId
+ */
+export const getStudentByUserIdHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.params.userId!;
+    const requestingUserId = (req as any).user?.userId || undefined;
+
+    const student = await getStudentByUserIdService(userId, requestingUserId);
+
+    res.json({
+      success: true,
+      data: student,
     });
   }
 );

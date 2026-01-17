@@ -670,6 +670,74 @@ export class DiscoverController {
       res.status(500).json({ error: error.message || 'Failed to update report status' });
     }
   }
+
+  /**
+   * Share post or community to conversation
+   * POST /api/discover/share
+   */
+  async shareContent(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const { contentType, contentId, conversationId, message } = req.body;
+
+      if (!contentType || !['POST', 'COMMUNITY'].includes(contentType)) {
+        res.status(400).json({ error: 'Invalid content type' });
+        return;
+      }
+
+      if (!contentId) {
+        res.status(400).json({ error: 'Content ID is required' });
+        return;
+      }
+
+      if (!conversationId) {
+        res.status(400).json({ error: 'Conversation ID is required' });
+        return;
+      }
+
+      const result = await discoverService.shareContent(
+        userId,
+        contentType,
+        contentId,
+        conversationId,
+        message
+      );
+
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error('Error sharing content:', error);
+      res.status(500).json({ error: error.message || 'Failed to share content' });
+    }
+  }
+
+  /**
+   * Get user's conversations for sharing
+   * GET /api/discover/share/conversations
+   */
+  async getShareConversations(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const conversations = await discoverService.getUserConversations(userId);
+      res.json(conversations);
+    } catch (error: any) {
+      console.error('Error getting conversations:', error);
+      res.status(500).json({ error: error.message || 'Failed to get conversations' });
+    }
+  }
 }
 
 export const discoverController = new DiscoverController();

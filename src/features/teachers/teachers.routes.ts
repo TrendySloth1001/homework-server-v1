@@ -7,6 +7,8 @@ import { Router } from 'express';
 import {
   getAllTeachersHandler,
   getTeacherByIdHandler,
+  getTeacherByUserIdHandler,
+  getStudentByUserIdHandler,
   followTeacherHandler,
   unfollowTeacherHandler,
   getTeacherFollowersHandler,
@@ -17,6 +19,7 @@ const router = Router();
 
 // Public routes (anyone can view teachers, auth optional for isFollowing status)
 router.get('/', getAllTeachersHandler);              // GET /api/teachers?search=&specialization=&limit=&offset=
+router.get('/user/:userId', getTeacherByUserIdHandler);  // GET /api/teachers/user/:userId
 router.get('/:id', getTeacherByIdHandler);           // GET /api/teachers/:id
 router.get('/:id/followers', getTeacherFollowersHandler);  // GET /api/teachers/:id/followers
 

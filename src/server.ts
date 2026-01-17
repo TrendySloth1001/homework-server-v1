@@ -13,6 +13,7 @@ import signupRoutes from './features/signup/signup.routes';
 import legalRoutes from './features/legal/legal.routes';
 import aiSettingsRoutes from './features/ai-settings/ai-settings.routes';
 import teacherRoutes from './features/teachers/teachers.routes';
+import studentRoutes from './features/students/students.routes';
 import chatRoutes from './features/chat/routes';
 import avatarRoutes from './features/avatar/avatar.routes';
 import discoverRoutes from './features/discover/routes';
@@ -89,6 +90,7 @@ app.use('/api/assessment', assessmentRoutes);                               // A
 app.use('/api/legal', legalRoutes);                                         // Legal documents (privacy, terms, help)
 app.use('/api', aiSettingsRoutes);                                          // AI customization settings
 app.use('/api/teachers', teacherRoutes);                                    // Teacher discovery and follow system
+app.use('/api/students', studentRoutes);                                    // Student profiles
 app.use('/api/chat', chatRoutes);                                           // Real-time chat and messaging
 app.use('/api/avatar', avatarRoutes);                                       // Avatar management
 app.use('/api/discover', discoverRoutes);                                   // Community posts and social features

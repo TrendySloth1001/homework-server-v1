@@ -1,5 +1,6 @@
 import { prisma } from '../../shared/lib/prisma';
 import { discoverMediaService } from './media.service';
+import { wsManager } from '../chat/services/websocket_service';
 import {
   CreatePostRequest,
   UpdatePostRequest,
@@ -207,7 +208,7 @@ export class DiscoverService {
     const hoursOld = (now - createdAt.getTime()) / hourMs;
     const order = Math.log10(Math.max(Math.abs(votes), 1));
     const sign = votes > 0 ? 1 : votes < 0 ? -1 : 0;
-    
+
     // Reddit's hot algorithm
     return sign * order - hoursOld / 12.5;
   }
@@ -232,13 +233,13 @@ export class DiscoverService {
    */
   private calculateTrendingScore(votes: number, views: number, createdAt: Date, now: number, dayMs: number): number {
     const ageInDays = (now - createdAt.getTime()) / dayMs;
-    
+
     // Weight recent posts higher
     if (ageInDays > 7) return 0; // Ignore posts older than 7 days
-    
+
     const recencyBoost = Math.max(0, 1 - (ageInDays / 7)); // 1.0 for new, 0 for 7 days old
     const engagementScore = (votes * 2) + (views * 0.1); // Votes worth more than views
-    
+
     return engagementScore * recencyBoost;
   }
 
@@ -924,6 +925,160 @@ export class DiscoverService {
         data: { status }
       });
     }
+  }
+
+  /**
+   * Share post or community to chat conversation
+   */
+  async shareContent(
+    userId: string,
+    contentType: 'POST' | 'COMMUNITY',
+    contentId: string,
+    conversationId: string,
+    message?: string
+  ): Promise<any> {
+    // Verify content exists
+    if (contentType === 'POST') {
+      const post = await prisma.post.findUnique({ where: { id: contentId } });
+      if (!post) throw new Error('Post not found');
+    } else {
+      const community = await prisma.community.findUnique({ where: { id: contentId } });
+      if (!community) throw new Error('Community not found');
+    }
+
+    // Verify user is member of conversation
+    const member = await prisma.chatConversationMember.findFirst({
+      where: {
+        conversationId,
+        userId
+      }
+    });
+
+    if (!member) {
+      throw new Error('You are not a member of this conversation');
+    }
+
+    // Create default message if no custom message provided
+    const messageContent = message || (contentType === 'POST' ? 'Hey check this post' : 'Hey check this community');
+
+    // Create message with shared content
+    const chatMessage = await prisma.message.create({
+      data: {
+        conversationId,
+        userId: userId,
+        messageType: 'TEXT',
+        content: messageContent,
+        sharedDiscovery: {
+          create: {
+            contentType,
+            postId: contentType === 'POST' ? contentId : null,
+            communityId: contentType === 'COMMUNITY' ? contentId : null,
+            sharedBy: userId,
+            shareMessage: message || null
+          }
+        }
+      },
+
+      include: {
+        sharedDiscovery: {
+          include: {
+            post: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    displayName: true,
+                    avatarUrl: true,
+                    username: true // Added username
+                  }
+                },
+                media: true,
+                community: true
+              }
+            },
+            community: {
+              include: {
+                creator: {
+                  select: {
+                    id: true,
+                    displayName: true,
+                    avatarUrl: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Map to ChatMessage format (flatten sharedDiscovery)
+    const formattedMessage: any = {
+      ...chatMessage,
+      sharedPost: chatMessage.sharedDiscovery?.post,
+      sharedCommunity: chatMessage.sharedDiscovery?.community,
+      sharedPostId: chatMessage.sharedDiscovery?.postId,
+      sharedCommunityId: chatMessage.sharedDiscovery?.communityId,
+    };
+
+    // Emit websocket event
+    wsManager.emitNewMessage(conversationId, formattedMessage);
+
+    return formattedMessage;
+  }
+
+  /**
+   * Get user's conversations for sharing
+   */
+  async getUserConversations(userId: string): Promise<any[]> {
+    const memberships = await prisma.chatConversationMember.findMany({
+      where: {
+        userId
+      },
+      include: {
+        conversation: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    displayName: true,
+                    avatarUrl: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        joinedAt: 'desc'
+      }
+    });
+
+    return memberships.map((m: any) => {
+      const conversation = m.conversation;
+      let name = conversation.name;
+      let avatarUrl = conversation.avatarUrl;
+
+      // For one-to-one conversations, get the other user's info
+      if (!conversation.isGroup) {
+        const otherMember = conversation.members.find((mem: any) => mem.userId !== userId);
+        if (otherMember) {
+          name = otherMember.user.displayName;
+          avatarUrl = otherMember.user.avatarUrl;
+        }
+      }
+
+      return {
+        id: conversation.id,
+        name,
+        avatarUrl,
+        isGroup: conversation.isGroup,
+        memberCount: conversation.members.length
+      };
+    });
   }
 }
 

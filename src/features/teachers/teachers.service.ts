@@ -234,6 +234,128 @@ export async function getTeacherByIdService(teacherId: string, requestingUserId?
 }
 
 /**
+ * Get teacher profile by user ID
+ */
+export async function getTeacherByUserIdService(userId: string, requestingUserId?: string) {
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      userId: true,
+      specialization: true,
+      qualification: true,
+      experience: true,
+      bio: true,
+      followersCount: true,
+      followingCount: true,
+      allowFollowers: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!teacher) {
+    throw new AppError('Teacher profile not found for this user', 404);
+  }
+
+  if (!teacher.user.isActive) {
+    throw new AppError('Teacher account is not active', 403);
+  }
+
+  // Check if requesting user follows this teacher
+  let isFollowing = false;
+  if (requestingUserId) {
+    // Check if requesting user is a student
+    const student = await prisma.student.findUnique({
+      where: { userId: requestingUserId },
+      select: { id: true },
+    });
+
+    if (student) {
+      const follow = await prisma.teacherFollower.findUnique({
+        where: {
+          teacherId_studentId: {
+            teacherId: teacher.id,
+            studentId: student.id,
+          },
+        },
+      });
+      isFollowing = !!follow;
+    } else {
+      // Check if requesting user is a teacher
+      const requestingTeacher = await prisma.teacher.findUnique({
+        where: { userId: requestingUserId },
+        select: { id: true },
+      });
+
+      if (requestingTeacher) {
+        const follow = await prisma.teacherToTeacher.findUnique({
+          where: {
+            followerId_followedId: {
+              followerId: requestingTeacher.id,
+              followedId: teacher.id,
+            },
+          },
+        });
+        isFollowing = !!follow;
+      }
+    }
+  }
+
+  return {
+    ...teacher,
+    isFollowing,
+  };
+}
+
+/**
+ * Get student profile by user ID
+ */
+export async function getStudentByUserIdService(userId: string, requestingUserId?: string) {
+  const student = await prisma.student.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      userId: true,
+      firstName: true,
+      lastName: true,
+      grade: true,
+      institution: true,
+      interests: true,
+      followingCount: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!student) {
+    throw new AppError('Student profile not found for this user', 404);
+  }
+
+  if (!student.user.isActive) {
+    throw new AppError('Student account is not active', 403);
+  }
+
+  return student;
+}
+
+/**
  * Follow a teacher (student or teacher)
  */
 export async function followTeacherService(teacherId: string, userId: string) {

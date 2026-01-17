@@ -172,4 +172,14 @@ router.post('/communities/:id/avatar', authenticateToken, upload.single('avatar'
 // Upload community background image
 router.post('/communities/:id/background', authenticateToken, upload.single('background'), communityController.uploadBackground.bind(communityController));
 
+/**
+ * Sharing Routes
+ */
+
+// Get user's conversations for sharing
+router.get('/share/conversations', authenticateToken, discoverController.getShareConversations.bind(discoverController));
+
+// Share post or community to conversation
+router.post('/share', authenticateToken, discoverController.shareContent.bind(discoverController));
+
 export default router;
