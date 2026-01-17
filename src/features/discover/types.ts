@@ -69,6 +69,7 @@ export interface PostResponse {
   commentCount: number;
   viewCount: number;
   userVote?: 'UP' | 'DOWN' | null;
+  isSaved?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

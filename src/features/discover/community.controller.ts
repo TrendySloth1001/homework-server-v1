@@ -152,6 +152,10 @@ export class CommunityController {
       }
       const user = (req as any).user as JWTPayload;
 
+      if (!user || !user.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       await communityService.leaveCommunity(id, user.userId);
       res.status(200).json({ message: 'Successfully left community' });
     } catch (error: any) {

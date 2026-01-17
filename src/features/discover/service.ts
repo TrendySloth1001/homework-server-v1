@@ -372,17 +372,29 @@ export class DiscoverService {
    */
   private async mapToPostResponse(post: any, userId?: string): Promise<PostResponse> {
     let userVote = null;
+    let isSaved = false;
 
     if (userId) {
-      const vote = await prisma.postVote.findUnique({
-        where: {
-          userId_postId: {
-            userId,
-            postId: post.id
+      const [vote, savedPost] = await Promise.all([
+        prisma.postVote.findUnique({
+          where: {
+            userId_postId: {
+              userId,
+              postId: post.id
+            }
           }
-        }
-      });
+        }),
+        prisma.savedPost.findUnique({
+          where: {
+            userId_postId: {
+              userId,
+              postId: post.id
+            }
+          }
+        })
+      ]);
       userVote = vote?.voteType || null;
+      isSaved = !!savedPost;
     }
 
     return {
@@ -401,6 +413,7 @@ export class DiscoverService {
       commentCount: post.commentCount || 0,
       viewCount: post.viewCount || 0,
       userVote,
+      isSaved,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt
     };
@@ -533,7 +546,7 @@ export class DiscoverService {
       return newComment;
     });
 
-    return comment;
+    return { ...comment, userVote: null };
   }
 
   /**
