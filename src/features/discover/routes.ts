@@ -14,7 +14,7 @@ const upload = multer({
     // Accept images, videos, and audio
     const allowedTypes = ['image/', 'video/', 'audio/'];
     const isAllowed = allowedTypes.some(type => file.mimetype.startsWith(type));
-    
+
     if (isAllowed) {
       cb(null, true);
     } else {
@@ -36,6 +36,9 @@ router.post('/posts', authenticateToken, discoverController.createPost.bind(disc
 
 // Get list of posts with filters and sorting
 router.get('/posts', discoverController.getPosts.bind(discoverController));
+
+// Get recommended posts (personalized or trending)
+router.get('/posts/recommended', discoverController.getRecommendedPosts.bind(discoverController));
 
 // Get specific post by ID
 router.get('/posts/:id', discoverController.getPostById.bind(discoverController));
@@ -208,5 +211,18 @@ router.get('/share/conversations', authenticateToken, discoverController.getShar
 
 // Share post or community to conversation
 router.post('/share', authenticateToken, discoverController.shareContent.bind(discoverController));
+
+/**
+ * Leaderboards & Analytics Routes
+ */
+
+// Get leaderboard (metric: posts, votes, comments, engagement)
+router.get('/leaderboard', discoverController.getLeaderboard.bind(discoverController));
+
+// Get popular authors
+router.get('/authors/popular', discoverController.getPopularAuthors.bind(discoverController));
+
+// Get trending tags/topics
+router.get('/tags/trending', discoverController.getTrendingTags.bind(discoverController));
 
 export default router;

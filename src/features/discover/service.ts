@@ -1457,6 +1457,528 @@ export class DiscoverService {
       };
     });
   }
+
+  // ===================================
+  // LEADERBOARDS & ANALYTICS
+  // ===================================
+
+  /**
+   * Get leaderboard with different metrics
+   */
+  async getLeaderboard(
+    metric: 'posts' | 'votes' | 'comments' | 'engagement',
+    timeframe: 'day' | 'week' | 'month' | 'all' = 'week',
+    limit: number = 10
+  ): Promise<any[]> {
+    const now = new Date();
+    let startDate: Date | undefined;
+
+    // Calculate start date based on timeframe
+    switch (timeframe) {
+      case 'day':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'all':
+        startDate = undefined;
+        break;
+    }
+
+    switch (metric) {
+      case 'posts': {
+        // Top post creators
+        const topUsers = await prisma.post.groupBy({
+          by: ['authorId'],
+          where: startDate ? {
+            createdAt: { gte: startDate }
+          } : {},
+          _count: {
+            id: true
+          },
+          orderBy: {
+            _count: {
+              id: 'desc'
+            }
+          },
+          take: limit
+        });
+
+        const userIds = topUsers.map(u => u.authorId);
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        });
+
+        return topUsers.map((item, index) => {
+          const user = users.find(u => u.id === item.authorId);
+          return {
+            rank: index + 1,
+            user,
+            score: item._count?.id || 0,
+            metric: 'posts'
+          };
+        });
+      }
+
+      case 'votes': {
+        // Top voted users (users with most upvotes on their posts)
+        const topUsers = await prisma.postVote.groupBy({
+          by: ['postId'],
+          where: {
+            voteType: 'UP',
+            ...(startDate && { createdAt: { gte: startDate } })
+          },
+          _count: {
+            id: true
+          }
+        });
+
+        // Get posts with their authors
+        const postIds = topUsers.map(v => v.postId);
+        const posts = await prisma.post.findMany({
+          where: { id: { in: postIds } },
+          select: {
+            id: true,
+            authorId: true
+          }
+        });
+
+        // Aggregate votes by author
+        const authorVotes = new Map<string, number>();
+        topUsers.forEach(vote => {
+          const post = posts.find(p => p.id === vote.postId);
+          if (post) {
+            authorVotes.set(post.authorId, (authorVotes.get(post.authorId) || 0) + vote._count.id);
+          }
+        });
+
+        // Sort and get top users
+        const sortedAuthors = Array.from(authorVotes.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, limit);
+
+        const userIds = sortedAuthors.map(([userId]) => userId);
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        });
+
+        return sortedAuthors.map(([userId, score], index) => {
+          const user = users.find(u => u.id === userId);
+          return {
+            rank: index + 1,
+            user,
+            score,
+            metric: 'upvotes'
+          };
+        });
+      }
+
+      case 'comments': {
+        // Top commenters
+        const topUsers = await prisma.comment.groupBy({
+          by: ['authorId'],
+          where: startDate ? {
+            createdAt: { gte: startDate }
+          } : {},
+          _count: {
+            id: true
+          },
+          orderBy: {
+            _count: {
+              id: 'desc'
+            }
+          },
+          take: limit
+        });
+
+        const userIds = topUsers.map(u => u.authorId);
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        });
+
+        return topUsers.map((item, index) => {
+          const user = users.find(u => u.id === item.authorId);
+          return {
+            rank: index + 1,
+            user,
+            score: item._count?.id || 0,
+            metric: 'comments'
+          };
+        });
+      }
+
+      case 'engagement': {
+        // Combined engagement score (posts * 3 + comments * 1 + reactions * 0.5)
+        const [postCounts, commentCounts, reactionCounts] = await Promise.all([
+          prisma.post.groupBy({
+            by: ['authorId'],
+            where: startDate ? { createdAt: { gte: startDate } } : {},
+            _count: { id: true }
+          }),
+          prisma.comment.groupBy({
+            by: ['authorId'],
+            where: startDate ? { createdAt: { gte: startDate } } : {},
+            _count: { id: true }
+          }),
+          prisma.commentReaction.groupBy({
+            by: ['userId'],
+            where: startDate ? { createdAt: { gte: startDate } } : {},
+            _count: { id: true }
+          })
+        ]);
+
+        // Calculate engagement scores
+        const engagementScores = new Map<string, number>();
+
+        postCounts.forEach(item => {
+          engagementScores.set(item.authorId, (engagementScores.get(item.authorId) || 0) + (item._count?.id || 0) * 3);
+        });
+
+        commentCounts.forEach(item => {
+          engagementScores.set(item.authorId, (engagementScores.get(item.authorId) || 0) + (item._count?.id || 0));
+        });
+
+        reactionCounts.forEach(item => {
+          engagementScores.set(item.userId, (engagementScores.get(item.userId) || 0) + (item._count?.id || 0) * 0.5);
+        });
+
+        // Sort and get top users
+        const sortedUsers = Array.from(engagementScores.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, limit);
+
+        const userIds = sortedUsers.map(([userId]) => userId);
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        });
+
+        return sortedUsers.map(([userId, score], index) => {
+          const user = users.find(u => u.id === userId);
+          return {
+            rank: index + 1,
+            user,
+            score: Math.round(score),
+            metric: 'engagement'
+          };
+        });
+      }
+
+      default:
+        throw new Error('Invalid metric');
+    }
+  }
+
+  /**
+   * Get popular authors based on various criteria
+   */
+  async getPopularAuthors(limit: number = 10, requestingUserId?: string): Promise<any[]> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Get authors with most engagement in last 30 days
+    const authorPosts = await prisma.post.groupBy({
+      by: ['authorId'],
+      where: {
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      _count: { id: true },
+      _sum: { voteCount: true }
+    });
+
+    // Calculate popularity scores
+    const popularityScores = new Map<string, { posts: number; votes: number; followers: number }>();
+
+    authorPosts.forEach((item: any) => {
+      popularityScores.set(item.authorId, {
+        posts: item._count?.id || 0,
+        votes: item._sum?.voteCount || 0,
+        followers: 0
+      });
+    });
+
+    // Calculate final score: (posts * 2) + (votes * 0.1)
+    const scoredAuthors = Array.from(popularityScores.entries())
+      .map(([userId, stats]: [string, any]) => ({
+        userId,
+        score: (stats.posts * 2) + (stats.votes * 0.1),
+        stats
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    // Get user and teacher details
+    const userIds = scoredAuthors.map(a => a.userId);
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        displayName: true,
+        avatarUrl: true
+      }
+    });
+
+    // Get teacher IDs for these users
+    const teachers = await prisma.teacher.findMany({
+      where: { userId: { in: userIds } },
+      select: {
+        id: true,
+        userId: true
+      }
+    });
+
+    const teacherMap = new Map(teachers.map(t => [t.userId, t.id]));
+
+    // Check follow status if requesting user is provided
+    let followedTeacherIds = new Set<string>();
+    if (requestingUserId) {
+      const student = await prisma.student.findUnique({
+        where: { userId: requestingUserId },
+        select: { id: true }
+      });
+
+      const requestingTeacher = !student ? await prisma.teacher.findUnique({
+        where: { userId: requestingUserId },
+        select: { id: true }
+      }) : null;
+
+      if (student) {
+        const follows = await prisma.teacherFollower.findMany({
+          where: { studentId: student.id },
+          select: { teacherId: true }
+        });
+        followedTeacherIds = new Set(follows.map(f => f.teacherId));
+      } else if (requestingTeacher) {
+        const follows = await prisma.teacherToTeacher.findMany({
+          where: { followerId: requestingTeacher.id },
+          select: { followedId: true }
+        });
+        followedTeacherIds = new Set(follows.map(f => f.followedId));
+      }
+    }
+
+    return scoredAuthors.map((item, index) => {
+      const user = users.find(u => u.id === item.userId);
+      const teacherId = teacherMap.get(item.userId);
+      return {
+        rank: index + 1,
+        user: {
+          ...user,
+          teacherId
+        },
+        stats: item.stats,
+        popularityScore: Math.round(item.score),
+        isFollowing: teacherId ? followedTeacherIds.has(teacherId) : false
+      };
+    });
+  }
+
+  /**
+   * Get recommended posts (trending or personalized)
+   */
+  async getRecommendedPosts(userId?: string, limit: number = 10): Promise<any[]> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    if (userId) {
+      // Personalized recommendations based on user's interests
+      
+      // Get communities user is part of
+      const userCommunities = await prisma.communityMember.findMany({
+        where: { userId },
+        select: { communityId: true }
+      });
+
+      const communityIds = userCommunities.map(cm => cm.communityId);
+
+      // Get tags from posts user has voted on
+      const votedPosts = await prisma.postVote.findMany({
+        where: { userId, voteType: 'UP' },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          post: {
+            select: { tags: true }
+          }
+        }
+      });
+
+      const userTags = new Set<string>();
+      votedPosts.forEach(vote => {
+        vote.post.tags?.forEach(tag => userTags.add(tag));
+      });
+
+      // Get posts viewed by user (to exclude)
+      const viewedPostIds = await prisma.postView.findMany({
+        where: { userId },
+        select: { postId: true }
+      });
+
+      const excludeIds = viewedPostIds.map(v => v.postId);
+
+      // Find relevant posts
+      const posts = await prisma.post.findMany({
+        where: {
+          id: { notIn: excludeIds },
+          createdAt: { gte: sevenDaysAgo },
+          OR: [
+            { communityId: { in: communityIds } },
+            { tags: { hasSome: Array.from(userTags) } }
+          ]
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true
+            }
+          },
+          community: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          }
+        },
+        orderBy: [
+          { voteCount: 'desc' },
+          { commentCount: 'desc' }
+        ],
+        take: limit
+      });
+
+      return posts.map(post => this.mapToPostResponse(post, userId));
+    } else {
+      // Trending posts for non-authenticated users
+      return this.getTrendingPosts(limit);
+    }
+  }
+
+  /**
+   * Get trending posts (public, high engagement)
+   */
+  private async getTrendingPosts(limit: number = 10): Promise<any[]> {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+    // Calculate trending score: voteCount + (commentCount * 2) with time decay
+    const posts = await prisma.post.findMany({
+      where: {
+        createdAt: { gte: threeDaysAgo },
+        visibility: 'PUBLIC'
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        },
+        community: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true
+          }
+        }
+      },
+      orderBy: [
+        { voteCount: 'desc' },
+        { commentCount: 'desc' }
+      ],
+      take: limit * 2 // Get more for sorting
+    });
+
+    // Apply time decay
+    const scoredPosts = posts.map(post => {
+      const hoursSincePost = (Date.now() - post.createdAt.getTime()) / (1000 * 60 * 60);
+      const decayFactor = Math.max(0.1, 1 - (hoursSincePost / 72)); // 3-day decay
+      const trendingScore = ((post.voteCount || 0) + ((post.commentCount || 0) * 2)) * decayFactor;
+
+      return {
+        post,
+        trendingScore
+      };
+    });
+
+    // Sort by trending score and take top limit
+    const topPosts = scoredPosts
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .slice(0, limit);
+
+    return topPosts.map(({ post }) => this.mapToPostResponse(post));
+  }
+
+  /**
+   * Get trending tags/topics
+   */
+  async getTrendingTags(limit: number = 20): Promise<any[]> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get all posts from last 7 days
+    const recentPosts = await prisma.post.findMany({
+      where: {
+        createdAt: { gte: sevenDaysAgo },
+        tags: { isEmpty: false }
+      },
+      select: {
+        tags: true,
+        voteCount: true,
+        commentCount: true,
+        createdAt: true
+      }
+    });
+
+    // Count tag occurrences and calculate engagement scores
+    const tagStats = new Map<string, { count: number; totalVotes: number; totalComments: number }>();
+
+    recentPosts.forEach(post => {
+      post.tags?.forEach(tag => {
+        const existing = tagStats.get(tag) || { count: 0, totalVotes: 0, totalComments: 0 };
+        existing.count++;
+        existing.totalVotes += post.voteCount || 0;
+        existing.totalComments += post.commentCount || 0;
+        tagStats.set(tag, existing);
+      });
+    });
+
+    // Calculate trending score for each tag
+    const trendingTags = Array.from(tagStats.entries())
+      .map(([tag, stats]) => ({
+        tag,
+        postCount: stats.count,
+        totalVotes: stats.totalVotes,
+        totalComments: stats.totalComments,
+        trendingScore: stats.count + (stats.totalVotes * 0.5) + (stats.totalComments * 2)
+      }))
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .slice(0, limit);
+
+    return trendingTags;
+  }
 }
 
 export const discoverService = new DiscoverService();

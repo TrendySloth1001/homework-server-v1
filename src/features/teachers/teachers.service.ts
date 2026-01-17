@@ -358,6 +358,9 @@ export async function getStudentByUserIdService(userId: string, requestingUserId
 /**
  * Follow a teacher (student or teacher)
  */
+/**
+ * Follow a teacher (student or teacher)
+ */
 export async function followTeacherService(teacherId: string, userId: string) {
   // Get student profile
   const student = await prisma.student.findUnique({
@@ -375,11 +378,19 @@ export async function followTeacherService(teacherId: string, userId: string) {
     throw new AppError('User profile not found', 404);
   }
 
-  // Get target teacher
-  const teacher = await prisma.teacher.findUnique({
+  // Get target teacher (try by ID first, then by User ID)
+  let teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     select: { id: true, userId: true, allowFollowers: true },
   });
+
+  if (!teacher) {
+    // Try finding by userId
+    teacher = await prisma.teacher.findUnique({
+      where: { userId: teacherId },
+      select: { id: true, userId: true, allowFollowers: true },
+    });
+  }
 
   if (!teacher) {
     throw new AppError('Teacher not found', 404);
@@ -516,11 +527,19 @@ export async function unfollowTeacherService(teacherId: string, userId: string) 
     throw new AppError('User profile not found', 404);
   }
 
-  // Get target teacher
-  const teacher = await prisma.teacher.findUnique({
+  // Get target teacher (try by ID first, then by User ID)
+  let teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     select: { id: true },
   });
+
+  if (!teacher) {
+    // Try finding by userId
+    teacher = await prisma.teacher.findUnique({
+      where: { userId: teacherId },
+      select: { id: true },
+    });
+  }
 
   if (!teacher) {
     throw new AppError('Teacher not found', 404);

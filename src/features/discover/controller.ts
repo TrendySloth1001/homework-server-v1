@@ -891,6 +891,99 @@ export class DiscoverController {
       res.status(500).json({ error: error.message || 'Failed to get conversations' });
     }
   }
+
+  // ===================================
+  // LEADERBOARDS & ANALYTICS
+  // ===================================
+
+  /**
+   * Get leaderboard
+   * GET /api/discover/leaderboard?metric=posts&timeframe=week&limit=10
+   */
+  async getLeaderboard(req: Request, res: Response): Promise<void> {
+    try {
+      const { metric = 'engagement', timeframe = 'week', limit = 10 } = req.query;
+
+      const validMetrics = ['posts', 'votes', 'comments', 'engagement'];
+      const validTimeframes = ['day', 'week', 'month', 'all'];
+
+      if (!validMetrics.includes(metric as string)) {
+        res.status(400).json({ error: 'Invalid metric. Must be: posts, votes, comments, or engagement' });
+        return;
+      }
+
+      if (!validTimeframes.includes(timeframe as string)) {
+        res.status(400).json({ error: 'Invalid timeframe. Must be: day, week, month, or all' });
+        return;
+      }
+
+      const leaderboard = await discoverService.getLeaderboard(
+        metric as any,
+        timeframe as any,
+        parseInt(limit as string) || 10
+      );
+
+      res.json(leaderboard);
+    } catch (error: any) {
+      console.error('Error getting leaderboard:', error);
+      res.status(500).json({ error: error.message || 'Failed to get leaderboard' });
+    }
+  }
+
+  /**
+   * Get popular authors
+   * GET /api/discover/authors/popular?limit=10
+   */
+  async getPopularAuthors(req: Request, res: Response): Promise<void> {
+    try {
+      const { limit = 10 } = req.query;
+      const user = (req as any).user as JWTPayload | undefined;
+      const requestingUserId = user?.userId;
+      
+      const authors = await discoverService.getPopularAuthors(parseInt(limit as string) || 10, requestingUserId);
+      res.json(authors);
+    } catch (error: any) {
+      console.error('Error getting popular authors:', error);
+      res.status(500).json({ error: error.message || 'Failed to get popular authors' });
+    }
+  }
+
+  /**
+   * Get recommended posts
+   * GET /api/discover/posts/recommended?limit=10
+   */
+  async getRecommendedPosts(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+      const { limit = 10 } = req.query;
+
+      const posts = await discoverService.getRecommendedPosts(
+        userId,
+        parseInt(limit as string) || 10
+      );
+
+      res.json(posts);
+    } catch (error: any) {
+      console.error('Error getting recommended posts:', error);
+      res.status(500).json({ error: error.message || 'Failed to get recommended posts' });
+    }
+  }
+
+  /**
+   * Get trending tags
+   * GET /api/discover/tags/trending?limit=20
+   */
+  async getTrendingTags(req: Request, res: Response): Promise<void> {
+    try {
+      const { limit = 20 } = req.query;
+      const tags = await discoverService.getTrendingTags(parseInt(limit as string) || 20);
+      res.json(tags);
+    } catch (error: any) {
+      console.error('Error getting trending tags:', error);
+      res.status(500).json({ error: error.message || 'Failed to get trending tags' });
+    }
+  }
 }
 
 export const discoverController = new DiscoverController();
