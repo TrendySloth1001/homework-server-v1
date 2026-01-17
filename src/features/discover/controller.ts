@@ -971,6 +971,27 @@ export class DiscoverController {
   }
 
   /**
+   * Get user discovery stats
+   * GET /api/discover/users/:userId/stats
+   */
+  async getUserStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        res.status(400).json({ error: 'User ID is required' });
+        return;
+      }
+      
+      const stats = await discoverService.getUserStats(userId);
+      res.json({ data: stats });
+    } catch (error: any) {
+      console.error('Error getting user stats:', error);
+      res.status(500).json({ error: error.message || 'Failed to get user stats' });
+    }
+  }
+
+  /**
    * Get trending tags
    * GET /api/discover/tags/trending?limit=20
    */

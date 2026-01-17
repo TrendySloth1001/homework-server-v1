@@ -1933,6 +1933,36 @@ export class DiscoverService {
   }
 
   /**
+   * Get user discovery stats
+   */
+  async getUserStats(userId: string): Promise<any> {
+    const [posts, comments, votes] = await Promise.all([
+      // Count posts by user
+      prisma.post.count({
+        where: { authorId: userId }
+      }),
+      // Count comments by user
+      prisma.comment.count({
+        where: { authorId: userId }
+      }),
+      // Count votes by user
+      prisma.postVote.count({
+        where: { userId }
+      })
+    ]);
+
+    // Calculate total engagement (posts + comments + votes given)
+    const totalEngagement = posts + comments + votes;
+
+    return {
+      posts,
+      comments,
+      votes,
+      totalEngagement
+    };
+  }
+
+  /**
    * Get trending tags/topics
    */
   async getTrendingTags(limit: number = 20): Promise<any[]> {

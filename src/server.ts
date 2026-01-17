@@ -17,6 +17,7 @@ import studentRoutes from './features/students/students.routes';
 import chatRoutes from './features/chat/routes';
 import avatarRoutes from './features/avatar/avatar.routes';
 import discoverRoutes from './features/discover/routes';
+import profileRoutes from './features/profile/profile.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { setupWebSocket } from './shared/websocket/wshandler';
 import { config, logConfig } from './shared/config';
@@ -94,6 +95,7 @@ app.use('/api/students', studentRoutes);                                    // S
 app.use('/api/chat', chatRoutes);                                           // Real-time chat and messaging
 app.use('/api/avatar', avatarRoutes);                                       // Avatar management
 app.use('/api/discover', discoverRoutes);                                   // Community posts and social features
+app.use('/api/profile', profileRoutes);                                     // Profile management
 
 
 

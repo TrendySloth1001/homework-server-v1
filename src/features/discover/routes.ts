@@ -225,4 +225,7 @@ router.get('/authors/popular', discoverController.getPopularAuthors.bind(discove
 // Get trending tags/topics
 router.get('/tags/trending', discoverController.getTrendingTags.bind(discoverController));
 
+// Get user discovery stats
+router.get('/users/:userId/stats', discoverController.getUserStats.bind(discoverController));
+
 export default router;

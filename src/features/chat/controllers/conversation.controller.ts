@@ -220,7 +220,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
       userId,
       conversationId || undefined
     );
-    return res.json({ count });
+    return res.json({ unreadCount: count });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch unread count";
     return res.status(500).json({ error: message });
