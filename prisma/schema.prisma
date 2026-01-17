@@ -1234,7 +1234,8 @@ model Community {
   // Relations
   creator User               @relation("CommunityCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   members CommunityMember[]
-  posts   Post[]
+  posts   Post[]             @relation("LegacyPostCommunity")
+  crosspostedPosts PostCommunity[]  // Many-to-many for crossposting
   sharedIn SharedDiscoveryContent[] @relation("SharedCommunities")
 
   @@index([creatorId])
@@ -1271,7 +1272,7 @@ model Post {
   postType    PostType
   visibility  PostVisibility @default(PUBLIC)
   authorId    String
-  communityId String?
+  communityId String?        // Primary community (deprecated, use communities relation)
   linkUrl     String?
   tags        String[]       @default([])
   
@@ -1284,14 +1285,15 @@ model Post {
   updatedAt DateTime @updatedAt
 
   // Relations
-  author    User         @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  community Community?   @relation(fields: [communityId], references: [id], onDelete: SetNull)
-  media     PostMedia[]
-  votes     PostVote[]
-  comments  Comment[]
-  reports   PostReport[]
-  saves     SavedPost[]
-  sharedIn  SharedDiscoveryContent[] @relation("SharedPosts")
+  author       User         @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  community    Community?   @relation("LegacyPostCommunity", fields: [communityId], references: [id], onDelete: SetNull)
+  communities  PostCommunity[]  // Many-to-many for crossposting
+  media        PostMedia[]
+  votes        PostVote[]
+  comments     Comment[]
+  reports      PostReport[]
+  saves        SavedPost[]
+  sharedIn     SharedDiscoveryContent[] @relation("SharedPosts")
 
   @@index([authorId])
   @@index([communityId])
@@ -1300,6 +1302,22 @@ model Post {
   @@index([postType])
   @@index([visibility])
   @@index([tags])
+}
+
+// Junction table for crossposting to multiple communities
+model PostCommunity {
+  id          String   @id @default(cuid())
+  postId      String
+  communityId String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, communityId])
+  @@index([postId])
+  @@index([communityId])
 }
 
 model PostMedia {

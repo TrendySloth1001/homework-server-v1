@@ -133,6 +133,47 @@ export class DiscoverController {
   }
 
   /**
+   * Crosspost existing post to additional communities
+   * POST /api/discover/posts/:id/crosspost
+   */
+  async crosspostToCommunities(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const { communityIds } = req.body;
+
+      if (!communityIds || !Array.isArray(communityIds) || communityIds.length === 0) {
+        res.status(400).json({ error: 'communityIds array is required' });
+        return;
+      }
+
+      const post = await discoverService.crosspostToCommunities(id!, userId, communityIds);
+      res.json(post);
+    } catch (error: any) {
+      console.error('Error crossposting:', error);
+      
+      if (error.message.includes('Unauthorized') || error.message.includes('member')) {
+        res.status(403).json({ error: error.message });
+        return;
+      }
+
+      if (error.message.includes('already crossposted')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+
+      res.status(500).json({ error: error.message || 'Failed to crosspost' });
+    }
+  }
+
+  /**
    * Delete post
    * DELETE /api/discover/posts/:id
    */

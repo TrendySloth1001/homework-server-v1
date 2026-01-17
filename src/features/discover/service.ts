@@ -16,30 +16,69 @@ export class DiscoverService {
    * Create a new post
    */
   async createPost(userId: string, data: CreatePostRequest): Promise<PostResponse> {
-    const post = await prisma.post.create({
-      data: {
-        title: data.title,
-        description: data.description ?? null,
-        postType: data.postType,
-        visibility: data.visibility,
-        authorId: userId,
-        communityId: data.communityId ?? null,
-        linkUrl: data.linkUrl ?? null,
-        tags: data.tags || [],
-        voteCount: 0,
-        commentCount: 0,
-        viewCount: 0
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            displayName: true,
-            avatarUrl: true
-          }
-        },
-        media: true
+    // Determine which communities to post to
+    const communityIds = data.communityIds || (data.communityId ? [data.communityId] : []);
+    const primaryCommunityId = communityIds[0] || null;
+
+    // Verify user is a member of all communities
+    if (communityIds.length > 0) {
+      const memberships = await prisma.communityMember.findMany({
+        where: {
+          userId,
+          communityId: { in: communityIds }
+        }
+      });
+
+      if (memberships.length !== communityIds.length) {
+        throw new Error('You must be a member of all communities you want to post to');
       }
+    }
+
+    // Create the post with transaction to ensure atomicity
+    const post = await prisma.$transaction(async (tx) => {
+      const newPost = await tx.post.create({
+        data: {
+          title: data.title,
+          description: data.description ?? null,
+          postType: data.postType,
+          visibility: data.visibility,
+          authorId: userId,
+          communityId: primaryCommunityId,  // Set primary community for backward compatibility
+          linkUrl: data.linkUrl ?? null,
+          tags: data.tags || [],
+          voteCount: 0,
+          commentCount: 0,
+          viewCount: 0
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true
+            }
+          },
+          media: true
+        }
+      });
+
+      // Create PostCommunity entries for crossposting
+      if (communityIds.length > 0) {
+        await tx.postCommunity.createMany({
+          data: communityIds.map(communityId => ({
+            postId: newPost.id,
+            communityId
+          }))
+        });
+
+        // Increment post count for all communities
+        await tx.community.updateMany({
+          where: { id: { in: communityIds } },
+          data: { postCount: { increment: 1 } }
+        });
+      }
+
+      return newPost;
     });
 
     return this.mapToPostResponse(post, userId);
@@ -87,7 +126,12 @@ export class DiscoverService {
     const where: any = {};
 
     if (query.communityId) {
-      where.communityId = query.communityId;
+      // Filter by posts in this community (using PostCommunity junction table)
+      where.communities = {
+        some: {
+          communityId: query.communityId
+        }
+      };
     }
 
     if (query.authorId) {
@@ -241,6 +285,65 @@ export class DiscoverService {
     const engagementScore = (votes * 2) + (views * 0.1); // Votes worth more than views
 
     return engagementScore * recencyBoost;
+  }
+
+  /**
+   * Crosspost existing post to additional communities
+   */
+  async crosspostToCommunities(postId: string, userId: string, communityIds: string[]): Promise<PostResponse> {
+    // Verify post exists and user is the author
+    const post = await prisma.post.findUnique({
+      where: { id: postId }
+    });
+
+    if (!post || post.authorId !== userId) {
+      throw new Error('Unauthorized to crosspost this post');
+    }
+
+    // Get existing crossposted communities
+    const existingCommunities = await prisma.postCommunity.findMany({
+      where: { postId },
+      select: { communityId: true }
+    });
+
+    const existingCommunityIds = new Set(existingCommunities.map(pc => pc.communityId));
+    const newCommunityIds = communityIds.filter(id => !existingCommunityIds.has(id));
+
+    if (newCommunityIds.length === 0) {
+      throw new Error('Post is already crossposted to all selected communities');
+    }
+
+    // Verify user is a member of all new communities
+    const memberships = await prisma.communityMember.findMany({
+      where: {
+        userId,
+        communityId: { in: newCommunityIds }
+      }
+    });
+
+    if (memberships.length !== newCommunityIds.length) {
+      throw new Error('You must be a member of all communities you want to crosspost to');
+    }
+
+    // Add post to new communities
+    await prisma.$transaction(async (tx) => {
+      // Create PostCommunity entries
+      await tx.postCommunity.createMany({
+        data: newCommunityIds.map(communityId => ({
+          postId,
+          communityId
+        }))
+      });
+
+      // Increment post count for new communities
+      await tx.community.updateMany({
+        where: { id: { in: newCommunityIds } },
+        data: { postCount: { increment: 1 } }
+      });
+    });
+
+    // Return updated post
+    return this.getPostById(postId, userId) as Promise<PostResponse>;
   }
 
   /**
@@ -398,6 +501,20 @@ export class DiscoverService {
       isSaved = !!savedPost;
     }
 
+    // Fetch communities this post is crossposted to
+    const postCommunities = await prisma.postCommunity.findMany({
+      where: { postId: post.id },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+
     return {
       id: post.id,
       title: post.title,
@@ -407,6 +524,11 @@ export class DiscoverService {
       authorId: post.authorId,
       author: post.author,
       communityId: post.communityId,
+      communities: postCommunities.map(pc => ({
+        id: pc.community.id,
+        name: pc.community.name,
+        ...(pc.community.avatarUrl && { avatarUrl: pc.community.avatarUrl })
+      })),
       linkUrl: post.linkUrl,
       media: post.media || [],
       tags: post.tags || [],

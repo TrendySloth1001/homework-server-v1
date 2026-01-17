@@ -38,7 +38,8 @@ export interface CreatePostRequest {
   postType: PostType;
   visibility: PostVisibility;
   tags?: string[];
-  communityId?: string;
+  communityId?: string;      // Legacy: single community (deprecated)
+  communityIds?: string[];   // New: multiple communities for crossposting
   linkUrl?: string;
 }
 
@@ -61,7 +62,12 @@ export interface PostResponse {
     displayName: string;
     avatarUrl?: string;
   };
-  communityId?: string;
+  communityId?: string;      // Legacy: primary community
+  communities?: Array<{      // New: all communities (for crossposting)
+    id: string;
+    name: string;
+    avatarUrl?: string;
+  }>;
   linkUrl?: string;
   media: PostMedia[];
   tags: string[];

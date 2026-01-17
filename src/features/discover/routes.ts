@@ -43,6 +43,9 @@ router.get('/posts/:id', discoverController.getPostById.bind(discoverController)
 // Update post
 router.put('/posts/:id', authenticateToken, discoverController.updatePost.bind(discoverController));
 
+// Crosspost existing post to additional communities
+router.post('/posts/:id/crosspost', authenticateToken, discoverController.crosspostToCommunities.bind(discoverController));
+
 // Delete post
 router.delete('/posts/:id', authenticateToken, discoverController.deletePost.bind(discoverController));
 
