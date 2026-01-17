@@ -106,6 +106,30 @@ router.post('/comments/:commentId/vote', authenticateToken, discoverController.v
 router.delete('/comments/:commentId/vote', authenticateToken, discoverController.removeCommentVote.bind(discoverController));
 
 /**
+ * Comment Reaction Routes
+ */
+
+// React to a comment
+router.post('/comments/:commentId/react', authenticateToken, discoverController.reactToComment.bind(discoverController));
+
+// Remove reaction from comment
+router.delete('/comments/:commentId/react', authenticateToken, discoverController.removeCommentReaction.bind(discoverController));
+
+/**
+ * Comment Highlight Routes
+ */
+
+// Toggle comment highlight (post author only)
+router.post('/comments/:commentId/highlight', authenticateToken, discoverController.toggleCommentHighlight.bind(discoverController));
+
+/**
+ * Reading History Routes
+ */
+
+// Mark post as read
+router.post('/posts/:id/read', authenticateToken, discoverController.markPostAsRead.bind(discoverController));
+
+/**
  * Comment Reporting Routes
  */
 

@@ -506,8 +506,10 @@ model User {
   // Discover Feature Relations
   posts              Post[]              @relation("PostAuthor")
   postVotes          PostVote[]          @relation("PostVotes")
+  postViews          PostView[]          @relation("PostViews")
   comments           Comment[]           @relation("CommentAuthor")
   commentVotes       CommentVote[]       @relation("CommentVotes")
+  commentReactions   CommentReaction[]   @relation("CommentReactions")
   savedPosts         SavedPost[]         @relation("SavedPosts")
   postReports        PostReport[]        @relation("PostReports")
   commentReports     CommentReport[]     @relation("CommentReports")
@@ -1204,6 +1206,11 @@ enum MediaType {
 enum VoteType {
   UP
   DOWN
+  LIKE
+  FUNNY
+  HELPFUL
+  INSIGHTFUL
+  HEART
 }
 
 // ===================================
@@ -1290,6 +1297,7 @@ model Post {
   communities  PostCommunity[]  // Many-to-many for crossposting
   media        PostMedia[]
   votes        PostVote[]
+  views        PostView[]   @relation("PostViews")
   comments     Comment[]
   reports      PostReport[]
   saves        SavedPost[]
@@ -1365,15 +1373,17 @@ model Comment {
   parentCommentId String?
   depth           Int      @default(0)
   voteCount       Int      @default(0)
+  isHighlighted   Boolean  @default(false)  // For marking best comments
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relations
-  author         User            @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  post           Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parentComment  Comment?        @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
-  replies        Comment[]       @relation("CommentReplies")
+  author         User              @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  post           Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentComment  Comment?          @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies        Comment[]         @relation("CommentReplies")
   votes          CommentVote[]
+  reactions      CommentReaction[]
   reports        CommentReport[]
 
   @@index([postId])
@@ -1381,6 +1391,7 @@ model Comment {
   @@index([parentCommentId])
   @@index([createdAt])
   @@index([voteCount])
+  @@index([isHighlighted])
 }
 
 model CommentVote {
@@ -1413,6 +1424,49 @@ model SavedPost {
   @@unique([userId, postId])
   @@index([userId])
   @@index([postId])
+}
+
+// Post reading history
+model PostView {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  viewedAt  DateTime @default(now())
+  
+  // Relations
+  user User @relation("PostViews", fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation("PostViews", fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+  @@index([viewedAt])
+}
+
+// Comment reactions (like, funny, helpful, etc.)
+model CommentReaction {
+  id           String       @id @default(cuid())
+  userId       String
+  commentId    String
+  reactionType ReactionType
+  createdAt    DateTime     @default(now())
+  
+  // Relations
+  user    User    @relation("CommentReactions", fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, commentId, reactionType])
+  @@index([commentId])
+  @@index([userId])
+  @@index([reactionType])
+}
+
+enum ReactionType {
+  LIKE
+  FUNNY
+  HELPFUL
+  INSIGHTFUL
+  HEART
 }
 
 model PostReport {

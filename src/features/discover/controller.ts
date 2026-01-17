@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { discoverService } from './service';
 import { discoverMediaService } from './media.service';
-import { 
-  CreatePostRequest, 
-  UpdatePostRequest, 
-  PostListQuery, 
+import {
+  CreatePostRequest,
+  UpdatePostRequest,
+  PostListQuery,
   PostMedia,
   CreateCommentRequest,
   UpdateCommentRequest,
@@ -22,7 +22,7 @@ export class DiscoverController {
     try {
       const user = (req as any).user as JWTPayload | undefined;
       const userId = user?.userId;
-      
+
       if (!userId) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -122,7 +122,7 @@ export class DiscoverController {
       res.json(post);
     } catch (error: any) {
       console.error('Error updating post:', error);
-      
+
       if (error.message === 'Unauthorized to update this post') {
         res.status(403).json({ error: error.message });
         return;
@@ -158,7 +158,7 @@ export class DiscoverController {
       res.json(post);
     } catch (error: any) {
       console.error('Error crossposting:', error);
-      
+
       if (error.message.includes('Unauthorized') || error.message.includes('member')) {
         res.status(403).json({ error: error.message });
         return;
@@ -383,7 +383,7 @@ export class DiscoverController {
       const { id } = req.params;
       const user = (req as any).user as JWTPayload | undefined;
       const userId = user?.userId;
-      const sortBy = (req.query.sortBy as 'new' | 'top' | 'old') || 'top';
+      const sortBy = (req.query.sortBy as 'new' | 'top' | 'old' | 'best' | 'controversial') || 'best';
 
       const comments = await discoverService.getComments(id!, sortBy, userId);
       res.json(comments);
@@ -419,7 +419,7 @@ export class DiscoverController {
       res.json(comment);
     } catch (error: any) {
       console.error('Error updating comment:', error);
-      
+
       if (error.message === 'Unauthorized to update this comment') {
         res.status(403).json({ error: error.message });
         return;
@@ -475,8 +475,8 @@ export class DiscoverController {
 
       const { voteType }: VoteRequest = req.body;
 
-      if (!voteType || !['UP', 'DOWN'].includes(voteType)) {
-        res.status(400).json({ error: 'Invalid vote type. Must be UP or DOWN' });
+      if (!voteType || !['UP', 'DOWN', 'LIKE', 'FUNNY', 'HELPFUL', 'INSIGHTFUL', 'HEART'].includes(voteType)) {
+        res.status(400).json({ error: 'Invalid vote type' });
         return;
       }
 
@@ -508,6 +508,118 @@ export class DiscoverController {
     } catch (error: any) {
       console.error('Error removing comment vote:', error);
       res.status(500).json({ error: error.message || 'Failed to remove comment vote' });
+    }
+  }
+
+  // ===================================
+  // COMMENT REACTIONS ENDPOINTS
+  // ===================================
+
+  /**
+   * React to a comment
+   * POST /api/discover/comments/:commentId/react
+   */
+  async reactToComment(req: Request, res: Response): Promise<void> {
+    try {
+      const { commentId } = req.params;
+      const { reactionType } = req.body;
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!reactionType) {
+        res.status(400).json({ error: 'Reaction type is required' });
+        return;
+      }
+
+      await discoverService.reactToComment(commentId!, userId, reactionType);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error('Error reacting to comment:', error);
+      res.status(500).json({ error: error.message || 'Failed to react to comment' });
+    }
+  }
+
+  /**
+   * Remove reaction from a comment
+   * DELETE /api/discover/comments/:commentId/react
+   */
+  async removeCommentReaction(req: Request, res: Response): Promise<void> {
+    try {
+      const { commentId } = req.params;
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      await discoverService.removeCommentReaction(commentId!, userId);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error('Error removing comment reaction:', error);
+      res.status(500).json({ error: error.message || 'Failed to remove comment reaction' });
+    }
+  }
+
+  /**
+   * Toggle comment highlight (best comment)
+   * POST /api/discover/comments/:commentId/highlight
+   */
+  async toggleCommentHighlight(req: Request, res: Response): Promise<void> {
+    try {
+      const { commentId } = req.params;
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      await discoverService.toggleCommentHighlight(commentId!, userId);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error('Error toggling comment highlight:', error);
+
+      if (error.message.includes('Only the post author')) {
+        res.status(403).json({ error: error.message });
+        return;
+      }
+
+      res.status(500).json({ error: error.message || 'Failed to toggle comment highlight' });
+    }
+  }
+
+  // ===================================
+  // READING HISTORY ENDPOINTS
+  // ===================================
+
+  /**
+   * Mark post as read
+   * POST /api/discover/posts/:id/read
+   */
+  async markPostAsRead(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user as JWTPayload | undefined;
+      const userId = user?.userId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      await discoverService.markPostAsRead(id!, userId);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error('Error marking post as read:', error);
+      res.status(500).json({ error: error.message || 'Failed to mark post as read' });
     }
   }
 

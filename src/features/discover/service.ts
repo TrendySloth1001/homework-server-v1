@@ -477,9 +477,10 @@ export class DiscoverService {
   private async mapToPostResponse(post: any, userId?: string): Promise<PostResponse> {
     let userVote = null;
     let isSaved = false;
+    let isRead = false;
 
     if (userId) {
-      const [vote, savedPost] = await Promise.all([
+      const [vote, savedPost, postView] = await Promise.all([
         prisma.postVote.findUnique({
           where: {
             userId_postId: {
@@ -495,10 +496,19 @@ export class DiscoverService {
               postId: post.id
             }
           }
+        }),
+        prisma.postView.findUnique({
+          where: {
+            userId_postId: {
+              userId,
+              postId: post.id
+            }
+          }
         })
       ]);
-      userVote = vote?.voteType || null;
+      userVote = (vote?.voteType === 'UP' || vote?.voteType === 'DOWN') ? vote.voteType : null;
       isSaved = !!savedPost;
+      isRead = !!postView;
     }
 
     // Fetch communities this post is crossposted to
@@ -535,8 +545,9 @@ export class DiscoverService {
       voteCount: post.voteCount || 0,
       commentCount: post.commentCount || 0,
       viewCount: post.viewCount || 0,
-      userVote,
+      userVote: userVote || null,
       isSaved,
+      isRead, 
       createdAt: post.createdAt,
       updatedAt: post.updatedAt
     };
@@ -675,52 +686,186 @@ export class DiscoverService {
   /**
    * Get comments for a post
    */
-  async getComments(postId: string, sortBy: 'new' | 'top' | 'old' = 'top', userId?: string): Promise<any[]> {
+  async getComments(postId: string, sortBy: 'new' | 'top' | 'old' | 'best' | 'controversial' = 'best', userId?: string): Promise<any[]> {
     let orderBy: any = {};
-    switch (sortBy) {
-      case 'new':
-        orderBy = { createdAt: 'desc' };
-        break;
-      case 'old':
-        orderBy = { createdAt: 'asc' };
-        break;
-      case 'top':
-        orderBy = { voteCount: 'desc' };
-        break;
-    }
+    let comments;
 
-    const comments = await prisma.comment.findMany({
-      where: { postId },
-      orderBy,
-      include: {
-        author: {
-          select: {
-            id: true,
-            displayName: true,
-            avatarUrl: true
-          }
-        }
-      }
-    });
-
-    // Add user vote info if userId provided
-    if (userId) {
-      const commentIds = comments.map(c => c.id);
-      const votes = await prisma.commentVote.findMany({
-        where: {
-          userId,
-          commentId: { in: commentIds }
+    // For 'controversial', we need custom sorting logic
+    if (sortBy === 'controversial' || sortBy === 'best') {
+      // Fetch all comments without sorting
+      comments = await prisma.comment.findMany({
+        where: { postId },
+        include: {
+          author: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true
+            }
+          },
+          votes: true,
+          reactions: true
         }
       });
 
-      const voteMap = new Map(votes.map(v => [v.commentId, v.voteType]));
-      return comments.map(comment => ({
-        ...comment,
-        userVote: voteMap.get(comment.id) || null
-      }));
+      if (sortBy === 'controversial') {
+        // Sort by controversial: comments with balanced up/down votes
+        comments = this.sortByControversial(comments);
+      } else {
+        // 'best': combine votes, reactions, and age
+        comments = this.sortByBest(comments);
+      }
+    } else {
+      // Regular sorting
+      switch (sortBy) {
+        case 'new':
+          orderBy = { createdAt: 'desc' };
+          break;
+        case 'old':
+          orderBy = { createdAt: 'asc' };
+          break;
+        case 'top':
+          orderBy = { voteCount: 'desc' };
+          break;
+      }
+
+      comments = await prisma.comment.findMany({
+        where: { postId },
+        orderBy,
+        include: {
+          author: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true
+            }
+          },
+          votes: true,
+          reactions: true
+        }
+      });
     }
 
-    return comments.map(comment => ({ ...comment, userVote: null }));
+    // Calculate reaction counts and add user info
+    return this.mapCommentsWithUserData(comments, userId);
+  }
+
+  /**
+   * Sort comments by "best" algorithm
+   * Combines vote count, reactions, and time decay
+   */
+  private sortByBest(comments: any[]): any[] {
+    const now = Date.now();
+    const HOUR_MS = 1000 * 60 * 60;
+
+    return comments.sort((a, b) => {
+      const aScore = this.calculateBestScore(a, now, HOUR_MS);
+      const bScore = this.calculateBestScore(b, now, HOUR_MS);
+      return bScore - aScore;
+    });
+  }
+
+  /**
+   * Calculate best score for a comment
+   */
+  private calculateBestScore(comment: any, now: number, hourMs: number): number {
+    const hoursOld = (now - comment.createdAt.getTime()) / hourMs;
+    const reactionCount = comment.reactions.length;
+    const score = comment.voteCount + (reactionCount * 0.5);
+    
+    // Time decay factor (less aggressive than posts)
+    const timeFactor = 1 / (1 + hoursOld / 24); // Decay over 24 hours
+    
+    return score * timeFactor;
+  }
+
+  /**
+   * Sort comments by controversial
+   * Comments with balanced up/down votes
+   */
+  private sortByControversial(comments: any[]): any[] {
+    return comments.sort((a, b) => {
+      const aControversy = this.calculateControversy(a);
+      const bControversy = this.calculateControversy(b);
+      return bControversy - aControversy;
+    });
+  }
+
+  /**
+   * Calculate controversy score
+   * Higher score = more balanced between upvotes and downvotes
+   */
+  private calculateControversy(comment: any): number {
+    const upvotes = comment.votes.filter((v: any) => v.voteType === 'UP').length;
+    const downvotes = comment.votes.filter((v: any) => v.voteType === 'DOWN').length;
+    const total = upvotes + downvotes;
+
+    if (total === 0) return 0;
+
+    // Controversy is highest when votes are 50/50
+    const balance = Math.min(upvotes, downvotes);
+    const magnitude = Math.sqrt(total);
+
+    return balance * magnitude;
+  }
+
+  /**
+   * Map comments with user vote and reaction data
+   */
+  private async mapCommentsWithUserData(comments: any[], userId?: string): Promise<any[]> {
+    const commentIds = comments.map(c => c.id);
+    
+    // Get user votes and reactions if userId provided
+    let voteMap = new Map();
+    let reactionMap = new Map();
+
+    if (userId && commentIds.length > 0) {
+      const [votes, userReactions] = await Promise.all([
+        prisma.commentVote.findMany({
+          where: {
+            userId,
+            commentId: { in: commentIds }
+          }
+        }),
+        prisma.commentReaction.findMany({
+          where: {
+            userId,
+            commentId: { in: commentIds }
+          }
+        })
+      ]);
+
+      voteMap = new Map(votes.map(v => [v.commentId, v.voteType]));
+      reactionMap = new Map(userReactions.map(r => [r.commentId, r.reactionType]));
+    }
+
+    return comments.map(comment => {
+      // Calculate reaction counts
+      const reactions = {
+        like: comment.reactions.filter((r: any) => r.reactionType === 'LIKE').length,
+        funny: comment.reactions.filter((r: any) => r.reactionType === 'FUNNY').length,
+        helpful: comment.reactions.filter((r: any) => r.reactionType === 'HELPFUL').length,
+        insightful: comment.reactions.filter((r: any) => r.reactionType === 'INSIGHTFUL').length,
+        heart: comment.reactions.filter((r: any) => r.reactionType === 'HEART').length
+      };
+
+      return {
+        id: comment.id,
+        content: comment.content,
+        authorId: comment.authorId,
+        author: comment.author,
+        postId: comment.postId,
+        parentCommentId: comment.parentCommentId,
+        depth: comment.depth,
+        voteCount: comment.voteCount,
+        isHighlighted: comment.isHighlighted,
+        reactions,
+        userVote: voteMap.get(comment.id) || null,
+        userReaction: reactionMap.get(comment.id) || null,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt
+      };
+    });
   }
 
   /**
@@ -865,6 +1010,116 @@ export class DiscoverService {
         data: { voteCount: { increment: countChange } }
       })
     ]);
+  }
+
+  // ===================================
+  // COMMENT REACTIONS
+  // ===================================
+
+  /**
+   * Add or update reaction to a comment
+   */
+  async reactToComment(commentId: string, userId: string, reactionType: string): Promise<void> {
+    // Check if user already has a reaction on this comment
+    const existingReaction = await prisma.commentReaction.findFirst({
+      where: {
+        userId,
+        commentId
+      }
+    });
+
+    if (existingReaction) {
+      if (existingReaction.reactionType === reactionType) {
+        // Same reaction, remove it (toggle off)
+        await prisma.commentReaction.delete({
+          where: { id: existingReaction.id }
+        });
+      } else {
+        // Different reaction, update it
+        await prisma.commentReaction.update({
+          where: { id: existingReaction.id },
+          data: { reactionType: reactionType as any }
+        });
+      }
+    } else {
+      // New reaction
+      await prisma.commentReaction.create({
+        data: {
+          userId,
+          commentId,
+          reactionType: reactionType as any
+        }
+      });
+    }
+  }
+
+  /**
+   * Remove reaction from a comment
+   */
+  async removeCommentReaction(commentId: string, userId: string): Promise<void> {
+    await prisma.commentReaction.deleteMany({
+      where: {
+        userId,
+        commentId
+      }
+    });
+  }
+
+  /**
+   * Toggle comment highlight (best comment marker)
+   */
+  async toggleCommentHighlight(commentId: string, userId: string): Promise<void> {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        post: {
+          select: { authorId: true }
+        }
+      }
+    });
+
+    if (!comment) {
+      throw new Error('Comment not found');
+    }
+
+    // Only post author can highlight comments
+    if (comment.post.authorId !== userId) {
+      throw new Error('Only the post author can highlight comments');
+    }
+
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { isHighlighted: !comment.isHighlighted }
+    });
+  }
+
+  // ===================================
+  // READING HISTORY
+  // ===================================
+
+  /**
+   * Mark post as read/viewed
+   */
+  async markPostAsRead(postId: string, userId: string): Promise<void> {
+    await prisma.postView.upsert({
+      where: {
+        userId_postId: { userId, postId }
+      },
+      create: { userId, postId },
+      update: { viewedAt: new Date() }
+    });
+  }
+
+  /**
+   * Check if user has read a post
+   */
+  async hasUserReadPost(postId: string, userId: string): Promise<boolean> {
+    const view = await prisma.postView.findUnique({
+      where: {
+        userId_postId: { userId, postId }
+      }
+    });
+    return !!view;
   }
 
   // ===================================

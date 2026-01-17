@@ -19,6 +19,14 @@ export enum PostVisibility {
   PRIVATE = 'PRIVATE'
 }
 
+export enum ReactionType {
+  LIKE = 'LIKE',
+  FUNNY = 'FUNNY',
+  HELPFUL = 'HELPFUL',
+  INSIGHTFUL = 'INSIGHTFUL',
+  HEART = 'HEART'
+}
+
 export interface PostMedia {
   id: string;
   type: MediaType;
@@ -76,6 +84,7 @@ export interface PostResponse {
   viewCount: number;
   userVote?: 'UP' | 'DOWN' | null;
   isSaved?: boolean;
+  isRead?: boolean;          // Whether user has viewed this post
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,6 +130,15 @@ export interface CommentResponse {
   depth: number;
   voteCount: number;
   userVote?: 'UP' | 'DOWN' | null;
+  isHighlighted?: boolean;    // Best comment marker
+  reactions?: {
+    like: number;
+    funny: number;
+    helpful: number;
+    insightful: number;
+    heart: number;
+  };
+  userReaction?: ReactionType | null;  // User's reaction to this comment
   createdAt: Date;
   updatedAt: Date;
 }
