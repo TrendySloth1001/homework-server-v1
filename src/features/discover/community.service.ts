@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../../shared/lib/prisma';
+import { s3Service } from '../../shared/lib/s3';
 import {
   CreateCommunityRequest,
   UpdateCommunityRequest,
@@ -366,6 +367,128 @@ export class CommunityService {
         data: { memberCount: { decrement: 1 } }
       })
     ]);
+  }
+
+  /**
+   * Upload community avatar
+   */
+  async uploadAvatar(communityId: string, userId: string, file: Express.Multer.File): Promise<string> {
+    // Check if user has permission (creator or moderator)
+    const member = await prisma.communityMember.findUnique({
+      where: {
+        communityId_userId: { communityId, userId }
+      }
+    });
+
+    if (!member || (member.role !== 'CREATOR' && member.role !== 'MODERATOR')) {
+      throw new Error('Unauthorized to update this community');
+    }
+
+    // Import s3Service and sharp
+    const sharp = (await import('sharp')).default;
+
+    // Resize and optimize image for avatar (square)
+    const optimizedBuffer = await sharp(file.buffer)
+      .resize(400, 400, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // Delete old avatar if exists
+    const community = await prisma.community.findUnique({
+      where: { id: communityId },
+      select: { avatarUrl: true }
+    });
+
+    if (community?.avatarUrl) {
+      try {
+        await s3Service.deleteFile(community.avatarUrl);
+      } catch (error) {
+        console.warn('Failed to delete old avatar:', error);
+      }
+    }
+
+    // Upload to S3 with structured path: communities/{communityId}/avatar.jpg
+    const folder = `communities/${communityId}`;
+    const result = await s3Service.uploadFile(
+      {
+        buffer: optimizedBuffer,
+        mimetype: 'image/jpeg',
+        originalname: 'avatar.jpg'
+      },
+      folder
+    );
+
+    // Update community with new avatar URL
+    await prisma.community.update({
+      where: { id: communityId },
+      data: { avatarUrl: result.url }
+    });
+
+    return result.url;
+  }
+
+  /**
+   * Upload community background image
+   */
+  async uploadBackground(communityId: string, userId: string, file: Express.Multer.File): Promise<string> {
+    // Check if user has permission (creator or moderator)
+    const member = await prisma.communityMember.findUnique({
+      where: {
+        communityId_userId: { communityId, userId }
+      }
+    });
+
+    if (!member || (member.role !== 'CREATOR' && member.role !== 'MODERATOR')) {
+      throw new Error('Unauthorized to update this community');
+    }
+
+    // Import s3Service and sharp
+    const sharp = (await import('sharp')).default;
+
+    // Resize and optimize image for banner (wide format)
+    const optimizedBuffer = await sharp(file.buffer)
+      .resize(1920, 480, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // Delete old banner if exists
+    const community = await prisma.community.findUnique({
+      where: { id: communityId },
+      select: { bannerUrl: true }
+    });
+
+    if (community?.bannerUrl) {
+      try {
+        await s3Service.deleteFile(community.bannerUrl);
+      } catch (error) {
+        console.warn('Failed to delete old banner:', error);
+      }
+    }
+
+    // Upload to S3 with structured path: communities/{communityId}/banner.jpg
+    const folder = `communities/${communityId}`;
+    const result = await s3Service.uploadFile(
+      {
+        buffer: optimizedBuffer,
+        mimetype: 'image/jpeg',
+        originalname: 'banner.jpg'
+      },
+      folder
+    );
+
+    // Update community with new banner URL
+    await prisma.community.update({
+      where: { id: communityId },
+      data: { bannerUrl: result.url }
+    });
+
+    return result.url;
   }
 
   /**

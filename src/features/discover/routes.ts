@@ -166,4 +166,10 @@ router.delete('/communities/:id/members/:userId', authenticateToken, communityCo
 // Get user's communities
 router.get('/users/:userId/communities', authenticateToken, communityController.getUserCommunities.bind(communityController));
 
+// Upload community avatar
+router.post('/communities/:id/avatar', authenticateToken, upload.single('avatar'), communityController.uploadAvatar.bind(communityController));
+
+// Upload community background image
+router.post('/communities/:id/background', authenticateToken, upload.single('background'), communityController.uploadBackground.bind(communityController));
+
 export default router;

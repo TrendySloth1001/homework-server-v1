@@ -270,6 +270,72 @@ export class CommunityController {
       res.status(500).json({ error: 'Failed to get user communities' });
     }
   }
+
+  /**
+   * Upload community avatar
+   */
+  async uploadAvatar(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ error: 'Community ID is required' });
+      }
+      
+      const user = (req as any).user as JWTPayload;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'No avatar file provided' });
+      }
+
+      // Validate file type
+      if (!file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: 'Avatar must be an image file' });
+      }
+
+      const avatarUrl = await communityService.uploadAvatar(id, user.userId, file);
+      res.json({ avatarUrl });
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      if (error.message === 'Unauthorized to update this community' || error.message === 'Community not found') {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to upload avatar' });
+    }
+  }
+
+  /**
+   * Upload community background image
+   */
+  async uploadBackground(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ error: 'Community ID is required' });
+      }
+      
+      const user = (req as any).user as JWTPayload;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'No background image file provided' });
+      }
+
+      // Validate file type
+      if (!file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: 'Background must be an image file' });
+      }
+
+      const bannerUrl = await communityService.uploadBackground(id, user.userId, file);
+      res.json({ bannerUrl });
+    } catch (error: any) {
+      console.error('Error uploading background:', error);
+      if (error.message === 'Unauthorized to update this community' || error.message === 'Community not found') {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to upload background image' });
+    }
+  }
 }
 
 export const communityController = new CommunityController();
