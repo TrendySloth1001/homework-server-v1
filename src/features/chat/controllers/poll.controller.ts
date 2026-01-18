@@ -55,7 +55,7 @@ export const votePoll = async (req: Request, res: Response) => {
 
     const userId: string = userIdOrUndefined;
 
-    const poll = await pollService.votePoll(pollId, userId, optionIndices);
+    const poll = await pollService.votePoll(pollId as string, userId, optionIndices);
 
     return res.json(poll);
   } catch (error) {
@@ -79,7 +79,7 @@ export const getPoll = async (req: Request, res: Response) => {
 
     const userId: string = userIdOrUndefined;
 
-    const poll = await pollService.getPoll(pollId, userId);
+    const poll = await pollService.getPoll(pollId as string, userId);
 
     return res.json(poll);
   } catch (error) {
@@ -103,7 +103,7 @@ export const deletePoll = async (req: Request, res: Response) => {
 
     const userId: string = userIdOrUndefined;
 
-    const result = await pollService.deletePoll(pollId, userId);
+    const result = await pollService.deletePoll(pollId as string, userId);
 
     return res.json(result);
   } catch (error) {

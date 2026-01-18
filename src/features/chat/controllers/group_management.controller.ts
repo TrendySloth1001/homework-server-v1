@@ -15,8 +15,8 @@ export const updateMemberRole = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const targetUserId: string = targetUserIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const targetUserId: string = targetUserIdParam as string;
 
     if (!role || !["admin", "moderator", "member"].includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
@@ -49,7 +49,7 @@ export const updateGroupSettings = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const updatedConversation = await groupManagementService.updateGroupSettings(
       conversationId,
@@ -78,8 +78,8 @@ export const kickMember = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const targetUserId: string = targetUserIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const targetUserId: string = targetUserIdParam as string;
 
     const result = await groupManagementService.kickMember(
       conversationId,
@@ -107,8 +107,8 @@ export const banMember = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const targetUserId: string = targetUserIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const targetUserId: string = targetUserIdParam as string;
 
     const result = await groupManagementService.banMember(
       conversationId,
@@ -136,8 +136,8 @@ export const unbanMember = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const targetUserId: string = targetUserIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const targetUserId: string = targetUserIdParam as string;
 
     const result = await groupManagementService.unbanMember(
       conversationId,
@@ -166,7 +166,7 @@ export const createInviteLink = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const inviteLink = await groupManagementService.createInviteLink(
       conversationId,
@@ -193,7 +193,7 @@ export const getInviteLinks = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const links = await groupManagementService.getInviteLinks(conversationId, userId);
 
@@ -215,7 +215,7 @@ export const revokeInviteLink = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const linkId: string = linkIdParam;
+    const linkId: string = linkIdParam as string;
 
     const result = await groupManagementService.revokeInviteLink(linkId, userId);
 
@@ -266,7 +266,7 @@ export const createJoinRequest = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const request = await groupManagementService.createJoinRequest(
       conversationId,
@@ -295,7 +295,7 @@ export const getJoinRequests = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const requests = await groupManagementService.getJoinRequests(conversationId, userId);
 
@@ -322,7 +322,7 @@ export const respondToJoinRequest = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const requestId: string = requestIdParam;
+    const requestId: string = requestIdParam as string;
 
     const result = await groupManagementService.respondToJoinRequest(
       requestId,
@@ -352,8 +352,8 @@ export const pinMessage = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const messageId: string = messageIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const messageId: string = messageIdParam as string;
 
     const pinnedMessage = await groupManagementService.pinMessage(
       conversationId,
@@ -381,8 +381,8 @@ export const unpinMessage = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
-    const messageId: string = messageIdParam;
+    const conversationId: string = conversationIdParam as string;
+    const messageId: string = messageIdParam as string;
 
     const result = await groupManagementService.unpinMessage(
       conversationId,
@@ -409,7 +409,7 @@ export const getPinnedMessages = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const pinnedMessages = await groupManagementService.getPinnedMessages(
       conversationId,
@@ -441,7 +441,7 @@ export const sendAnnouncement = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const announcement = await groupManagementService.sendAnnouncement(
       conversationId,
@@ -467,7 +467,7 @@ export const getAnnouncements = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const announcements = await groupManagementService.getAnnouncements(
       conversationId,
@@ -495,7 +495,7 @@ export const getGroupMembers = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const members = await groupManagementService.getGroupMembers(
       conversationId,
@@ -521,7 +521,7 @@ export const getBannedMembers = async (req: Request, res: Response) => {
     }
 
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     const bannedMembers = await groupManagementService.getBannedMembers(
       conversationId,

@@ -18,7 +18,7 @@ export const addReaction = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     if (!emoji || typeof emoji !== "string") {
       return res.status(400).json({ error: "Emoji is required" });
@@ -45,8 +45,8 @@ export const removeReaction = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
-    const emoji: string = emojiParam;
+    const messageId: string = messageIdParam as string;
+    const emoji: string = emojiParam as string;
 
     const result = await reactionService.removeReaction(messageId, userId, emoji);
     return res.json(result);
@@ -67,7 +67,7 @@ export const getReactions = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const reactions = await reactionService.getMessageReactions(messageId, userId);
     return res.json(reactions);
@@ -92,7 +92,7 @@ export const editMessage = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     if (!content || typeof content !== "string") {
       return res.status(400).json({ error: "Content is required" });
@@ -119,7 +119,7 @@ export const getEditHistory = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const history = await editService.getMessageEditHistory(messageId, userId);
     return res.json(history);
@@ -143,7 +143,7 @@ export const deleteForMe = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const result = await deleteService.deleteMessageForMe(messageId, userId);
     return res.json(result);
@@ -165,7 +165,7 @@ export const deleteForEveryone = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const result = await deleteService.deleteMessageForEveryone(messageId, userId);
     return res.json(result);
@@ -189,7 +189,7 @@ export const starMessage = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const result = await starService.starMessage(messageId, userId);
     return res.json(result);
@@ -211,7 +211,7 @@ export const unstarMessage = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     const result = await starService.unstarMessage(messageId, userId);
     return res.json(result);
@@ -233,7 +233,7 @@ export const getStarredMessages = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
 
     const messages = conversationId
-      ? await starService.getStarredMessages(conversationId, userId)
+      ? await starService.getStarredMessages(conversationId as string, userId)
       : await starService.getAllStarredMessages(userId);
 
     return res.json(messages);
@@ -257,7 +257,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const messageId: string = messageIdParam;
+    const messageId: string = messageIdParam as string;
 
     if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
       return res.status(400).json({ error: "conversationIds must be a non-empty array" });
@@ -286,7 +286,7 @@ export const searchMessages = async (req: Request, res: Response) => {
     }
     
     const userId: string = userIdOrUndefined;
-    const conversationId: string = conversationIdParam;
+    const conversationId: string = conversationIdParam as string;
 
     if (!query || typeof query !== "string") {
       return res.status(400).json({ error: "Query is required" });

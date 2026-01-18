@@ -28,7 +28,7 @@ export async function updateTeacherProfile(req: Request, res: Response) {
       });
     }
 
-    const updatedTeacher = await updateTeacherProfileService(teacherId, userId, req.body);
+    const updatedTeacher = await updateTeacherProfileService(teacherId as string, userId, req.body);
 
     res.json({
       success: true,
@@ -60,7 +60,7 @@ export async function updateStudentProfile(req: Request, res: Response) {
       });
     }
 
-    const updatedStudent = await updateStudentProfileService(studentId, userId, req.body);
+    const updatedStudent = await updateStudentProfileService(studentId as string, userId, req.body);
 
     res.json({
       success: true,

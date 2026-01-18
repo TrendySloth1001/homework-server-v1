@@ -229,7 +229,7 @@ export const getUnifiedJobStatusHandler = asyncHandler(async (req: Request, res:
     throw new ValidationError('Job ID is required');
   }
 
-  const jobStatus = await getUnifiedJobStatusService(jobId);
+  const jobStatus = await getUnifiedJobStatusService(jobId as string);
 
   res.status(200).json({
     success: true,
@@ -259,10 +259,10 @@ export const getConversationHandler = asyncHandler(async (req: Request, res: Res
   }
 
   const conversation = await conversationService.getConversation(
-    id,
+    id as string,
     userId ? (userId as string) : undefined
   );
-  const messages = await conversationService.getConversationHistory(id, 100);
+  const messages = await conversationService.getConversationHistory(id as string, 100);
 
   res.status(200).json({
     success: true,
@@ -324,7 +324,7 @@ export const getTeacherConversationsHandler = asyncHandler(async (req: Request, 
   if (offset) options.offset = parseInt(offset as string, 10);
 
   const conversations = await conversationService.getTeacherConversations(
-    teacherId,
+    teacherId as string,
     options
   );
 
@@ -349,7 +349,7 @@ export const deleteConversationHandler = asyncHandler(async (req: Request, res: 
   }
 
   await conversationService.deleteConversation(
-    id,
+    id as string,
     teacherId ? (teacherId as string) : undefined
   );
 
@@ -370,7 +370,7 @@ export const getConversationStatsHandler = asyncHandler(async (req: Request, res
     throw new ValidationError('Conversation ID is required');
   }
 
-  const stats = await conversationService.getConversationStats(id);
+  const stats = await conversationService.getConversationStats(id as string);
 
   res.status(200).json({
     success: true,
@@ -445,7 +445,7 @@ export const getConversationMessagesHandler = asyncHandler(async (req: Request, 
   }
 
   const messages = await conversationService.allMessages(
-    conversationId,
+    conversationId as string,
     teacherId as string | undefined
   );
 

@@ -12,7 +12,7 @@ export const getUserStatus = async (req: Request, res: Response) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: userId as string },
       select: {
         id: true,
         username: true,
@@ -84,7 +84,7 @@ export const getConversationMembersStatus = async (req: Request, res: Response) 
     }
 
     const members = await prisma.chatConversationMember.findMany({
-      where: { conversationId },
+      where: { conversationId: conversationId as string },
       include: {
         user: {
           select: {

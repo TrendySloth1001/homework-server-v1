@@ -41,7 +41,7 @@ export class CommunityController {
       }
       const user = (req as any).user as JWTPayload | undefined;
 
-      const community = await communityService.getCommunityById(id, user?.userId);
+      const community = await communityService.getCommunityById(id as string, user?.userId);
       if (!community) {
         return res.status(404).json({ error: 'Community not found' });
       }
@@ -86,7 +86,7 @@ export class CommunityController {
       const user = (req as any).user as JWTPayload;
       const data = req.body as UpdateCommunityRequest;
 
-      const community = await communityService.updateCommunity(id, user.userId, data);
+      const community = await communityService.updateCommunity(id as string, user.userId, data);
       res.json(community);
     } catch (error: any) {
       console.error('Error updating community:', error);
@@ -108,7 +108,7 @@ export class CommunityController {
       }
       const user = (req as any).user as JWTPayload;
 
-      await communityService.deleteCommunity(id, user.userId);
+      await communityService.deleteCommunity(id as string, user.userId);
       res.status(204).send();
     } catch (error: any) {
       console.error('Error deleting community:', error);
@@ -130,7 +130,7 @@ export class CommunityController {
       }
       const user = (req as any).user as JWTPayload;
 
-      await communityService.joinCommunity(id, user.userId);
+      await communityService.joinCommunity(id as string, user.userId);
       res.status(200).json({ message: 'Successfully joined community' });
     } catch (error: any) {
       console.error('Error joining community:', error);
@@ -156,7 +156,7 @@ export class CommunityController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      await communityService.leaveCommunity(id, user.userId);
+      await communityService.leaveCommunity(id as string, user.userId);
       res.status(200).json({ message: 'Successfully left community' });
     } catch (error: any) {
       console.error('Error leaving community:', error);
@@ -176,7 +176,7 @@ export class CommunityController {
       if (!id) {
         return res.status(400).json({ error: 'Community ID is required' });
       }
-      const members = await communityService.getCommunityMembers(id);
+      const members = await communityService.getCommunityMembers(id as string);
       res.json(members);
     } catch (error: any) {
       console.error('Error getting community members:', error);
@@ -200,7 +200,7 @@ export class CommunityController {
         return res.status(400).json({ error: 'Invalid role. Must be MEMBER or MODERATOR' });
       }
 
-      await communityService.updateMemberRole(id, userId, role as CommunityRole, currentUser.userId);
+      await communityService.updateMemberRole(id as string, userId as string, role as CommunityRole, currentUser.userId);
       res.status(200).json({ message: 'Member role updated successfully' });
     } catch (error: any) {
       console.error('Error updating member role:', error);
@@ -225,7 +225,7 @@ export class CommunityController {
       }
       const currentUser = (req as any).user as JWTPayload;
 
-      await communityService.removeMember(id, userId, currentUser.userId);
+      await communityService.removeMember(id as string, userId as string, currentUser.userId);
       res.status(200).json({ message: 'Member removed successfully' });
     } catch (error: any) {
       console.error('Error removing member:', error);
@@ -293,7 +293,7 @@ export class CommunityController {
         return res.status(400).json({ error: 'Avatar must be an image file' });
       }
 
-      const avatarUrl = await communityService.uploadAvatar(id, user.userId, file);
+      const avatarUrl = await communityService.uploadAvatar(id as string, user.userId, file);
       res.json({ avatarUrl });
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
@@ -326,7 +326,7 @@ export class CommunityController {
         return res.status(400).json({ error: 'Background must be an image file' });
       }
 
-      const bannerUrl = await communityService.uploadBackground(id, user.userId, file);
+      const bannerUrl = await communityService.uploadBackground(id as string, user.userId, file);
       res.json({ bannerUrl });
     } catch (error: any) {
       console.error('Error uploading background:', error);

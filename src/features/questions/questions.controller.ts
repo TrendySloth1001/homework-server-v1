@@ -135,7 +135,7 @@ export const getQuestionHandler = asyncHandler(async (req: Request, res: Respons
     throw new ValidationError('Question ID is required');
   }
 
-  const question = await getQuestionService(questionId);
+  const question = await getQuestionService(questionId as string);
 
   res.status(200).json({
     success: true,
@@ -152,7 +152,7 @@ export const updateQuestionHandler = asyncHandler(async (req: Request, res: Resp
     throw new ValidationError('Question ID is required');
   }
 
-  const question = await updateQuestionService(questionId, updateData);
+  const question = await updateQuestionService(questionId as string, updateData);
 
   res.status(200).json({
     success: true,
@@ -168,7 +168,7 @@ export const deleteQuestionHandler = asyncHandler(async (req: Request, res: Resp
     throw new ValidationError('Question ID is required');
   }
 
-  const result = await deleteQuestionService(questionId);
+  const result = await deleteQuestionService(questionId as string);
 
   res.status(200).json({
     success: true,
@@ -188,7 +188,7 @@ export const getJobStatusHandler = asyncHandler(async (req: Request, res: Respon
   if (!Id) {
     throw new ValidationError('Teacher ID is required');
   }
-  const status = await getGenerationJobStatusService(jobId, Id);
+  const status = await getGenerationJobStatusService(jobId as string, Id);
 
   res.status(200).json({
     success: true,

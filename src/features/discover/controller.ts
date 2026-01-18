@@ -59,7 +59,7 @@ export class DiscoverController {
       const user = (req as any).user as JWTPayload | undefined;
       const userId = user?.userId;
 
-      const post = await discoverService.getPostById(id!, userId ?? undefined);
+      const post = await discoverService.getPostById(id as string, userId ?? undefined);
 
       if (!post) {
         res.status(404).json({ error: 'Post not found' });
@@ -117,7 +117,7 @@ export class DiscoverController {
       }
 
       const updateData: UpdatePostRequest = req.body;
-      const post = await discoverService.updatePost(id!, userId!, updateData);
+      const post = await discoverService.updatePost(id as string, userId!, updateData);
 
       res.json(post);
     } catch (error: any) {
@@ -154,7 +154,7 @@ export class DiscoverController {
         return;
       }
 
-      const post = await discoverService.crosspostToCommunities(id!, userId, communityIds);
+      const post = await discoverService.crosspostToCommunities(id as string, userId, communityIds);
       res.json(post);
     } catch (error: any) {
       console.error('Error crossposting:', error);
@@ -188,7 +188,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.deletePost(id!, userId!);
+      await discoverService.deletePost(id as string, userId!);
       res.status(204).send();
     } catch (error: any) {
       console.error('Error deleting post:', error);
@@ -232,7 +232,7 @@ export class DiscoverController {
           size: req.file.size
         },
         userId!,
-        id!
+        id as string
       );
 
       // Set order if provided
@@ -240,7 +240,7 @@ export class DiscoverController {
         mediaData.order = parseInt(req.body.order);
       }
 
-      const media = await discoverService.addMediaToPost(id!, userId!, mediaData);
+      const media = await discoverService.addMediaToPost(id as string, userId!, mediaData);
       res.status(201).json({ media });
     } catch (error: any) {
       console.error('Error uploading media:', error);
@@ -269,7 +269,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.removeMediaFromPost(mediaId!, userId!);
+      await discoverService.removeMediaFromPost(mediaId as string, userId!);
       res.status(204).send();
     } catch (error: any) {
       console.error('Error deleting media:', error);
@@ -309,7 +309,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.votePost(id!, userId!, voteType);
+      await discoverService.votePost(id as string, userId!, voteType);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error voting on post:', error);
@@ -332,7 +332,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.removePostVote(id!, userId!);
+      await discoverService.removePostVote(id as string, userId!);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error removing vote:', error);
@@ -366,7 +366,7 @@ export class DiscoverController {
         return;
       }
 
-      const comment = await discoverService.createComment(id!, userId!, content, parentCommentId);
+      const comment = await discoverService.createComment(id as string, userId!, content, parentCommentId);
       res.status(201).json(comment);
     } catch (error: any) {
       console.error('Error creating comment:', error);
@@ -385,7 +385,7 @@ export class DiscoverController {
       const userId = user?.userId;
       const sortBy = (req.query.sortBy as 'new' | 'top' | 'old' | 'best' | 'controversial') || 'best';
 
-      const comments = await discoverService.getComments(id!, sortBy, userId);
+      const comments = await discoverService.getComments(id as string, sortBy, userId);
       res.json(comments);
     } catch (error: any) {
       console.error('Error getting comments:', error);
@@ -415,7 +415,7 @@ export class DiscoverController {
         return;
       }
 
-      const comment = await discoverService.updateComment(commentId!, userId!, content);
+      const comment = await discoverService.updateComment(commentId as string, userId!, content);
       res.json(comment);
     } catch (error: any) {
       console.error('Error updating comment:', error);
@@ -444,7 +444,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.deleteComment(commentId!, userId!);
+      await discoverService.deleteComment(commentId as string, userId!);
       res.status(204).send();
     } catch (error: any) {
       console.error('Error deleting comment:', error);
@@ -480,7 +480,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.voteComment(commentId!, userId!, voteType);
+      await discoverService.voteComment(commentId as string, userId!, voteType);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error voting on comment:', error);
@@ -503,7 +503,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.removeCommentVote(commentId!, userId!);
+      await discoverService.removeCommentVote(commentId as string, userId!);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error removing comment vote:', error);
@@ -536,7 +536,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.reactToComment(commentId!, userId, reactionType);
+      await discoverService.reactToComment(commentId as string, userId, reactionType);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error reacting to comment:', error);
@@ -559,7 +559,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.removeCommentReaction(commentId!, userId);
+      await discoverService.removeCommentReaction(commentId as string, userId);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error removing comment reaction:', error);
@@ -582,7 +582,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.toggleCommentHighlight(commentId!, userId);
+      await discoverService.toggleCommentHighlight(commentId as string, userId);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error toggling comment highlight:', error);
@@ -615,7 +615,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.markPostAsRead(id!, userId);
+      await discoverService.markPostAsRead(id as string, userId);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error marking post as read:', error);
@@ -642,7 +642,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.savePost(id!, userId!);
+      await discoverService.savePost(id as string, userId!);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error saving post:', error);
@@ -665,7 +665,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.unsavePost(id!, userId!);
+      await discoverService.unsavePost(id as string, userId!);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error unsaving post:', error);
@@ -724,7 +724,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.reportPost(id!, userId!, reason, details);
+      await discoverService.reportPost(id as string, userId!, reason, details);
       res.status(201).json({ success: true, message: 'Report submitted' });
     } catch (error: any) {
       console.error('Error reporting post:', error);
@@ -754,7 +754,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.reportComment(commentId!, userId!, reason, details);
+      await discoverService.reportComment(commentId as string, userId!, reason, details);
       res.status(201).json({ success: true, message: 'Report submitted' });
     } catch (error: any) {
       console.error('Error reporting comment:', error);
@@ -816,7 +816,7 @@ export class DiscoverController {
         return;
       }
 
-      await discoverService.updateReportStatus(reportId!, reportType, status);
+      await discoverService.updateReportStatus(reportId as string, reportType, status);
       res.status(200).json({ success: true });
     } catch (error: any) {
       console.error('Error updating report status:', error);
@@ -983,7 +983,7 @@ export class DiscoverController {
         return;
       }
       
-      const stats = await discoverService.getUserStats(userId);
+      const stats = await discoverService.getUserStats(userId as string);
       res.json({ data: stats });
     } catch (error: any) {
       console.error('Error getting user stats:', error);

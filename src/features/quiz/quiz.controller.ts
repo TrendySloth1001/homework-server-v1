@@ -29,7 +29,7 @@ class QuizController {
       }
 
       const quiz = await quizService.generateQuizFromConversation(
-        conversationId,
+        conversationId as string,
         user.userId,
         { questionCount, questionTypes, difficulty }
       );
@@ -73,7 +73,7 @@ class QuizController {
       }
 
       const results = await quizService.submitQuizAnswers(
-        quizSessionId,
+        quizSessionId as string,
         user.userId,
         answers
       );
@@ -109,7 +109,7 @@ class QuizController {
         return;
       }
 
-      const results = await quizService.getQuizResults(quizSessionId, user.userId);
+      const results = await quizService.getQuizResults(quizSessionId as string, user.userId);
 
       res.json({ success: true, data: results });
     } catch (error: any) {
@@ -142,7 +142,7 @@ class QuizController {
         return;
       }
 
-      const quizzes = await quizService.getConversationQuizzes(conversationId, user.userId);
+      const quizzes = await quizService.getConversationQuizzes(conversationId as string, user.userId);
 
       res.json({ success: true, data: quizzes });
     } catch (error: any) {

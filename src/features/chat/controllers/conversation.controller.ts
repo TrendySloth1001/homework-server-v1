@@ -39,7 +39,7 @@ export const getUserConversations = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const conversations = await conversationService.getUserConversations(userId);
+    const conversations = await conversationService.getUserConversations(userId as string);
     return res.json(conversations);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch conversations";
@@ -49,7 +49,7 @@ export const getUserConversations = async (req: Request, res: Response) => {
 
 export const getConversationById = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const userId = req.query.userId as string;
 
     if (!userId || typeof userId !== "string") {
@@ -68,7 +68,7 @@ export const getConversationById = async (req: Request, res: Response) => {
 export const getPublicGroupInfo = async (req: Request, res: Response) => {
   try {
     console.log('[getPublicGroupInfo Controller] Hit! conversationId:', req.params.conversationId);
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const groupInfo = await conversationService.getPublicGroupInfo(conversationId);
     console.log('[getPublicGroupInfo Controller] Success:', groupInfo);
     return res.json(groupInfo);
@@ -106,7 +106,7 @@ export const checkOrCreateOneToOne = async (req: Request, res: Response) => {
 
 export const addMembers = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userIds, requesterId } = req.body as { userIds: string[]; requesterId: string };
 
     if (!requesterId || typeof requesterId !== "string") {
@@ -129,8 +129,8 @@ export const addMembers = async (req: Request, res: Response) => {
 
 export const removeMember = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
-    const userId = req.params.userId!;
+    const conversationId = req.params.conversationId as string;
+    const userId = req.params.userId as string;
     const { requesterId } = req.body as { requesterId: string };
 
     if (!requesterId || typeof requesterId !== "string") {
@@ -149,7 +149,7 @@ export const removeMember = async (req: Request, res: Response) => {
 
 export const updateGroupName = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { name, requesterId } = req.body as { name: string; requesterId: string };
 
     if (!name || typeof name !== "string") {
@@ -172,7 +172,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
 
 export const updateGroupAvatar = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { avatarUrl, requesterId } = req.body as { avatarUrl: string; requesterId: string };
 
     if (!avatarUrl || typeof avatarUrl !== "string") {
@@ -195,7 +195,7 @@ export const updateGroupAvatar = async (req: Request, res: Response) => {
 
 export const getConversationMembers = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const requesterId = req.query.requesterId as string;
 
     if (!requesterId || typeof requesterId !== "string") {
@@ -213,7 +213,7 @@ export const getConversationMembers = async (req: Request, res: Response) => {
 
 export const getUnreadCount = async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId!;
+    const userId = req.params.userId as string;
     const conversationId = req.query.conversationId as string | undefined;
 
     const count = await conversationService.getUnreadCount(
@@ -229,7 +229,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
 
 export const clearConversation = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userId } = req.body as { userId: string };
 
     if (!userId || typeof userId !== "string") {
@@ -247,7 +247,7 @@ export const clearConversation = async (req: Request, res: Response) => {
 
 export const leaveGroup = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userId } = req.body as { userId: string };
 
     if (!userId || typeof userId !== "string") {
@@ -266,7 +266,7 @@ export const leaveGroup = async (req: Request, res: Response) => {
 
 export const pinConversation = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userId, isPinned } = req.body as { userId: string; isPinned: boolean };
 
     if (!userId || typeof userId !== "string") {
@@ -288,7 +288,7 @@ export const pinConversation = async (req: Request, res: Response) => {
 
 export const deleteConversation = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userId } = req.body as { userId: string };
 
     if (!userId || typeof userId !== "string") {
@@ -350,7 +350,7 @@ export const createGroupConversation = async (req: Request, res: Response) => {
 export const uploadGroupAvatar = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const file = req.file;
 
     if (!userId) {
@@ -400,7 +400,7 @@ export const uploadGroupAvatar = async (req: Request, res: Response) => {
 
 export const saveDraft = async (req: Request, res: Response) => {
   try {
-    const conversationId = req.params.conversationId!;
+    const conversationId = req.params.conversationId as string;
     const { userId, draft } = req.body;
 
     if (!userId || typeof userId !== "string") {

@@ -78,7 +78,7 @@ export const getNotificationHandler = asyncHandler(async (req: Request, res: Res
     throw new Error('Notification ID and userId are required');
   }
 
-  const notification = await getNotificationByIdService(id, userId as string);
+  const notification = await getNotificationByIdService(id as string, userId as string);
 
   if (!notification) {
     throw new Error('Notification not found');
@@ -103,7 +103,7 @@ export const markAsReadHandler = asyncHandler(async (req: Request, res: Response
   }
 
   const notification = await markAsReadService({
-    notificationId: id,
+    notificationId: id as string,
     userId,
   });
 
@@ -149,7 +149,7 @@ export const deleteNotificationHandler = asyncHandler(async (req: Request, res: 
   }
 
   const result = await deleteNotificationService({
-    notificationId: id,
+    notificationId: id as string,
     userId,
   });
 

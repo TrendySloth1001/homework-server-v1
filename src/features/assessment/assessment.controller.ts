@@ -106,7 +106,7 @@ export const getAnswerHandler = asyncHandler(async (req: Request, res: Response)
     throw new ValidationError('Question ID and Student ID are required');
   }
   
-  const answer = await getAnswerService(questionId, studentId);
+  const answer = await getAnswerService(questionId as string, studentId as string);
   
   res.status(200).json({
     success: true,
@@ -128,7 +128,7 @@ export const getStudentPerformanceHandler = asyncHandler(async (req: Request, re
   }
   
   const performance = await getStudentPerformanceService(
-    studentId,
+    studentId as string,
     teacherId as string | undefined
   );
   
@@ -150,7 +150,7 @@ export const regradeAnswerHandler = asyncHandler(async (req: Request, res: Respo
     throw new ValidationError('Question ID and Student ID are required');
   }
   
-  const result = await regradeAnswerService(questionId, studentId);
+  const result = await regradeAnswerService(questionId as string, studentId as string);
   
   res.status(200).json({
     success: true,
@@ -172,7 +172,7 @@ export const getQuestionAnswersHandler = asyncHandler(async (req: Request, res: 
   }
   
   const result = await getQuestionAnswersService(
-    questionId,
+    questionId as string,
     teacherId as string | undefined
   );
   
@@ -194,7 +194,7 @@ export const getAssessmentStatsHandler = asyncHandler(async (req: Request, res: 
     throw new ValidationError('Teacher ID is required');
   }
   
-  const stats = await getAssessmentStatsService(teacherId);
+  const stats = await getAssessmentStatsService(teacherId as string);
   
   res.status(200).json({
     success: true,

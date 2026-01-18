@@ -126,7 +126,7 @@ export class LegalController {
         });
       }
       
-      const document = await legalService.updateDocument(id, req.body);
+      const document = await legalService.updateDocument(id as string, req.body);
 
       res.json({
         success: true,
@@ -156,7 +156,7 @@ export class LegalController {
         });
       }
       
-      await legalService.deleteDocument(id);
+      await legalService.deleteDocument(id as string);
 
       res.json({
         success: true,

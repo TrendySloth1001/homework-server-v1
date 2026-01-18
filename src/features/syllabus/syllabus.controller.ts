@@ -79,7 +79,7 @@ export const updateSyllabusHandler = asyncHandler(async (req: Request, res: Resp
         throw new ValidationError('Syllabus ID is required');
     }
 
-    const syllabus = await updateSyllabusService(id, updateData);
+    const syllabus = await updateSyllabusService(id as string, updateData);
 
     res.status(200).json({
         success: true,
@@ -104,7 +104,7 @@ export const getAllSyllabusByTeacherIdHandler = asyncHandler(async (req: Request
         ...(includeTopics !== undefined && { includeTopics: includeTopics === 'true' })
     };
 
-    const syllabuses = await getAllSyllabusByTeacherIdService(teacherIdFromQuery, options);
+    const syllabuses = await getAllSyllabusByTeacherIdService(teacherIdFromQuery as string, options);
 
     res.status(200).json({
         success: true,
@@ -121,7 +121,7 @@ export const getSingleSyllabusHandler = asyncHandler(async (req: Request, res: R
         throw new ValidationError('Syllabus ID is required');
     }
 
-    const syllabus = await getSingleSyllabusService(id);
+    const syllabus = await getSingleSyllabusService(id as string);
 
     res.status(200).json({
         success: true,
@@ -137,7 +137,7 @@ export const deleteSyllabusHandler = asyncHandler(async (req: Request, res: Resp
         throw new ValidationError('Syllabus ID is required');
     }
 
-    const result = await deleteSyllabusService(id);
+    const result = await deleteSyllabusService(id as string);
 
     res.status(200).json({
         success: true,
@@ -175,7 +175,7 @@ export const getAllUnitsBySyllabusIdHandler = asyncHandler(async (req: Request, 
         throw new ValidationError('Syllabus ID is required');
     }
 
-    const units = await getAllUnitsBySyllabusIdService(id);
+    const units = await getAllUnitsBySyllabusIdService(id as string);
 
     res.status(200).json({
         success: true,
@@ -192,7 +192,7 @@ export const getSingleUnitHandler = asyncHandler(async (req: Request, res: Respo
         throw new ValidationError('Unit ID is required');
     }
 
-    const unit = await getSingleUnitService(id);
+    const unit = await getSingleUnitService(id as string);
 
     res.status(200).json({
         success: true,
@@ -209,7 +209,7 @@ export const updateUnitHandler = asyncHandler(async (req: Request, res: Response
         throw new ValidationError('Unit ID is required');
     }
 
-    const unit = await updateUnitService(id, {
+    const unit = await updateUnitService(id as string, {
         title,
         description,
         teachingHours
@@ -229,7 +229,7 @@ export const deleteUnitHandler = asyncHandler(async (req: Request, res: Response
         throw new ValidationError('Unit ID is required');
     }
 
-    const result = await deleteUnitService(id);
+    const result = await deleteUnitService(id as string);
 
     res.status(200).json({
         success: true,
@@ -284,7 +284,7 @@ export const getAllTopicsByUnitIdHandler = asyncHandler(async (req: Request, res
         throw new ValidationError('Unit ID is required');
     }
 
-    const topics = await getAllTopicsByUnitIdService(id);
+    const topics = await getAllTopicsByUnitIdService(id as string);
 
     res.status(200).json({
         success: true,
@@ -301,7 +301,7 @@ export const getSingleTopicHandler = asyncHandler(async (req: Request, res: Resp
         throw new ValidationError('Topic ID is required');
     }
 
-    const topic = await getSingleTopicService(id);
+    const topic = await getSingleTopicService(id as string);
 
     res.status(200).json({
         success: true,
@@ -322,7 +322,7 @@ export const updateTopicHandler = asyncHandler(async (req: Request, res: Respons
         throw new ValidationError('At least one field (topicName or description) is required');
     }
 
-    const topic = await updateTopicService(id, { topicName, description });
+    const topic = await updateTopicService(id as string, { topicName, description });
 
     res.status(200).json({
         success: true,
@@ -338,7 +338,7 @@ export const deleteTopicHandler = asyncHandler(async (req: Request, res: Respons
         throw new ValidationError('Topic ID is required');
     }
 
-    const result = await deleteTopicService(id);
+    const result = await deleteTopicService(id as string);
 
     res.status(200).json({
         success: true,
@@ -355,7 +355,7 @@ export const archiveSyllabusHandler = asyncHandler(async (req: Request, res: Res
         throw new ValidationError('Syllabus ID and teacherId are required');
     }
 
-    const syllabus = await archiveSyllabusService(id, teacherId, archive);
+    const syllabus = await archiveSyllabusService(id as string, teacherId, archive);
 
     res.status(200).json({
         success: true,
@@ -377,7 +377,7 @@ export const changeSyllabusStageHandler = asyncHandler(async (req: Request, res:
         throw new ValidationError('Stage must be one of: draft, published, archived');
     }
 
-    const syllabus = await changeSyllabusStageService(id, teacherId, stage);
+    const syllabus = await changeSyllabusStageService(id as string, teacherId, stage);
 
     res.status(200).json({
         success: true,
@@ -394,7 +394,7 @@ export const calculateSyllabusCompletionHandler = asyncHandler(async (req: Reque
         throw new ValidationError('Syllabus ID is required');
     }
 
-    const syllabus = await calculateSyllabusCompletionService(id);
+    const syllabus = await calculateSyllabusCompletionService(id as string);
 
     res.status(200).json({
         success: true,
@@ -414,7 +414,7 @@ export const calculateUnitCompletionHandler = asyncHandler(async (req: Request, 
         throw new ValidationError('Unit ID is required');
     }
 
-    const unit = await calculateUnitCompletionService(id);
+    const unit = await calculateUnitCompletionService(id as string);
 
     res.status(200).json({
         success: true,
@@ -463,7 +463,7 @@ export const getSyllabusGenerationStatusHandler = asyncHandler(async (req: Reque
         throw new ValidationError('Job ID is required');
     }
 
-    const status = await getSyllabusGenerationStatusService(jobId);
+    const status = await getSyllabusGenerationStatusService(jobId as string);
 
     res.status(200).json({
         success: true,
@@ -485,7 +485,7 @@ export const publishSyllabusHandler = asyncHandler(async (req: Request, res: Res
         throw new ValidationError('teacherId is required');
     }
 
-    const syllabus = await publishSyllabusService(id, teacherId);
+    const syllabus = await publishSyllabusService(id as string, teacherId);
 
     res.status(200).json({
         success: true,
@@ -502,7 +502,7 @@ export const getTopicResourcesHandler = asyncHandler(async (req: Request, res: R
         throw new ValidationError('Topic ID is required');
     }
 
-    const resources = await topicResourcesService(id);
+    const resources = await topicResourcesService(id as string);
 
     res.status(200).json({
         success: true,
@@ -545,7 +545,7 @@ export const getSimilarTopicsHandler = asyncHandler(async (req: Request, res: Re
     }
 
     const results = await getSimilarTopicsService(
-        id,
+        id as string,
         limit ? parseInt(limit as string) : 10
     );
 
@@ -608,7 +608,7 @@ export const getSyllabusVersionHandler = asyncHandler(async (req: Request, res: 
         throw new ValidationError('versionId and teacherId are required');
     }
 
-    const version = await getSyllabusVersionService(versionId, teacherId as string);
+    const version = await getSyllabusVersionService(versionId as string, teacherId as string);
 
     res.status(200).json({
         success: true,
@@ -653,7 +653,7 @@ export const setLatestVersionHandler = asyncHandler(async (req: Request, res: Re
         throw new ValidationError('versionId and teacherId are required');
     }
 
-    const updated = await setLatestVersionService(versionId, teacherId as string);
+    const updated = await setLatestVersionService(versionId as string, teacherId as string);
 
     res.status(200).json({
         success: true,

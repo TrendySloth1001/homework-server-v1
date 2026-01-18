@@ -20,7 +20,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
 
     const message = await messageService.sendMessage({
-      conversationId,
+      conversationId: conversationId as string,
       userId,
       content,
       replyToId,
@@ -50,7 +50,7 @@ export const getMessages = async (req: Request, res: Response) => {
 
     const parsedLimit = limit ? parseInt(limit) : undefined;
     const messages = await messageService.getMessages({
-      conversationId,
+      conversationId: conversationId as string,
       userId,
       ...(parsedLimit && { limit: parsedLimit }),
       ...(before && { before }),
@@ -73,7 +73,7 @@ export const markMessageSeen = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const result = await messageService.markMessageSeen(messageId, userId);
+    const result = await messageService.markMessageSeen(messageId as string, userId);
     
     // Broadcast message_seen event to all users in the conversation
     if (!result.alreadySeen && result.conversationId) {
@@ -143,7 +143,7 @@ export const sendMediaMessage = async (req: Request, res: Response) => {
     }
 
     const message = await messageService.sendMediaMessage({
-      conversationId,
+      conversationId: conversationId as string,
       userId,
       content,
       mediaUrl,
@@ -181,7 +181,7 @@ export const searchMessages = async (req: Request, res: Response) => {
 
     const parsedLimit = limit ? parseInt(limit) : undefined;
     const messages = await messageService.searchMessages({
-      conversationId,
+      conversationId: conversationId as string,
       userId,
       query,
       ...(parsedLimit && { limit: parsedLimit }),
@@ -205,7 +205,7 @@ export const getSharedMedia = async (req: Request, res: Response) => {
     }
 
     const media = await messageService.getSharedMedia({
-      conversationId,
+      conversationId: conversationId as string,
       userId,
     });
 

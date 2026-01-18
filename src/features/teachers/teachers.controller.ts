@@ -46,7 +46,7 @@ export const getTeacherByIdHandler = asyncHandler(
     const teacherId = req.params.id!;
     const userId = (req as any).user?.userId || undefined; // Optional - to check if following
 
-    const teacher = await getTeacherByIdService(teacherId, userId);
+    const teacher = await getTeacherByIdService(teacherId as string, userId);
 
     res.json({
       success: true,
@@ -101,7 +101,7 @@ export const getTeacherFollowersHandler = asyncHandler(
   async (req: Request, res: Response) => {
     const teacherId = req.params.id!;
 
-    const followers = await getTeacherFollowersService(teacherId);
+    const followers = await getTeacherFollowersService(teacherId as string);
 
     res.json({
       success: true,
@@ -119,7 +119,7 @@ export const getTeacherByUserIdHandler = asyncHandler(
     const userId = req.params.userId!;
     const requestingUserId = (req as any).user?.userId || undefined;
 
-    const teacher = await getTeacherByUserIdService(userId, requestingUserId);
+    const teacher = await getTeacherByUserIdService(userId as string, requestingUserId);
 
     res.json({
       success: true,
@@ -137,7 +137,7 @@ export const getStudentByUserIdHandler = asyncHandler(
     const userId = req.params.userId!;
     const requestingUserId = (req as any).user?.userId || undefined;
 
-    const student = await getStudentByUserIdService(userId, requestingUserId);
+    const student = await getStudentByUserIdService(userId as string, requestingUserId);
 
     res.json({
       success: true,

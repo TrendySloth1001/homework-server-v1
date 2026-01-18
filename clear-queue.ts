@@ -9,7 +9,7 @@ async function clearQueue() {
     maxRetriesPerRequest: null,
   });
 
-  const aiQueue = new Queue('ai-generation', { connection });
+  const aiQueue = new Queue('ai-generation', { connection: connection as any });
 
   try {
     console.log('Clearing AI queue...');
