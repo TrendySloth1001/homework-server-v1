@@ -1,7 +1,14 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better caching
 COPY package*.json ./
@@ -12,6 +19,7 @@ RUN npm ci
 
 # Copy prisma schema for client generation
 COPY prisma ./prisma/
+COPY prisma.config.js ./
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -19,18 +27,19 @@ RUN npx prisma generate
 # Copy source code
 COPY tsconfig.json ./
 COPY src ./src/
-COPY prisma.config.js ./
 
 # Build TypeScript
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install runtime dependencies (curl for healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -39,12 +48,12 @@ COPY .npmrc ./
 # Install production dependencies only
 RUN npm ci --omit=dev
 
-# Copy prisma schema and migrations
+# Copy prisma schema and migrations (needed for migrations at runtime)
 COPY prisma ./prisma/
-COPY prisma.config.js ./
 
-# Generate Prisma client for production
-RUN npx prisma generate
+# Copy generated Prisma client from builder stage (avoids needing devDependencies)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist/
@@ -53,7 +62,7 @@ COPY --from=builder /app/dist ./dist/
 COPY public ./public/
 
 # Create non-root user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 RUN chown -R appuser:appgroup /app
 USER appuser
 

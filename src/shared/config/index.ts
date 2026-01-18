@@ -9,6 +9,7 @@ interface Config {
   nodeEnv: string;
   isDevelopment: boolean;
   isProduction: boolean;
+  frontendUrl: string;
 
   // Database
   database: {
@@ -87,6 +88,7 @@ function validateConfig(): Config {
     nodeEnv,
     isDevelopment: nodeEnv === 'development',
     isProduction: nodeEnv === 'production',
+    frontendUrl: process.env.FRONTEND_URL || (nodeEnv === 'development' ? 'http://localhost:3000' : 'http://localhost:3000'),
 
     database: {
       url: process.env.DATABASE_URL || 'file:./dev.db',

@@ -38,19 +38,19 @@ export const googleCallbackHandler = [
     // Find or create user
     const result = await findOrCreateUserFromGoogleService(profile);
 
-    const frontendUrl = config.isDevelopment ? 'http://localhost:3000' : config.auth.google.callbackUrl.split('/api')[0];
+    const frontendUrl = config.frontendUrl;
 
     // Check if it's a temp token (needs signup) or full auth
     if ('tempToken' in result) {
       // Redirect to frontend auth callback with temp token
       const redirectUrl = `${frontendUrl}/auth/callback?tempToken=${result.tempToken}&email=${encodeURIComponent(result.email)}&name=${encodeURIComponent(result.displayName)}`;
-      
+
       return res.redirect(redirectUrl);
     }
 
     // Full authentication - redirect to frontend auth callback with token
     const redirectUrl = `${frontendUrl}/auth/callback?token=${result.token}`;
-    
+
     res.redirect(redirectUrl);
   }),
 ];

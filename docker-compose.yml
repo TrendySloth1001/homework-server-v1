@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Backend Server
   homework-server:
@@ -14,6 +12,10 @@ services:
       # Server Configuration
       PORT: 3001
       NODE_ENV: production
+      # CORS - Allow frontend origins
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
+      # Frontend URL for OAuth redirects
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # Database (use container hostname)
       DATABASE_URL: postgresql://homework:homework123@postgres:5432/homeworkdb
       # Redis (use container hostname)
@@ -52,7 +54,7 @@ services:
       redis:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
     healthcheck:
@@ -114,11 +116,8 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:6333/healthz" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # Note: Qdrant image has no curl/wget, so we skip the healthcheck
+    # and rely on the server to handle connection retries
     networks:
       - homework-network
 
