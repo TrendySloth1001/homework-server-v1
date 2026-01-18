@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Version control
+.git/
+.github/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files (injected at runtime)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation
+*.md
+!README.md
+
+# Postman collections
+*.postman_collection.json
+
+# Local development files
+server.pid
+server.log
+
+# OS files
+.DS_Store
+Thumbs.db
