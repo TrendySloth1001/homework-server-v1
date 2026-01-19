@@ -18,6 +18,8 @@ import chatRoutes from './features/chat/routes';
 import avatarRoutes from './features/avatar/avatar.routes';
 import discoverRoutes from './features/discover/routes';
 import profileRoutes from './features/profile/profile.routes';
+import quizRoutes from './features/quiz/quiz.routes';
+import studyPlanRoutes from './features/study-plan/study-plan.routes';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { setupWebSocket } from './shared/websocket/wshandler';
 import { config, logConfig } from './shared/config';
@@ -26,6 +28,7 @@ import { embeddingService } from './shared/lib/embeddings';
 import { qdrantService } from './shared/lib/qdrant';
 import { memoryManager } from './shared/lib/memoryManager';
 import { configurePassport } from './shared/lib/passport';
+import { s3UrlTransformerMiddleware } from './shared/middleware/s3-url-transformer';
 
 const app = express();
 
@@ -47,11 +50,11 @@ const extraOrigins = (process.env.ALLOWED_ORIGINS || '')
 const baseAllowedOrigins = config.isDevelopment
   ? ['http://localhost:3000', 'http://localhost:3001']
   : (() => {
-      const anyConfig = config as any;
-      const configuredOrigins: string[] | undefined = anyConfig.allowedOrigins
-        || (anyConfig.frontendUrl ? [anyConfig.frontendUrl] : undefined);
-      return configuredOrigins ?? [];
-    })();
+    const anyConfig = config as any;
+    const configuredOrigins: string[] | undefined = anyConfig.allowedOrigins
+      || (anyConfig.frontendUrl ? [anyConfig.frontendUrl] : undefined);
+    return configuredOrigins ?? [];
+  })();
 
 const allowedOrigins = [...baseAllowedOrigins, ...extraOrigins];
 
@@ -77,6 +80,9 @@ app.use(passport.initialize());
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Transform S3 URLs in all JSON responses (converts internal minio:9000 to public localhost:9000)
+app.use(s3UrlTransformerMiddleware);
+
 /**
  * API Routes
  * RESTful API endpoints
@@ -96,6 +102,8 @@ app.use('/api/chat', chatRoutes);                                           // R
 app.use('/api/avatar', avatarRoutes);                                       // Avatar management
 app.use('/api/discover', discoverRoutes);                                   // Community posts and social features
 app.use('/api/profile', profileRoutes);                                     // Profile management
+app.use('/api', quizRoutes);                                                 // Quiz generation and submission
+app.use('/api/study-plans', studyPlanRoutes);                                // Study plan generation
 
 
 
@@ -228,7 +236,7 @@ app.get('/', (req, res) => {
         enhanceSyllabus: '/api/ai/enhance-syllabus/:syllabusId',
         summary: '/api/ai/summary/unit/:unitId'
       },
-      notifications:{
+      notifications: {
         create: 'POST /api/notifications',
         list: 'GET /api/notifications',
         get: 'GET /api/notifications/:id',
@@ -282,17 +290,17 @@ app.use(errorHandler);
  */
 async function initializeServices() {
   console.log('\n:: Initializing RAG services...\n');
-  
+
   try {
     // Initialize Qdrant collections
     await qdrantService.initializeCollections();
-    
+
     // Initialize memory manager collections
     await memoryManager.ensureCollections();
-    
+
     // Warmup embedding service (downloads model on first use)
     await embeddingService.warmup();
-    
+
     console.log('\n:: All RAG services initialized successfully\n');
   } catch (error) {
     console.error('\n:: Failed to initialize RAG services:', error);
@@ -304,7 +312,7 @@ async function initializeServices() {
 const server = app.listen(config.port, async () => {
   console.log(`\n:: Server is running at http://localhost:${config.port}\n`);
   logConfig();
-  
+
   // Initialize RAG services in background
   initializeServices().catch(err => {
     console.error(':: Background service initialization error:', err);

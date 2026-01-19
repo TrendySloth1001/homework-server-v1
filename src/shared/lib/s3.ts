@@ -14,7 +14,7 @@ class S3Service {
 
   constructor() {
     this.bucket = config.s3?.bucket || 'homework-media';
-    
+
     if (config.s3?.endpoint) {
       this.client = new S3Client({
         endpoint: config.s3.endpoint,
@@ -29,8 +29,9 @@ class S3Service {
           requestTimeout: 10000, // 10 seconds
         },
       });
-      
+
       console.log(`[S3Service] Initialized with endpoint: ${config.s3.endpoint}`);
+      console.log(`[S3Service] Using public URL: ${config.s3.publicUrl}`);
       console.log(`[S3Service] Using credentials: ${config.s3.accessKey} / ${config.s3.secretKey.substring(0, 4)}***`);
     } else {
       console.warn('[S3Service] S3 not configured, file uploads will fail');
@@ -89,12 +90,12 @@ class S3Service {
     const ext = file.originalname.split('.').pop() || '';
     const fileId = uuidv4();
     const filename = `${fileId}.${ext}`;
-    
+
     // Use new storage structure if conversationId and messageId are provided
-    const key = conversationId && messageId 
+    const key = conversationId && messageId
       ? `conversations/${conversationId}/messages/${messageId}/${filename}`
       : `${folder}/${filename}`;
-    
+
     const mediaType = file.mimetype.split('/')[0]; // image, video, audio, etc.
 
     try {
@@ -109,11 +110,11 @@ class S3Service {
       await this.client.send(command);
 
       // Construct public URL
-      const url = `${config.s3!.endpoint}/${this.bucket}/${key}`;
-      
+      const url = `${config.s3!.publicUrl}/${this.bucket}/${key}`;
+
       console.log(`[S3Service] Uploaded file: ${key}`);
       console.log(`[S3Service] File URL: ${url}`);
-      
+
       return { url, type: mediaType as string };
     } catch (error: any) {
       console.error('[S3Service] Upload failed:', error);
@@ -123,6 +124,7 @@ class S3Service {
         bucket: this.bucket,
         key: key,
         endpoint: config.s3!.endpoint,
+        publicUrl: config.s3!.publicUrl,
       });
       throw new Error('Failed to upload file to storage');
     }
@@ -164,7 +166,7 @@ class S3Service {
     if (!config.s3?.endpoint) {
       throw new Error('S3 endpoint not configured');
     }
-    return `${config.s3.endpoint}/${this.bucket}/${key}`;
+    return `${config.s3.publicUrl}/${this.bucket}/${key}`;
   }
 }
 

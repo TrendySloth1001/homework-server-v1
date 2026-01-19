@@ -29,6 +29,7 @@ services:
       S3_SECRET_KEY: minioadmin123
       S3_BUCKET: homework-media
       S3_REGION: us-east-1
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000}
       # AI Provider
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}

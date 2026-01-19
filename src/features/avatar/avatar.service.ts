@@ -14,7 +14,7 @@ class AvatarService {
 
   constructor() {
     this.bucket = config.s3?.bucket || 'homework-media';
-    
+
     if (config.s3?.endpoint) {
       this.s3Client = new S3Client({
         endpoint: config.s3.endpoint,
@@ -43,7 +43,7 @@ class AvatarService {
       });
 
       const response = await this.s3Client.send(command);
-      const endpoint = config.s3!.endpoint;
+      const endpoint = config.s3!.publicUrl;
 
       if (!response.Contents || response.Contents.length === 0) {
         console.log('[AvatarService] No avatars found in media/Avatars/');
@@ -55,10 +55,10 @@ class AvatarService {
         .filter((item) => {
           const key = item.Key || '';
           // Exclude the folder itself, anything in users/ subfolder, and non-images
-          return key !== 'media/Avatars/' && 
-                 !key.includes('/users/') &&  // Exclude all personal avatar uploads
-                 (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
-                  key.endsWith('.gif') || key.endsWith('.svg') || key.endsWith('.webp'));
+          return key !== 'media/Avatars/' &&
+            !key.includes('/users/') &&  // Exclude all personal avatar uploads
+            (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') ||
+              key.endsWith('.gif') || key.endsWith('.svg') || key.endsWith('.webp'));
         })
         .map((item, index) => {
           const key = item.Key!;
@@ -120,7 +120,7 @@ class AvatarService {
       });
 
       const response = await this.s3Client.send(command);
-      const endpoint = config.s3!.endpoint;
+      const endpoint = config.s3!.publicUrl;
 
       if (!response.Contents || response.Contents.length === 0) {
         console.log(`[AvatarService] No custom avatars found for user ${userId}`);
@@ -131,9 +131,9 @@ class AvatarService {
       const avatars = response.Contents
         .filter((item) => {
           const key = item.Key || '';
-          return key !== `media/Avatars/users/${userId}/` && 
-                 (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
-                  key.endsWith('.gif') || key.endsWith('.svg') || key.endsWith('.webp'));
+          return key !== `media/Avatars/users/${userId}/` &&
+            (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') ||
+              key.endsWith('.gif') || key.endsWith('.svg') || key.endsWith('.webp'));
         })
         .map((item, index) => {
           const key = item.Key!;

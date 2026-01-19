@@ -55,6 +55,7 @@ interface Config {
     secretKey: string;
     bucket: string;
     region: string;
+    publicUrl: string;
   };
 
   // API Configuration
@@ -137,6 +138,7 @@ function validateConfig(): Config {
         secretKey: process.env.S3_SECRET_KEY || 'minioadmin123',
         bucket: process.env.S3_BUCKET || 'homework-media',
         region: process.env.S3_REGION || 'us-east-1',
+        publicUrl: process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT || 'http://localhost:9000',
       },
     } : {}),
 
