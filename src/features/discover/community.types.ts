@@ -48,6 +48,11 @@ export interface CommunityResponse {
   updatedAt: Date;
   userRole?: CommunityRole | null;
   isMember?: boolean;
+  mutualMembers?: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  }[];
 }
 
 export interface CommunityListQuery {

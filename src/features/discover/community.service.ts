@@ -500,6 +500,7 @@ export class CommunityService {
   ): Promise<CommunityResponse> {
     let userRole = null;
     let isMember = false;
+    let mutualMembers: { id: string; displayName: string; avatarUrl?: string | null }[] = [];
 
     if (userId) {
       const member = await prisma.communityMember.findUnique({
@@ -511,6 +512,58 @@ export class CommunityService {
       if (member) {
         userRole = member.role as CommunityRole;
         isMember = true;
+      }
+
+      // Find mutual members: users this user follows who are also members of this community
+      // We look at the TeacherToTeacher relationship where the current user is the follower
+      const userWithTeacher = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { teacher: true }
+      });
+
+      if (userWithTeacher?.teacher) {
+        // Get the IDs of teachers the current user follows (limit to avoid large queries)
+        const following = await prisma.teacherToTeacher.findMany({
+          where: { followerId: userWithTeacher.teacher.id },
+          select: { followedId: true },
+          take: 50 // Limit to check only 50 followed teachers
+        });
+
+        if (following.length > 0) {
+          const followedTeacherIds = following.map(f => f.followedId);
+
+          // Get the user IDs of these followed teachers
+          const followedTeachers = await prisma.teacher.findMany({
+            where: { id: { in: followedTeacherIds } },
+            select: { userId: true }
+          });
+          const followedUserIds = followedTeachers.map(t => t.userId);
+
+          // Find community members whose userId is in the followed users list - only get 3
+          const mutualCommunityMembers = await prisma.communityMember.findMany({
+            where: {
+              communityId: community.id,
+              userId: { in: followedUserIds }
+            },
+            take: 3, // Max 3 mutual members to display
+            orderBy: { joinedAt: 'desc' }, // Most recent first
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  avatarUrl: true
+                }
+              }
+            }
+          });
+
+          mutualMembers = mutualCommunityMembers.map(m => ({
+            id: m.user.id,
+            displayName: m.user.displayName || 'Anonymous',
+            avatarUrl: m.user.avatarUrl
+          }));
+        }
       }
     }
 
@@ -530,7 +583,8 @@ export class CommunityService {
       createdAt: community.createdAt,
       updatedAt: community.updatedAt,
       userRole,
-      isMember
+      isMember,
+      mutualMembers
     };
   }
 }
