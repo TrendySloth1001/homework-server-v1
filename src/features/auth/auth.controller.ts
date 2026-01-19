@@ -18,10 +18,16 @@ import { asyncHandler } from '../../shared/lib/errors';
  * Initiate Google OAuth login
  * GET /api/auth/google
  */
-export const googleAuthHandler = passport.authenticate('google', {
-  scope: ['profile', 'email'],
-  session: false,
-});
+export const googleAuthHandler = (req: Request, res: Response, next: any) => {
+  const platform = req.query.platform as string | undefined;
+  const state = platform === 'web' ? 'web' : 'mobile';
+
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    session: false,
+    state: state,
+  })(req, res, next);
+};
 
 /**
  * Google OAuth callback handler
@@ -34,11 +40,16 @@ export const googleCallbackHandler = [
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const profile = req.user as GoogleProfile;
+    // @ts-ignore - passport types might not include query/state properly in req
+    const state = req.query.state as string | undefined;
 
     // Find or create user
     const result = await findOrCreateUserFromGoogleService(profile);
 
-    const frontendUrl = config.frontendUrl;
+    const isWeb = state === 'web';
+    const frontendUrl = isWeb
+      ? process.env.WEB_FRONTEND_URL || 'http://localhost:3000'
+      : config.frontendUrl;
 
     // Check if it's a temp token (needs signup) or full auth
     if ('tempToken' in result) {

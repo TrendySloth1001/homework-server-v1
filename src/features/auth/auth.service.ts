@@ -58,9 +58,15 @@ export async function verifyTokenService(token: string): Promise<JWTPayload> {
 export async function findOrCreateUserFromGoogleService(
   profile: GoogleProfile
 ): Promise<AuthResponse | TempTokenResponse> {
+  console.log('DEBUG: findOrCreateUserFromGoogleService profile:', JSON.stringify(profile, null, 2));
+  console.log('DEBUG: profile.id:', profile.id, typeof profile.id);
   const email = profile.emails?.[0]?.value;
   if (!email) {
     throw new ValidationError('Email not provided by Google');
+  }
+
+  if (!profile.id) {
+    throw new ValidationError('Google ID not provided by Google');
   }
 
   const avatarUrl = profile.photos?.[0]?.value || null;
@@ -88,7 +94,7 @@ export async function findOrCreateUserFromGoogleService(
     if (user) {
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { 
+        data: {
           googleId: profile.id,
           ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}),
         },
@@ -104,7 +110,7 @@ export async function findOrCreateUserFromGoogleService(
   if (user && (user.teacher || user.student)) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { 
+      data: {
         lastLoginAt: new Date(),
         ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}),
       },
