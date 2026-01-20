@@ -1,0 +1,26 @@
+tunnel: 2ce89d25-6c19-4107-ac83-d606051fa9c4
+credentials-file: /Users/nick/.cloudflared/2ce89d25-6c19-4107-ac83-d606051fa9c4.json
+
+ingress:
+  # Frontend (Next.js Dev Server on THIS machine)
+  - hostname: app.anskservices.com
+    service: http://localhost:3000
+
+  # Backend API (On Portainer Machine)
+  - hostname: api.anskservices.com
+    service: http://192.168.0.17:3001
+
+  # MinIO API (On Portainer Machine)
+  - hostname: minio.anskservices.com
+    service: http://192.168.0.17:9100
+
+  # MinIO Console (On Portainer Machine)
+  - hostname: console.anskservices.com
+    service: http://192.168.0.17:9101
+
+  # Qdrant (On Portainer Machine)
+  - hostname: qdrant.anskservices.com
+    service: http://192.168.0.17:6333
+
+  # Catch-all
+  - service: http_status:404
