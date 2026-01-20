@@ -32,7 +32,7 @@ export const createUser = async (username: string, email: string, displayName: s
 export const updateUserWithChatInfo = async (userId: string, username: string) => {
   return prisma.user.update({
     where: { id: userId },
-    data: { 
+    data: {
       username,
       isOnline: true,
       lastActiveAt: new Date()
@@ -80,7 +80,7 @@ export const getAllUsers = async () => {
 
 export const getMutualFollowers = async (userId: string) => {
   console.log('[getMutualFollowers] Starting for userId:', userId);
-  
+
   // Check if user is a teacher or student
   const teacher = await prisma.teacher.findUnique({
     where: { userId },
@@ -103,7 +103,7 @@ export const getMutualFollowers = async (userId: string) => {
 
   if (student) {
     console.log('[getMutualFollowers] Processing as student, studentId:', student.id);
-    
+
     // Student: Get all teachers they follow
     const followedTeachers = await prisma.teacherFollower.findMany({
       where: { studentId: student.id },
@@ -129,33 +129,14 @@ export const getMutualFollowers = async (userId: string) => {
     console.log('[getMutualFollowers] Student follows', followedTeachers.length, 'teachers');
     mutualUsers.push(...followedTeachers.map(f => ({ ...f.teacher.user, role: 'teacher' })));
 
-    // Also get other students (for simplicity, allow all students to create groups together)
-    const allStudents = await prisma.student.findMany({
-      where: {
-        userId: { not: userId },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            displayName: true,
-            avatarUrl: true,
-            username: true,
-            isOnline: true,
-            lastActiveAt: true,
-          },
-        },
-      },
-    });
-
-    console.log('[getMutualFollowers] Found', allStudents.length, 'other students');
-    mutualUsers.push(...allStudents.map(s => ({ ...s.user, role: 'student' })));
+    // OPTIMIZATION: Removed "fetch all students" fallback which causes O(N) issues.
+    // Only return actual relationships (teachers followed).
+    // If unrestricted student-to-student discovery is needed, it should be a separate paginated endpoint.
   }
 
   if (teacher) {
     console.log('[getMutualFollowers] Processing as teacher, teacherId:', teacher.id);
-    
+
     // Teacher: Get all students who follow them
     const followers = await prisma.teacherFollower.findMany({
       where: { teacherId: teacher.id },

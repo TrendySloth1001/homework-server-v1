@@ -165,88 +165,120 @@ export const createGroupConversation = async ({
         throw new Error("One or more members not found");
     }
 
-    // Check if creator is a teacher or student
-    const creatorTeacher = await prisma.teacher.findUnique({
-        where: { userId: creatorId },
-        select: { id: true },
-    });
+    // OPTIMIZATION: Batch fetch all profiles to avoid N+1 queries
+    const allUserIds = [creatorId, ...memberIds];
 
-    const creatorStudent = !creatorTeacher ? await prisma.student.findUnique({
-        where: { userId: creatorId },
-        select: { id: true },
-    }) : null;
+    const [teachers, students] = await Promise.all([
+        prisma.teacher.findMany({
+            where: { userId: { in: allUserIds } },
+            select: { id: true, userId: true },
+        }),
+        prisma.student.findMany({
+            where: { userId: { in: allUserIds } },
+            select: { id: true, userId: true },
+        })
+    ]);
 
-    if (!creatorTeacher && !creatorStudent) {
-        throw new Error("Creator must be a teacher or student");
+    const teacherMap = new Map(teachers.map(t => [t.userId, t.id]));
+    const studentMap = new Map(students.map(s => [s.userId, s.id]));
+
+    // Validate all users have a role
+    for (const uid of allUserIds) {
+        if (!teacherMap.has(uid) && !studentMap.has(uid)) {
+            throw new Error(`User ${uid} must be a teacher or student`);
+        }
     }
 
-    // Verify mutual following relationships
-    for (const memberId of memberIds) {
-        if (memberId === creatorId) continue; // Skip creator
+    const creatorIsTeacher = teacherMap.has(creatorId);
+    const creatorIsStudent = studentMap.has(creatorId);
+    const creatorRoleId = creatorIsTeacher ? teacherMap.get(creatorId)! : studentMap.get(creatorId)!;
 
-        const memberTeacher = await prisma.teacher.findUnique({
-            where: { userId: memberId },
-            select: { id: true },
+    // Batch fetch relationships
+    // We need to check relationships between Creator and ALL members
+    // 1. If Creator is Student -> Check if they follow Teacher members
+    // 2. If Creator is Teacher -> Check if Student members follow them OR if Teacher members mirror-follow
+
+    const memberTeacherIds = memberIds.filter(id => teacherMap.has(id)).map(id => teacherMap.get(id)!);
+    const memberStudentIds = memberIds.filter(id => studentMap.has(id)).map(id => studentMap.get(id)!);
+
+    const validMemberIds = new Set<string>();
+
+    if (creatorIsStudent) {
+        // Creator (Student) can add Teachers they follow
+        if (memberTeacherIds.length > 0) {
+            const follows = await prisma.teacherFollower.findMany({
+                where: {
+                    studentId: creatorRoleId,
+                    teacherId: { in: memberTeacherIds }
+                },
+                select: { teacherId: true }
+            });
+            const followedTeacherIds = new Set(follows.map(f => f.teacherId));
+
+            // Map back to userIds
+            teachers.forEach(t => {
+                if (followedTeacherIds.has(t.id)) validMemberIds.add(t.userId);
+            });
+        }
+
+        // Students can always add other Students (per business logic)
+        memberIds.forEach(id => {
+            if (studentMap.has(id)) validMemberIds.add(id);
         });
 
-        const memberStudent = !memberTeacher ? await prisma.student.findUnique({
-            where: { userId: memberId },
-            select: { id: true },
-        }) : null;
+    } else if (creatorIsTeacher) {
+        // Creator (Teacher) can add Students who follow them
+        if (memberStudentIds.length > 0) {
+            const followers = await prisma.teacherFollower.findMany({
+                where: {
+                    teacherId: creatorRoleId,
+                    studentId: { in: memberStudentIds }
+                },
+                select: { studentId: true }
+            });
+            const followerStudentIds = new Set(followers.map(f => f.studentId));
 
-        if (!memberTeacher && !memberStudent) {
-            throw new Error(`User ${memberId} must be a teacher or student`);
+            // Map back to userIds
+            students.forEach(s => {
+                if (followerStudentIds.has(s.id)) validMemberIds.add(s.userId);
+            });
         }
 
-        // Check mutual following
-        let areMutualFollowers = false;
+        // Creator (Teacher) can add Teachers who follow each other
+        if (memberTeacherIds.length > 0) {
+            const [myFollows, followsMe] = await Promise.all([
+                prisma.teacherToTeacher.findMany({
+                    where: {
+                        followerId: creatorRoleId,
+                        followedId: { in: memberTeacherIds }
+                    },
+                    select: { followedId: true }
+                }),
+                prisma.teacherToTeacher.findMany({
+                    where: {
+                        followerId: { in: memberTeacherIds },
+                        followedId: creatorRoleId
+                    },
+                    select: { followerId: true }
+                })
+            ]);
 
-        if (creatorStudent && memberTeacher) {
-            // Student creator and teacher member
-            const follow = await prisma.teacherFollower.findUnique({
-                where: {
-                    teacherId_studentId: {
-                        teacherId: memberTeacher.id,
-                        studentId: creatorStudent.id,
-                    },
-                },
+            const connectedTeacherIds = new Set([
+                ...myFollows.map(f => f.followedId),
+                ...followsMe.map(f => f.followerId)
+            ]);
+
+            // Map back to userIds
+            teachers.forEach(t => {
+                if (connectedTeacherIds.has(t.id)) validMemberIds.add(t.userId);
             });
-            areMutualFollowers = !!follow;
-        } else if (creatorTeacher && memberStudent) {
-            // Teacher creator and student member
-            const follow = await prisma.teacherFollower.findUnique({
-                where: {
-                    teacherId_studentId: {
-                        teacherId: creatorTeacher.id,
-                        studentId: memberStudent.id,
-                    },
-                },
-            });
-            areMutualFollowers = !!follow;
-        } else if (creatorTeacher && memberTeacher) {
-            // Both are teachers - check TeacherToTeacher table for mutual following
-            const creatorFollowsMember = await prisma.teacherToTeacher.findFirst({
-                where: {
-                    followerId: creatorTeacher.id,
-                    followedId: memberTeacher.id,
-                },
-            });
-            const memberFollowsCreator = await prisma.teacherToTeacher.findFirst({
-                where: {
-                    followerId: memberTeacher.id,
-                    followedId: creatorTeacher.id,
-                },
-            });
-            areMutualFollowers = !!creatorFollowsMember || !!memberFollowsCreator; // Allow if either follows the other
-        } else if (creatorStudent && memberStudent) {
-            // Both are students - need to check if they follow common teachers
-            // For simplicity, we'll allow any students to create groups together
-            // You can add more complex logic here if needed
-            areMutualFollowers = true;
         }
+    }
 
-        if (!areMutualFollowers) {
-            throw new Error(`You must be following each other to add ${memberId} to the group`);
+    // Verify all requested members are valid
+    for (const memberId of memberIds) {
+        if (!validMemberIds.has(memberId)) {
+            throw new Error(`You must be following each other to add user ${memberId} to the group`);
         }
     }
 

@@ -82,12 +82,17 @@ const leaveConversation = (ws: WebSocket, conversationId: string) => {
 const emitNewMessage = async (conversationId: string, message: any) => {
   // Optimization: Only process members who are actually online
   // We get ALL members from DB (needed to check if they are part of the group)
-  // But we filtering them against our userSockets map BEFORE running getUnreadCount
 
   const { prisma } = require("../../../shared/lib/prisma");
+
+  // 1. Fetch all members with their lastRead status in one go
+  // This replaces the need to call getUnreadCount (which fetches member data again)
   const members = await prisma.chatConversationMember.findMany({
     where: { conversationId },
-    select: { userId: true },
+    select: {
+      userId: true,
+      lastRead: true
+    },
   });
 
   // Filter members to only those who are online
@@ -97,32 +102,42 @@ const emitNewMessage = async (conversationId: string, message: any) => {
     return; // No one online to notify
   }
 
-  // Calculate unread counts only for online members (Solving N+1 issue)
-  const { getUnreadCount } = require("./conversation_query.service");
+  // 2. Calculate unread counts in parallel
+  // We can manually run the count query here to avoid the extra overhead of getUnreadCount's internal lookups
 
-  // Send message with unread count to each CONNECTED member
-  for (const member of onlineMembers) {
+  const notifications = await Promise.all(onlineMembers.map(async (member: { userId: string, lastRead: Date | null }) => {
     if (member.userId === message.userId) {
-      // Sender gets the message without unread count change
-      sendToUser(member.userId, {
+      return { userId: member.userId, type: 'sender' };
+    }
+
+    const unreadCount = await prisma.message.count({
+      where: {
+        conversationId,
+        userId: { not: member.userId }, // Don't count own messages
+        ...(member.lastRead ? { createdAt: { gt: member.lastRead } } : {})
+      }
+    });
+
+    return { userId: member.userId, type: 'recipient', unreadCount };
+  }));
+
+  // 3. Send to users
+  notifications.forEach((note) => {
+    if (note.type === 'sender') {
+      sendToUser(note.userId, {
         type: "new_message",
         data: message,
       });
     } else {
-      // Calculate unread count for this specific user
-      // This is now efficiently called only K times (where K = online members)
-      // instead of N times (where N = total group members)
-      const unreadCount = await getUnreadCount(member.userId, conversationId);
-
-      sendToUser(member.userId, {
+      sendToUser(note.userId, {
         type: "new_message",
         data: {
           ...message,
-          unreadCount, // Include unread count for this conversation
+          unreadCount: note.unreadCount,
         },
       });
     }
-  }
+  });
 };
 
 const emitTyping = (
@@ -145,22 +160,32 @@ const emitSeenUpdate = async (
 ) => {
   // Optimization: Filter for online members similar to emitNewMessage
   const { prisma } = require("../../../shared/lib/prisma");
+
+  // 1. Fetch members and lastRead in one go
   const members = await prisma.chatConversationMember.findMany({
     where: { conversationId },
-    select: { userId: true },
+    select: { userId: true, lastRead: true },
   });
 
   const onlineMembers = members.filter((member: { userId: string }) => userSockets.has(member.userId));
 
   if (onlineMembers.length === 0) return;
 
-  // Calculate and send updated unread count to each online member
-  const { getUnreadCount } = require("./conversation_query.service");
+  // 2. Calculate unread counts in parallel
+  const updates = await Promise.all(onlineMembers.map(async (member: { userId: string, lastRead: Date | null }) => {
+    const unreadCount = await prisma.message.count({
+      where: {
+        conversationId,
+        userId: { not: member.userId },
+        ...(member.lastRead ? { createdAt: { gt: member.lastRead } } : {})
+      }
+    });
+    return { userId: member.userId, unreadCount };
+  }));
 
-  for (const member of onlineMembers) {
-    const unreadCount = await getUnreadCount(member.userId, conversationId);
-
-    sendToUser(member.userId, {
+  // 3. Broadcast updates
+  updates.forEach((update) => {
+    sendToUser(update.userId, {
       type: "message_seen",
       data: {
         conversationId,
@@ -168,10 +193,10 @@ const emitSeenUpdate = async (
         userId,
         username,
         seenAt: new Date().toISOString(),
-        unreadCount, // Include updated unread count
+        unreadCount: update.unreadCount,
       },
     });
-  }
+  });
 };
 
 const getUserId = (ws: WebSocket) => clientUserMap.get(ws);

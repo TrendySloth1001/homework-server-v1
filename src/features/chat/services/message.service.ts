@@ -42,18 +42,7 @@ export const sendMessage = async ({
     data: { updatedAt: new Date() },
   });
 
-  // Get all conversation members except the sender to send notifications
-  const conversation = await prisma.chatConversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      members: {
-        where: {
-          userId: { not: userId }
-        },
-        select: { userId: true }
-      }
-    }
-  });
+
 
   return {
     id: message.id,

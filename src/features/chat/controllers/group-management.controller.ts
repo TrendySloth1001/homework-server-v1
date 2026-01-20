@@ -5,7 +5,7 @@ import * as groupMemberService from "../services/group-member.service";
 
 
 // I will keep the original import for the remaining functions (Pinned/Announcements) and use new services for others.
-import * as groupManagementService from "../services/group-management.service";
+import * as groupContentService from "../services/group-content.service";
 
 // ==================== ADMIN ROLES & PERMISSIONS ====================
 
@@ -361,7 +361,7 @@ export const pinMessage = async (req: Request, res: Response) => {
     const conversationId: string = conversationIdParam as string;
     const messageId: string = messageIdParam as string;
 
-    const pinnedMessage = await groupManagementService.pinMessage(
+    const pinnedMessage = await groupContentService.pinMessage(
       conversationId,
       messageId,
       userId
@@ -390,7 +390,7 @@ export const unpinMessage = async (req: Request, res: Response) => {
     const conversationId: string = conversationIdParam as string;
     const messageId: string = messageIdParam as string;
 
-    const result = await groupManagementService.unpinMessage(
+    const result = await groupContentService.unpinMessage(
       conversationId,
       messageId,
       userId
@@ -417,7 +417,7 @@ export const getPinnedMessages = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const pinnedMessages = await groupManagementService.getPinnedMessages(
+    const pinnedMessages = await groupContentService.getPinnedMessages(
       conversationId,
       userId
     );
@@ -449,7 +449,7 @@ export const sendAnnouncement = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const announcement = await groupManagementService.sendAnnouncement(
+    const announcement = await groupContentService.sendAnnouncement(
       conversationId,
       userId,
       content
@@ -475,7 +475,7 @@ export const getAnnouncements = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const announcements = await groupManagementService.getAnnouncements(
+    const announcements = await groupContentService.getAnnouncements(
       conversationId,
       userId
     );

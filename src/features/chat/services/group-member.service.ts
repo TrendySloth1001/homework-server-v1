@@ -145,15 +145,15 @@ export const addMembers = async (conversationId: string, userIds: string[], requ
         },
     });
 
-    // Create system messages for each added member
-    for (const member of newMembers) {
-        await prisma.message.create({
-            data: {
+    // OPTIMIZATION: Use createMany to avoid N+1 inserts for system messages
+    if (newMembers.length > 0) {
+        await prisma.message.createMany({
+            data: newMembers.map(member => ({
                 conversationId,
                 userId: member.userId,
                 content: `${member.user.displayName} joined the group`,
                 messageType: 'system_user_joined',
-            },
+            })),
         });
     }
 
