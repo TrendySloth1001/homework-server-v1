@@ -1,5 +1,5 @@
 import { prisma } from "../../../shared/lib/prisma";
-import { isUserInConversation } from "./utility_service";
+import { isUserInConversation } from "./utility.service";
 import { sendChatNotification } from '../../notifications/notifications.service';
 import { s3Service } from "../../../shared/lib/s3";
 

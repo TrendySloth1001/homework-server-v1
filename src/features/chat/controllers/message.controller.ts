@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import * as messageService from "../services/message_service";
-import { wsManager } from "../services/websocket_service";
+import * as messageService from "../services/message.service";
+import { wsManager } from "../services/websocket.service";
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
@@ -74,7 +74,7 @@ export const markMessageSeen = async (req: Request, res: Response) => {
     }
 
     const result = await messageService.markMessageSeen(messageId as string, userId);
-    
+
     // Broadcast message_seen event to all users in the conversation
     if (!result.alreadySeen && result.conversationId) {
       wsManager.emitSeenUpdate(
@@ -84,12 +84,12 @@ export const markMessageSeen = async (req: Request, res: Response) => {
         result.username
       );
     }
-    
+
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to mark message as seen";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("not a member") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };

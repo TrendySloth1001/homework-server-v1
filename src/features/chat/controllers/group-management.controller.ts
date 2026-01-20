@@ -1,5 +1,11 @@
 import { Request, Response } from "express";
-import * as groupManagementService from "../services/group_management_service";
+import * as groupAdminService from "../services/group-admin.service";
+import * as groupInviteService from "../services/group-invite.service";
+import * as groupMemberService from "../services/group-member.service";
+
+
+// I will keep the original import for the remaining functions (Pinned/Announcements) and use new services for others.
+import * as groupManagementService from "../services/group-management.service";
 
 // ==================== ADMIN ROLES & PERMISSIONS ====================
 
@@ -22,7 +28,7 @@ export const updateMemberRole = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid role" });
     }
 
-    const updatedMember = await groupManagementService.updateMemberRole(
+    const updatedMember = await groupAdminService.updateMemberRole(
       conversationId,
       targetUserId,
       role,
@@ -51,7 +57,7 @@ export const updateGroupSettings = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const updatedConversation = await groupManagementService.updateGroupSettings(
+    const updatedConversation = await groupAdminService.updateGroupSettings(
       conversationId,
       userId,
       req.body
@@ -81,7 +87,7 @@ export const kickMember = async (req: Request, res: Response) => {
     const conversationId: string = conversationIdParam as string;
     const targetUserId: string = targetUserIdParam as string;
 
-    const result = await groupManagementService.kickMember(
+    const result = await groupAdminService.kickMember(
       conversationId,
       targetUserId,
       userId
@@ -110,7 +116,7 @@ export const banMember = async (req: Request, res: Response) => {
     const conversationId: string = conversationIdParam as string;
     const targetUserId: string = targetUserIdParam as string;
 
-    const result = await groupManagementService.banMember(
+    const result = await groupAdminService.banMember(
       conversationId,
       targetUserId,
       userId,
@@ -139,7 +145,7 @@ export const unbanMember = async (req: Request, res: Response) => {
     const conversationId: string = conversationIdParam as string;
     const targetUserId: string = targetUserIdParam as string;
 
-    const result = await groupManagementService.unbanMember(
+    const result = await groupAdminService.unbanMember(
       conversationId,
       targetUserId,
       userId
@@ -168,7 +174,7 @@ export const createInviteLink = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const inviteLink = await groupManagementService.createInviteLink(
+    const inviteLink = await groupInviteService.createInviteLink(
       conversationId,
       userId,
       maxUses,
@@ -195,7 +201,7 @@ export const getInviteLinks = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const links = await groupManagementService.getInviteLinks(conversationId, userId);
+    const links = await groupInviteService.getInviteLinks(conversationId, userId);
 
     return res.json(links);
   } catch (error) {
@@ -217,7 +223,7 @@ export const revokeInviteLink = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const linkId: string = linkIdParam as string;
 
-    const result = await groupManagementService.revokeInviteLink(linkId, userId);
+    const result = await groupInviteService.revokeInviteLink(linkId, userId);
 
     return res.json(result);
   } catch (error) {
@@ -242,13 +248,13 @@ export const joinViaInviteLink = async (req: Request, res: Response) => {
 
     const userId: string = userIdOrUndefined;
 
-    const result = await groupManagementService.joinViaInviteLink(code, userId);
+    const result = await groupInviteService.joinViaInviteLink(code, userId);
 
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to join via invite link";
-    const status = message.includes("Invalid") || message.includes("expired") ? 400 : 
-                   message.includes("banned") || message.includes("already") ? 403 : 500;
+    const status = message.includes("Invalid") || message.includes("expired") ? 400 :
+      message.includes("banned") || message.includes("already") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -268,7 +274,7 @@ export const createJoinRequest = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const request = await groupManagementService.createJoinRequest(
+    const request = await groupInviteService.createJoinRequest(
       conversationId,
       userId,
       message
@@ -278,8 +284,8 @@ export const createJoinRequest = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create join request";
     console.error('[createJoinRequest Controller] Error:', message);
-    const status = message.includes("banned") || message.includes("already") ? 403 : 
-                   message.includes("not found") || message.includes("does not require") ? 400 : 500;
+    const status = message.includes("banned") || message.includes("already") ? 403 :
+      message.includes("not found") || message.includes("does not require") ? 400 : 500;
     console.log('[createJoinRequest Controller] Returning status:', status);
     return res.status(status).json({ error: message });
   }
@@ -297,7 +303,7 @@ export const getJoinRequests = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const requests = await groupManagementService.getJoinRequests(conversationId, userId);
+    const requests = await groupInviteService.getJoinRequests(conversationId, userId);
 
     return res.json(requests);
   } catch (error) {
@@ -324,7 +330,7 @@ export const respondToJoinRequest = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const requestId: string = requestIdParam as string;
 
-    const result = await groupManagementService.respondToJoinRequest(
+    const result = await groupInviteService.respondToJoinRequest(
       requestId,
       userId,
       approve
@@ -333,8 +339,8 @@ export const respondToJoinRequest = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to respond to join request";
-    const status = message.includes("Only") ? 403 : 
-                   message.includes("not found") || message.includes("already") ? 400 : 500;
+    const status = message.includes("Only") ? 403 :
+      message.includes("not found") || message.includes("already") ? 400 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -364,8 +370,8 @@ export const pinMessage = async (req: Request, res: Response) => {
     return res.json(pinnedMessage);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to pin message";
-    const status = message.includes("Only") ? 403 : 
-                   message.includes("not found") || message.includes("already") ? 400 : 500;
+    const status = message.includes("Only") ? 403 :
+      message.includes("not found") || message.includes("already") ? 400 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -393,8 +399,8 @@ export const unpinMessage = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to unpin message";
-    const status = message.includes("Only") ? 403 : 
-                   message.includes("not") ? 400 : 500;
+    const status = message.includes("Only") ? 403 :
+      message.includes("not") ? 400 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -497,7 +503,7 @@ export const getGroupMembers = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const members = await groupManagementService.getGroupMembers(
+    const members = await groupMemberService.getGroupMembers(
       conversationId,
       userId,
       search as string | undefined
@@ -523,7 +529,7 @@ export const getBannedMembers = async (req: Request, res: Response) => {
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 
-    const bannedMembers = await groupManagementService.getBannedMembers(
+    const bannedMembers = await groupMemberService.getBannedMembers(
       conversationId,
       userId
     );

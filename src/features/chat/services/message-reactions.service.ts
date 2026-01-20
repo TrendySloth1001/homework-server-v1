@@ -1,5 +1,5 @@
 import { prisma } from "../../../shared/lib/prisma";
-import { isUserInConversation } from "./utility_service";
+import { isUserInConversation } from "./utility.service";
 
 /**
  * Add a reaction to a message

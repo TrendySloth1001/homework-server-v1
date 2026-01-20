@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../auth/auth.types';
 import { asyncHandler } from '../../../shared/lib/errors';
-import { discoverGroups, searchGroups } from '../services/group_discovery_service';
+import { discoverGroups, searchGroups } from '../services/group-discovery.service';
 
 // GET /api/chat/groups/discover - Discover public groups
 export const discoverGroupsHandler = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

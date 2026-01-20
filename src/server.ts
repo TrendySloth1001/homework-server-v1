@@ -14,7 +14,7 @@ import legalRoutes from './features/legal/legal.routes';
 import aiSettingsRoutes from './features/ai-settings/ai-settings.routes';
 import teacherRoutes from './features/teachers/teachers.routes';
 import studentRoutes from './features/students/students.routes';
-import chatRoutes from './features/chat/routes';
+import chatRoutes from './features/chat/chat.routes';
 import avatarRoutes from './features/avatar/avatar.routes';
 import discoverRoutes from './features/discover/routes';
 import profileRoutes from './features/profile/profile.routes';

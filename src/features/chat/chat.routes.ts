@@ -3,11 +3,11 @@ import multer from "multer";
 import * as conversationController from "./controllers/conversation.controller";
 import * as messageController from "./controllers/message.controller";
 import * as presenceController from "./controllers/presence.controller";
-import * as messageActionsController from "./controllers/message_actions.controller";
-import * as groupManagementController from "./controllers/group_management.controller";
-import * as groupDiscoveryController from "./controllers/group_discovery_controller";
+import * as messageActionsController from "./controllers/message-actions.controller";
+import * as groupManagementController from "./controllers/group-management.controller";
+import * as groupDiscoveryController from "./controllers/group-discovery.controller";
 import * as pollController from "./controllers/poll.controller";
-import * as utilityService from "./services/utility_service";
+import * as utilityService from "./services/utility.service";
 import { authenticateToken } from "../auth/middleware/auth.middleware";
 
 // Configure multer for memory storage (files stored in memory as Buffer)

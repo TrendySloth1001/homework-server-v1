@@ -1,5 +1,5 @@
 import { prisma } from "../../../shared/lib/prisma";
-import { isUserInConversation } from "./utility_service";
+import { isUserInConversation } from "./utility.service";
 
 /**
  * Forward a message to one or more conversations
@@ -181,14 +181,14 @@ export const searchMessages = async (
       replyToId: msg.replyToId,
       replyToMessage: msg.replyToMessage
         ? {
-            id: msg.replyToMessage.id,
-            content: msg.replyToMessage.content,
-            userId: msg.replyToMessage.userId,
-            user: {
-              id: msg.replyToMessage.user.id,
-              displayName: msg.replyToMessage.user.displayName,
-            },
-          }
+          id: msg.replyToMessage.id,
+          content: msg.replyToMessage.content,
+          userId: msg.replyToMessage.userId,
+          user: {
+            id: msg.replyToMessage.user.id,
+            displayName: msg.replyToMessage.user.displayName,
+          },
+        }
         : null,
     })),
     total,

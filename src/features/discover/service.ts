@@ -1,6 +1,6 @@
 import { prisma } from '../../shared/lib/prisma';
 import { discoverMediaService } from './media.service';
-import { wsManager } from '../chat/services/websocket_service';
+import { wsManager } from '../chat/services/websocket.service';
 import {
   CreatePostRequest,
   UpdatePostRequest,
@@ -547,7 +547,7 @@ export class DiscoverService {
       viewCount: post.viewCount || 0,
       userVote: userVote || null,
       isSaved,
-      isRead, 
+      isRead,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt
     };
@@ -772,10 +772,10 @@ export class DiscoverService {
     const hoursOld = (now - comment.createdAt.getTime()) / hourMs;
     const reactionCount = comment.reactions.length;
     const score = comment.voteCount + (reactionCount * 0.5);
-    
+
     // Time decay factor (less aggressive than posts)
     const timeFactor = 1 / (1 + hoursOld / 24); // Decay over 24 hours
-    
+
     return score * timeFactor;
   }
 
@@ -814,7 +814,7 @@ export class DiscoverService {
    */
   private async mapCommentsWithUserData(comments: any[], userId?: string): Promise<any[]> {
     const commentIds = comments.map(c => c.id);
-    
+
     // Get user votes and reactions if userId provided
     let voteMap = new Map();
     let reactionMap = new Map();
@@ -1803,7 +1803,7 @@ export class DiscoverService {
 
     if (userId) {
       // Personalized recommendations based on user's interests
-      
+
       // Get communities user is part of
       const userCommunities = await prisma.communityMember.findMany({
         where: { userId },

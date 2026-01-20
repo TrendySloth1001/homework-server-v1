@@ -1,12 +1,12 @@
 import { WebSocket } from "ws";
-import { wsManager } from "../services/websocket_service";
-import * as messageService from "../services/message_service";
-import * as utilityService from "../services/utility_service";
+import { wsManager } from "../services/websocket.service";
+import * as messageService from "../services/message.service";
+import * as utilityService from "../services/utility.service";
 
 export const onConnect = async (ws: WebSocket, userId: string) => {
   console.log(`User ${userId} connected`);
   await wsManager.addClient(ws, userId);
-  
+
   wsManager.sendToClient(ws, {
     type: "connected",
     data: { userId, timestamp: new Date().toISOString() },
@@ -188,7 +188,7 @@ export const onLeaveConversation = async (ws: WebSocket, data: {
         timestamp: new Date().toISOString(),
       },
     }, ws);
-    
+
     wsManager.leaveConversation(ws, conversationId);
 
     wsManager.sendToClient(ws, {

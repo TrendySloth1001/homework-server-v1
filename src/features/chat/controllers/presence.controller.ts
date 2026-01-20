@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../../../shared/lib/prisma";
-import { wsManager } from "../services/websocket_service";
+import { wsManager } from "../services/websocket.service";
 
 export const getUserStatus = async (req: Request, res: Response) => {
   try {

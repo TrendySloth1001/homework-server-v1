@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
-import * as conversationService from "../services/conversation_service";
+import * as conversationQueryService from "../services/conversation-query.service";
+import * as conversationCoreService from "../services/conversation-core.service";
+import * as groupMemberService from "../services/group-member.service";
 
 export const createConversation = async (req: Request, res: Response) => {
   try {
@@ -17,7 +19,7 @@ export const createConversation = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "name is required for group conversations" });
     }
 
-    const conversation = await conversationService.createConversation({
+    const conversation = await conversationCoreService.createConversation({
       name,
       creatorId,
       memberIds,
@@ -39,7 +41,7 @@ export const getUserConversations = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const conversations = await conversationService.getUserConversations(userId as string);
+    const conversations = await conversationQueryService.getUserConversations(userId as string);
     return res.json(conversations);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch conversations";
@@ -56,7 +58,7 @@ export const getConversationById = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId query parameter is required" });
     }
 
-    const conversation = await conversationService.getConversationById(conversationId, userId);
+    const conversation = await conversationQueryService.getConversationById(conversationId, userId);
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch conversation";
@@ -69,7 +71,7 @@ export const getPublicGroupInfo = async (req: Request, res: Response) => {
   try {
     console.log('[getPublicGroupInfo Controller] Hit! conversationId:', req.params.conversationId);
     const conversationId = req.params.conversationId as string;
-    const groupInfo = await conversationService.getPublicGroupInfo(conversationId);
+    const groupInfo = await conversationQueryService.getPublicGroupInfo(conversationId);
     console.log('[getPublicGroupInfo Controller] Success:', groupInfo);
     return res.json(groupInfo);
   } catch (error) {
@@ -91,10 +93,10 @@ export const checkOrCreateOneToOne = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "otherUserId is required" });
     }
 
-    const conversation = await conversationService.checkOrCreateOneToOne(userId1, otherUserId);
+    const conversation = await conversationCoreService.checkOrCreateOneToOne(userId1, otherUserId);
 
     // Broadcast new conversation to other user via WebSocket
-    const { wsManager } = require("../services/websocket_service");
+    const { wsManager } = require("../services/websocket.service");
     wsManager.broadcastNewConversation(conversation, otherUserId);
 
     return res.json(conversation);
@@ -117,7 +119,7 @@ export const addMembers = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userIds must be an array" });
     }
 
-    const members = await conversationService.addMembers(conversationId, userIds, requesterId);
+    const members = await groupMemberService.addMembers(conversationId, userIds, requesterId);
     return res.status(201).json(members);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to add members";
@@ -137,7 +139,7 @@ export const removeMember = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "requesterId is required" });
     }
 
-    const result = await conversationService.removeMember(conversationId, userId, requesterId);
+    const result = await groupMemberService.removeMember(conversationId, userId, requesterId);
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to remove member";
@@ -160,7 +162,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "requesterId is required" });
     }
 
-    const conversation = await conversationService.updateGroupName(conversationId, name.trim(), requesterId);
+    const conversation = await conversationCoreService.updateGroupName(conversationId, name.trim(), requesterId);
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update group name";
@@ -183,7 +185,7 @@ export const updateGroupAvatar = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "requesterId is required" });
     }
 
-    const conversation = await conversationService.updateGroupAvatar(conversationId, avatarUrl, requesterId);
+    const conversation = await conversationCoreService.updateGroupAvatar(conversationId, avatarUrl, requesterId);
     return res.json(conversation);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update group avatar";
@@ -202,7 +204,7 @@ export const getConversationMembers = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "requesterId query parameter is required" });
     }
 
-    const members = await conversationService.getConversationMembers(conversationId, requesterId);
+    const members = await conversationQueryService.getConversationMembers(conversationId, requesterId);
     return res.json(members);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch members";
@@ -216,7 +218,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
     const userId = req.params.userId as string;
     const conversationId = req.query.conversationId as string | undefined;
 
-    const count = await conversationService.getUnreadCount(
+    const count = await conversationQueryService.getUnreadCount(
       userId,
       conversationId || undefined
     );
@@ -236,7 +238,7 @@ export const clearConversation = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const result = await conversationService.clearConversation(conversationId, userId);
+    const result = await conversationCoreService.clearConversation(conversationId, userId);
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to clear conversation";
@@ -254,7 +256,7 @@ export const leaveGroup = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const result = await conversationService.leaveGroup(conversationId, userId);
+    const result = await conversationCoreService.leaveGroup(conversationId, userId);
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to leave group";
@@ -277,7 +279,7 @@ export const pinConversation = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "isPinned must be a boolean" });
     }
 
-    const result = await conversationService.pinConversation(conversationId, userId, isPinned);
+    const result = await conversationCoreService.pinConversation(conversationId, userId, isPinned);
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to pin conversation";
@@ -295,7 +297,7 @@ export const deleteConversation = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const result = await conversationService.deleteConversation(conversationId, userId);
+    const result = await conversationCoreService.deleteConversation(conversationId, userId);
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete conversation";
@@ -322,14 +324,14 @@ export const createGroupConversation = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "At least one member is required" });
     }
 
-    const conversation = await conversationService.createGroupConversation({
+    const conversation = await conversationCoreService.createGroupConversation({
       name: name.trim(),
       creatorId: userId,
       memberIds,
     });
 
     // Broadcast new group conversation to all members via WebSocket
-    const { wsManager } = require("../services/websocket_service");
+    const { wsManager } = require("../services/websocket.service");
     const allMemberIds = [userId, ...memberIds];
     allMemberIds.forEach(memberId => {
       if (memberId !== userId) {
@@ -362,7 +364,7 @@ export const uploadGroupAvatar = async (req: Request, res: Response) => {
     }
 
     // Verify user is the group creator
-    const conversation = await conversationService.getConversationById(conversationId, userId);
+    const conversation = await conversationQueryService.getConversationById(conversationId, userId);
     if (!conversation.isGroup) {
       return res.status(400).json({ error: "Cannot set avatar for one-to-one conversation" });
     }
@@ -387,7 +389,7 @@ export const uploadGroupAvatar = async (req: Request, res: Response) => {
     const avatarUrl = uploadResult.url;
 
     // Update conversation with new avatar URL
-    const updatedConversation = await conversationService.updateGroupAvatar(conversationId, avatarUrl, userId);
+    const updatedConversation = await conversationCoreService.updateGroupAvatar(conversationId, avatarUrl, userId);
 
     return res.json({ url: avatarUrl, conversation: updatedConversation });
   } catch (error) {
@@ -407,7 +409,7 @@ export const saveDraft = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const result = await conversationService.saveDraft(conversationId, userId, draft || "");
+    const result = await conversationCoreService.saveDraft(conversationId, userId, draft || "");
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save draft";

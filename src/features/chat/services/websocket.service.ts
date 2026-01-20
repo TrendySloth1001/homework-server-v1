@@ -8,15 +8,23 @@ const clients: Set<WebSocket> = new Set();
 const conversationClients: Map<ConversationId, Set<WebSocket>> = new Map();
 const clientConversations: Map<WebSocket, Set<ConversationId>> = new Map();
 const clientUserMap: Map<WebSocket, string> = new Map();
+// Optimization: Map userId -> Set of WebSockets for O(1) lookup
+const userSockets: Map<string, Set<WebSocket>> = new Map();
 
 const addClient = async (ws: WebSocket, userId: string) => {
   clients.add(ws);
   clientConversations.set(ws, new Set());
   clientUserMap.set(ws, userId);
 
+  // Add to userSockets map
+  if (!userSockets.has(userId)) {
+    userSockets.set(userId, new Set());
+  }
+  userSockets.get(userId)!.add(ws);
+
   await setUserOnline(userId);
   await broadcastUserStatus(userId, true);
-  
+
   // Clear any pending notifications when user comes online
   clearPendingNotifications(userId);
 };
@@ -32,6 +40,17 @@ const removeClient = async (ws: WebSocket) => {
   clientConversations.delete(ws);
   clientUserMap.delete(ws);
   clients.delete(ws);
+
+  // Remove from userSockets map
+  if (userId) {
+    const sockets = userSockets.get(userId);
+    if (sockets) {
+      sockets.delete(ws);
+      if (sockets.size === 0) {
+        userSockets.delete(userId);
+      }
+    }
+  }
 
   if (userId && !isUserOnline(userId)) {
     await setUserOffline(userId);
@@ -61,15 +80,28 @@ const leaveConversation = (ws: WebSocket, conversationId: string) => {
 };
 
 const emitNewMessage = async (conversationId: string, message: any) => {
-  // Get all members of the conversation
+  // Optimization: Only process members who are actually online
+  // We get ALL members from DB (needed to check if they are part of the group)
+  // But we filtering them against our userSockets map BEFORE running getUnreadCount
+
   const { prisma } = require("../../../shared/lib/prisma");
   const members = await prisma.chatConversationMember.findMany({
     where: { conversationId },
     select: { userId: true },
   });
 
-  // Send message with unread count to each member
-  for (const member of members) {
+  // Filter members to only those who are online
+  const onlineMembers = members.filter((member: { userId: string }) => userSockets.has(member.userId));
+
+  if (onlineMembers.length === 0) {
+    return; // No one online to notify
+  }
+
+  // Calculate unread counts only for online members (Solving N+1 issue)
+  const { getUnreadCount } = require("./conversation_query.service");
+
+  // Send message with unread count to each CONNECTED member
+  for (const member of onlineMembers) {
     if (member.userId === message.userId) {
       // Sender gets the message without unread count change
       sendToUser(member.userId, {
@@ -78,9 +110,10 @@ const emitNewMessage = async (conversationId: string, message: any) => {
       });
     } else {
       // Calculate unread count for this specific user
-      const { getUnreadCount } = require("./conversation_service");
+      // This is now efficiently called only K times (where K = online members)
+      // instead of N times (where N = total group members)
       const unreadCount = await getUnreadCount(member.userId, conversationId);
-      
+
       sendToUser(member.userId, {
         type: "new_message",
         data: {
@@ -110,19 +143,23 @@ const emitSeenUpdate = async (
   userId: string,
   username: string
 ) => {
-  // Get all members of the conversation
+  // Optimization: Filter for online members similar to emitNewMessage
   const { prisma } = require("../../../shared/lib/prisma");
   const members = await prisma.chatConversationMember.findMany({
     where: { conversationId },
     select: { userId: true },
   });
 
-  // Calculate and send updated unread count to each member
-  const { getUnreadCount } = require("./conversation_service");
-  
-  for (const member of members) {
+  const onlineMembers = members.filter((member: { userId: string }) => userSockets.has(member.userId));
+
+  if (onlineMembers.length === 0) return;
+
+  // Calculate and send updated unread count to each online member
+  const { getUnreadCount } = require("./conversation_query.service");
+
+  for (const member of onlineMembers) {
     const unreadCount = await getUnreadCount(member.userId, conversationId);
-    
+
     sendToUser(member.userId, {
       type: "message_seen",
       data: {
@@ -140,16 +177,17 @@ const emitSeenUpdate = async (
 const getUserId = (ws: WebSocket) => clientUserMap.get(ws);
 
 const sendToUser = (userId: string, message: any) => {
-  const userClients = Array.from(clientUserMap.entries())
-    .filter(([_, uid]) => uid === userId)
-    .map(([ws, _]) => ws);
+  // Optimization: O(1) lookup instead of O(C) filter scan
+  const sockets = userSockets.get(userId);
 
-  const packet = JSON.stringify(message);
-  userClients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(packet);
-    }
-  });
+  if (sockets) {
+    const packet = JSON.stringify(message);
+    sockets.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(packet);
+      }
+    });
+  }
 };
 
 const send = (ws: WebSocket, message: any) => {
@@ -177,21 +215,21 @@ const broadcastToConversation = (
 };
 
 const broadcastNewConversation = (conversation: any, targetUserId: string) => {
-  // Find all WebSocket connections for the target user
-  const userClients = Array.from(clientUserMap.entries())
-    .filter(([_, userId]) => userId === targetUserId)
-    .map(([ws, _]) => ws);
+  // Optimization: use userSockets map
+  const userClients = userSockets.get(targetUserId);
 
-  const packet = JSON.stringify({
-    type: 'conversation_created',
-    data: conversation
-  });
+  if (userClients) {
+    const packet = JSON.stringify({
+      type: 'conversation_created',
+      data: conversation
+    });
 
-  userClients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(packet);
-    }
-  });
+    userClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(packet);
+      }
+    });
+  }
 };
 
 const setUserOnline = async (userId: string) => {
@@ -272,9 +310,9 @@ const broadcastUserStatus = async (userId: string, isOnline: boolean) => {
   }
 };
 
-const isUserOnline = (userId: string) => [...clientUserMap.values()].includes(userId);
+const isUserOnline = (userId: string) => userSockets.has(userId);
 
-const getOnlineUsers = () => [...new Set(clientUserMap.values())];
+const getOnlineUsers = () => [...userSockets.keys()];
 
 const getUsersOnlineStatus = (userIds: string[]) =>
   prisma.user.findMany({

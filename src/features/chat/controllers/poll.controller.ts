@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import * as pollService from "../services/poll_service";
+import * as pollService from "../services/poll.service";
 
 // ==================== CREATE POLL ====================
 
@@ -31,8 +31,8 @@ export const createPoll = async (req: Request, res: Response) => {
     return res.status(201).json(poll);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create poll";
-    const status = message.includes("not found") || message.includes("must have") ? 400 : 
-                   message.includes("must be a member") ? 403 : 500;
+    const status = message.includes("not found") || message.includes("must have") ? 400 :
+      message.includes("must be a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -60,8 +60,8 @@ export const votePoll = async (req: Request, res: Response) => {
     return res.json(poll);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to vote on poll";
-    const status = message.includes("not found") || message.includes("Invalid") || message.includes("expired") ? 400 : 
-                   message.includes("must be a member") ? 403 : 500;
+    const status = message.includes("not found") || message.includes("Invalid") || message.includes("expired") ? 400 :
+      message.includes("must be a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -84,8 +84,8 @@ export const getPoll = async (req: Request, res: Response) => {
     return res.json(poll);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to get poll";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("must be a member") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("must be a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -108,8 +108,8 @@ export const deletePoll = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete poll";
-    const status = message.includes("not found") ? 404 : 
-                   message.includes("Only") ? 403 : 500;
+    const status = message.includes("not found") ? 404 :
+      message.includes("Only") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };

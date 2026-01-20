@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import * as reactionService from "../services/message_reactions_service";
-import * as editService from "../services/message_edit_service";
-import * as deleteService from "../services/message_delete_service";
-import * as starService from "../services/message_star_service";
-import * as actionsService from "../services/message_actions_service";
+import * as reactionService from "../services/message-reactions.service";
+import * as editService from "../services/message-edit.service";
+import * as deleteService from "../services/message-delete.service";
+import * as starService from "../services/message-star.service";
+import * as actionsService from "../services/message-actions.service";
 
 // ==================== REACTIONS ====================
 
@@ -16,7 +16,7 @@ export const addReaction = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -29,7 +29,7 @@ export const addReaction = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to add reaction";
     const status = message.includes("not found") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -43,7 +43,7 @@ export const removeReaction = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam || !emojiParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
     const emoji: string = emojiParam as string;
@@ -65,7 +65,7 @@ export const getReactions = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -74,7 +74,7 @@ export const getReactions = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to get reactions";
     const status = message.includes("not found") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -90,7 +90,7 @@ export const editMessage = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -103,8 +103,8 @@ export const editMessage = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to edit message";
     const status = message.includes("not found") ? 404 :
-                   message.includes("only edit your own") ? 403 :
-                   message.includes("within") ? 400 : 500;
+      message.includes("only edit your own") ? 403 :
+        message.includes("within") ? 400 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -117,7 +117,7 @@ export const getEditHistory = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -126,7 +126,7 @@ export const getEditHistory = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to get edit history";
     const status = message.includes("not found") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -141,7 +141,7 @@ export const deleteForMe = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -150,7 +150,7 @@ export const deleteForMe = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete message";
     const status = message.includes("not found") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -163,7 +163,7 @@ export const deleteForEveryone = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -172,7 +172,7 @@ export const deleteForEveryone = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete message";
     const status = message.includes("not found") ? 404 :
-                   message.includes("only delete your own") || message.includes("within") ? 403 : 500;
+      message.includes("only delete your own") || message.includes("within") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -187,7 +187,7 @@ export const starMessage = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -196,7 +196,7 @@ export const starMessage = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to star message";
     const status = message.includes("not found") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -209,7 +209,7 @@ export const unstarMessage = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -229,7 +229,7 @@ export const getStarredMessages = async (req: Request, res: Response) => {
     if (!userIdOrUndefined) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
 
     const messages = conversationId
@@ -255,7 +255,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !messageIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const messageId: string = messageIdParam as string;
 
@@ -268,7 +268,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to forward message";
     const status = message.includes("not found") || message.includes("does not have access") ? 404 :
-                   message.includes("not a member") ? 403 : 500;
+      message.includes("not a member") ? 403 : 500;
     return res.status(status).json({ error: message });
   }
 };
@@ -284,7 +284,7 @@ export const searchMessages = async (req: Request, res: Response) => {
     if (!userIdOrUndefined || !conversationIdParam) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    
+
     const userId: string = userIdOrUndefined;
     const conversationId: string = conversationIdParam as string;
 

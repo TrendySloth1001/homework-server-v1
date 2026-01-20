@@ -1,11 +1,15 @@
 // Export all conversation services
-export * from "./conversation_service";
+export * from "./conversation-query.service";
+export * from "./conversation-core.service";
+export * from "./group-member.service";
+export * from "./group-admin.service";
+export * from "./group-invite.service";
 
 // Export all message services
-export * from "./message_service";
+export * from "./message.service";
 
 // Export all utility services
-export * from "./utility_service";
+export * from "./utility.service";
 
 // Export WebSocket manager
-export { wsManager } from "./websocket_service";
+export { wsManager } from "./websocket.service";
