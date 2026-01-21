@@ -44,8 +44,8 @@ export interface CommunityResponse {
   requireApproval: boolean;
   memberCount: number;
   postCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   userRole?: CommunityRole | null;
   isMember?: boolean;
   mutualMembers?: {
@@ -74,7 +74,7 @@ export interface CommunityMemberResponse {
   id: string;
   userId: string;
   role: CommunityRole;
-  joinedAt: Date;
+  joinedAt: string;
   user: {
     id: string;
     displayName: string;

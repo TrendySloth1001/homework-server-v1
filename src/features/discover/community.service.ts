@@ -267,7 +267,7 @@ export class CommunityService {
       id: m.id,
       userId: m.userId,
       role: m.role as CommunityRole,
-      joinedAt: m.joinedAt,
+      joinedAt: m.joinedAt instanceof Date ? m.joinedAt.toISOString() : m.joinedAt,
       user: {
         id: m.user.id,
         displayName: m.user.displayName,
@@ -580,8 +580,8 @@ export class CommunityService {
       requireApproval: community.requireApproval,
       memberCount: community.memberCount,
       postCount: community.postCount,
-      createdAt: community.createdAt,
-      updatedAt: community.updatedAt,
+      createdAt: community.createdAt instanceof Date ? community.createdAt.toISOString() : community.createdAt,
+      updatedAt: community.updatedAt instanceof Date ? community.updatedAt.toISOString() : community.updatedAt,
       userRole,
       isMember,
       mutualMembers

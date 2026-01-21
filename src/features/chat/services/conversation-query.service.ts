@@ -1,5 +1,7 @@
 import { prisma } from "../../../shared/lib/prisma";
 import { isUserInConversation } from "./utility.service";
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Calculates the total unread message count for a user across all conversations or a specific one.
@@ -155,11 +157,15 @@ export const getUserConversations = async (userId: string) => {
                 lastRead: m.lastRead,
                 draft: m.userId === userId ? m.draft : null,
             })),
-            lastMessage: conv.messages[0] || null,
+            lastMessage: conv.messages[0] ? {
+                ...conv.messages[0],
+                createdAt: new Date(conv.messages[0].createdAt).toISOString(),
+                updatedAt: new Date(conv.messages[0].updatedAt).toISOString()
+            } : null,
             isPinned: member?.isPinned || false,
             unreadCount: unreadMap.get(conv.id) || 0,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
+            createdAt: new Date(conv.createdAt).toISOString(),
+            updatedAt: new Date(conv.updatedAt).toISOString(),
         };
     });
 };
