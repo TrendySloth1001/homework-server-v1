@@ -30,3 +30,16 @@ export interface DeleteNotificationInput {
   notificationId: string;
   userId: string;  // Changed from teacherId
 }
+
+export interface NotificationResponse {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  actionLabel: string | null;
+  actionLink: string | null;
+  metadata: any;
+  createdAt: string;
+}

@@ -548,8 +548,8 @@ export class DiscoverService {
       userVote: userVote || null,
       isSaved,
       isRead,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt
     };
   }
 
@@ -862,8 +862,8 @@ export class DiscoverService {
         reactions,
         userVote: voteMap.get(comment.id) || null,
         userReaction: reactionMap.get(comment.id) || null,
-        createdAt: comment.createdAt,
-        updatedAt: comment.updatedAt
+        createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : comment.createdAt,
+        updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : comment.updatedAt
       };
     });
   }

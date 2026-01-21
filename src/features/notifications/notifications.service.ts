@@ -6,10 +6,29 @@ import type {
   MarkAsReadInput,
   MarkAllAsReadInput,
   DeleteNotificationInput,
+  NotificationResponse,
 } from './notifications.types';
 
 // Track pending notifications for offline users
 const pendingNotifications = new Map<string, { title: string; count: number }>();
+
+/**
+ * Helper to map database notification to response format
+ */
+function mapNotificationResponse(notification: any): NotificationResponse {
+  return {
+    id: notification.id,
+    userId: notification.userId,
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    isRead: notification.isRead,
+    actionLabel: notification.actionLabel,
+    actionLink: notification.actionLink,
+    metadata: notification.metadata,
+    createdAt: notification.createdAt instanceof Date ? notification.createdAt.toISOString() : notification.createdAt
+  };
+}
 
 /**
  * Smart notification sender - prevents flooding for offline users
@@ -94,7 +113,7 @@ export async function createNotificationService(data: CreateNotificationInput) {
     },
   });
 
-  return notification;
+  return mapNotificationResponse(notification);
 }
 
 /**
@@ -125,7 +144,7 @@ export async function getNotificationsService(query: GetNotificationsQuery) {
   ]);
 
   return {
-    notifications,
+    notifications: notifications.map(mapNotificationResponse),
     totalCount,
     unreadCount,
     limit,
@@ -152,7 +171,7 @@ export async function getNotificationByIdService(notificationId: string, userId:
     throw new NotFoundError('Notification', notificationId);
   }
 
-  return notification;
+  return mapNotificationResponse(notification);
 }
 
 /**
@@ -182,7 +201,7 @@ export async function markAsReadService(data: MarkAsReadInput) {
     data: { isRead: true },
   });
 
-  return notification;
+  return mapNotificationResponse(notification);
 }
 
 /**

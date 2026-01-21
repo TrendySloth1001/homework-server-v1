@@ -85,8 +85,8 @@ export interface PostResponse {
   userVote?: 'UP' | 'DOWN' | null;
   isSaved?: boolean;
   isRead?: boolean;          // Whether user has viewed this post
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PostListQuery {
@@ -139,8 +139,8 @@ export interface CommentResponse {
     heart: number;
   };
   userReaction?: ReactionType | null;  // User's reaction to this comment
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateCommentRequest {
