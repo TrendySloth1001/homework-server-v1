@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # Backend Server
   homework-server:
@@ -12,10 +14,6 @@ services:
       # Server Configuration
       PORT: 3001
       NODE_ENV: production
-      # CORS - Allow frontend origins
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
-      # Frontend URL for OAuth redirects
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # Database (use container hostname)
       DATABASE_URL: postgresql://homework:homework123@postgres:5432/homeworkdb
       # Redis (use container hostname)
@@ -29,7 +27,6 @@ services:
       S3_SECRET_KEY: minioadmin123
       S3_BUCKET: homework-media
       S3_REGION: us-east-1
-      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000}
       # AI Provider
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -55,7 +52,7 @@ services:
       redis:
         condition: service_healthy
       qdrant:
-        condition: service_started
+        condition: service_healthy
       minio:
         condition: service_healthy
     healthcheck:
@@ -117,8 +114,11 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
-    # Note: Qdrant image has no curl/wget, so we skip the healthcheck
-    # and rely on the server to handle connection retries
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:6333/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - homework-network
 

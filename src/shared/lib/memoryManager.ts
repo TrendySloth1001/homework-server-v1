@@ -8,6 +8,7 @@ import { prisma } from './prisma';
 import { embeddingService } from './embeddings';
 import { qdrantService } from './qdrant';
 import { ollamaService } from './ollama';
+import { createHash } from 'crypto';
 
 export interface MemoryFact {
   id: string;
@@ -30,6 +31,57 @@ export interface ConversationSummary {
 class MemoryManager {
   private readonly factCollectionName = 'memory_facts';
   private readonly conversationCollectionName = 'conversation_summaries';
+
+  private toQdrantPointId(value: string): string {
+    // Qdrant accepts unsigned integer or UUID for point IDs.
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      return value.toLowerCase();
+    }
+
+    const hex = createHash('sha256').update(value).digest('hex');
+    const p1 = hex.slice(0, 8);
+    const p2 = hex.slice(8, 12);
+    const p3 = `4${hex.slice(13, 16)}`;
+    const variantByte = ((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, '0');
+    const p4 = `${variantByte}${hex.slice(18, 20)}`;
+    const p5 = hex.slice(20, 32);
+
+    return `${p1}-${p2}-${p3}-${p4}-${p5}`;
+  }
+
+  private parseExtractedFacts(rawResponse: string): Array<{ fact: string; category: string }> {
+    const trimmed = rawResponse.trim();
+    const withoutFences = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+    const candidates = [withoutFences];
+    const arrayStart = withoutFences.indexOf('[');
+    const arrayEnd = withoutFences.lastIndexOf(']');
+    if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+      candidates.push(withoutFences.slice(arrayStart, arrayEnd + 1));
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (!Array.isArray(parsed)) {
+          continue;
+        }
+
+        return parsed
+          .filter((item: any) => item && typeof item.fact === 'string' && item.fact.trim().length > 0)
+          .map((item: any) => ({
+            fact: item.fact.trim(),
+            category: typeof item.category === 'string' && item.category.trim().length > 0
+              ? item.category.trim()
+              : 'fact',
+          }));
+      } catch {
+        // Try next candidate.
+      }
+    }
+
+    throw new Error('Failed to parse extracted facts JSON array');
+  }
 
   /**
    * Load relevant facts for a user based on query context
@@ -54,7 +106,7 @@ class MemoryManager {
         });
 
         return searchResults.map((result: any) => ({
-          id: result.id,
+          id: result.payload?.factId || String(result.id),
           fact: result.payload.fact,
           category: result.payload.category,
           confidence: result.payload.confidence,
@@ -120,9 +172,10 @@ class MemoryManager {
         await client.upsert(this.factCollectionName, {
           wait: true,
           points: [{
-            id: storedFact.id,
+            id: this.toQdrantPointId(storedFact.id),
             vector: embedding,
             payload: {
+              factId: storedFact.id,
               userId,
               fact: factData.fact,
               category: factData.category,
@@ -174,14 +227,14 @@ Return only valid JSON array, no explanation.`;
       });
 
       try {
-        const facts = JSON.parse(response.response);
+        const facts = this.parseExtractedFacts(response.response);
         
         if (Array.isArray(facts) && facts.length > 0) {
           await this.storeFacts(
             userId,
             facts.map((f: any) => ({
               fact: f.fact,
-              category: f.category || 'fact',
+              category: f.category,
               conversationId,
             }))
           );
@@ -212,7 +265,7 @@ Return only valid JSON array, no explanation.`;
       });
 
       return searchResults.map((result: any) => ({
-        id: result.id,
+        id: result.payload?.conversationRefId || String(result.id),
         summary: result.payload.summary,
         topics: result.payload.topics,
         conversationId: result.payload.conversationId,
@@ -296,9 +349,10 @@ Return only the JSON array, e.g., ["physics", "motion", "newton's laws"]`;
       await client.upsert(this.conversationCollectionName, {
         wait: true,
         points: [{
-          id: convRef.id,
+          id: this.toQdrantPointId(convRef.id),
           vector: embedding,
           payload: {
+            conversationRefId: convRef.id,
             userId,
             conversationId,
             summary,
