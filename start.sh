@@ -76,6 +76,11 @@ else
     echo -e "${GREEN}✓ .env file exists${NC}"
 fi
 
+POSTGRES_HOST_PORT=$(grep "^POSTGRES_HOST_PORT=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' || true)
+if [ -z "$POSTGRES_HOST_PORT" ]; then
+    POSTGRES_HOST_PORT=5433
+fi
+
 # Step 3: Stop existing containers
 echo -e "${YELLOW}[3/6]${NC} Stopping existing containers..."
 docker-compose down > /dev/null 2>&1 || true
@@ -215,7 +220,7 @@ if curl -s http://localhost:$PORT/health > /dev/null 2>&1; then
     echo -e "${GREEN}========================================${NC}"
     echo ""
     echo -e "${BLUE}Service Status:${NC}"
-    echo "  ✓ PostgreSQL:  localhost:5432"
+    echo "  ✓ PostgreSQL:  localhost:${POSTGRES_HOST_PORT}"
     echo "  ✓ Redis:       localhost:6379"
     echo "  ✓ Qdrant:      http://localhost:6333"
     echo "  ✓ MinIO:       http://localhost:9000 (Console: 9001)"

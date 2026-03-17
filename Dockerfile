@@ -34,6 +34,8 @@ RUN npm run build
 # Production stage
 FROM node:20-slim AS production
 
+ARG TARGETARCH
+
 WORKDIR /app
 
 # Install runtime dependencies (curl for healthcheck)
@@ -46,7 +48,8 @@ COPY package*.json ./
 COPY .npmrc ./
 
 # Install production dependencies only
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --include=optional \
+  && npm rebuild sharp --include=optional --platform=linux --arch=${TARGETARCH:-arm64}
 
 # Copy prisma schema and migrations (needed for migrations at runtime)
 COPY prisma ./prisma/
