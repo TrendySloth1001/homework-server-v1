@@ -48,8 +48,15 @@ COPY package*.json ./
 COPY .npmrc ./
 
 # Install production dependencies only
-RUN npm ci --omit=dev --include=optional \
-  && npm rebuild sharp --include=optional --platform=linux --arch=${TARGETARCH:-arm64}
+# Force npm to resolve optional native packages for the Linux runtime architecture.
+RUN set -eux; \
+  RUNTIME_ARCH="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+  case "$RUNTIME_ARCH" in \
+    amd64) RUNTIME_ARCH="x64" ;; \
+    arm64) RUNTIME_ARCH="arm64" ;; \
+    *) echo "Unsupported architecture: $RUNTIME_ARCH"; exit 1 ;; \
+  esac; \
+  npm_config_platform=linux npm_config_arch="$RUNTIME_ARCH" npm ci --omit=dev --include=optional
 
 # Copy prisma schema and migrations (needed for migrations at runtime)
 COPY prisma ./prisma/

@@ -98,7 +98,7 @@ else
         echo "Building fresh images..."
         docker-compose build --no-cache homework-server
     fi
-    docker-compose up -d
+    docker-compose up -d --build
 fi
 
 # Wait for infrastructure services to be healthy
