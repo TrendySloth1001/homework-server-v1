@@ -12,10 +12,13 @@ import { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
 
 // The internal hostname used by Docker containers to communicate with MinIO
+// Also handles the old localhost:9000 → new localhost:9002 migration
 const INTERNAL_S3_PATTERNS = [
     'http://minio:9000',
     'https://minio:9000',
     'minio:9000', // Without protocol
+    'http://localhost:9000',  // old port — rewrite to new (preserves /bucket/key path)
+    'https://localhost:9000',
 ];
 
 /**

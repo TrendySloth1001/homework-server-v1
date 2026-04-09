@@ -3,7 +3,7 @@
  * Handles media file uploads and management
  */
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,6 +41,29 @@ class S3Service {
   /**
    * Ensure bucket exists, create if it doesn't
    */
+  /**
+   * Set a public-read bucket policy so browser clients can load media URLs directly
+   */
+  private async setBucketPublicPolicy(): Promise<void> {
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${this.bucket}/*`],
+        },
+      ],
+    });
+
+    await this.client!.send(new PutBucketPolicyCommand({
+      Bucket: this.bucket,
+      Policy: policy,
+    }));
+    console.log(`[S3Service] Set public-read policy on bucket '${this.bucket}'`);
+  }
+
   async ensureBucket(): Promise<void> {
     if (this.initialized || !this.client) return;
 
@@ -48,23 +71,26 @@ class S3Service {
       // Check if bucket exists
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
       console.log(`[S3Service] Bucket '${this.bucket}' exists`);
-      this.initialized = true;
     } catch (error: any) {
       if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
-        // Bucket doesn't exist, create it
-        try {
-          await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
-          console.log(`[S3Service] Created bucket '${this.bucket}'`);
-          this.initialized = true;
-        } catch (createError) {
-          console.error('[S3Service] Failed to create bucket:', createError);
-          throw createError;
-        }
+        // Bucket doesn't exist — create it then set public policy
+        await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+        console.log(`[S3Service] Created bucket '${this.bucket}'`);
       } else {
         console.error('[S3Service] Failed to check bucket:', error);
         throw error;
       }
     }
+
+    // Always ensure public-read policy (idempotent)
+    try {
+      await this.setBucketPublicPolicy();
+    } catch (policyError) {
+      console.error('[S3Service] Failed to set bucket policy:', policyError);
+      // Non-fatal — uploads still work, but direct URL access may require auth
+    }
+
+    this.initialized = true;
   }
 
   /**
