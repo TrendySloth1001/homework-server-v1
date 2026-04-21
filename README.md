@@ -280,5 +280,3 @@ ISC
 ---
 
 **Built with ❤️ for educators and students**
-
-this is what my project is and i am not intrested in creating auth server and gateway for now since whole service run on teacher id i'll put a input field for theacher as of now for testing after that i'll build a gateway
